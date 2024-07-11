@@ -1,4 +1,4 @@
-module automation-go
+module github.com/sunshine69/automation-go
 
 go 1.20
 
