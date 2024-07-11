@@ -1,4 +1,4 @@
-module automationgo
+module automation-go
 
 go 1.20
 
