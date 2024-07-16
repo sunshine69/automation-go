@@ -101,3 +101,27 @@ func IniSetVal(inifilepath, section, option, value string) {
 	cfg.Section(section).Key(option).SetValue(value)
 	cfg.SaveToIndent(inifilepath, "  ")
 }
+
+type LineInfileOpt struct {
+	Attributes    string
+	Backrefs      bool
+	Backup        bool
+	Create        bool
+	Firstmatch    bool
+	Group         string
+	Insertafter   string
+	Insertbefore  string
+	Line          string
+	Mode          string
+	Owner         string
+	Path          string
+	Regexp        string
+	Search_string string
+	State         string
+	Validate      string
+}
+
+// Simulate ansible lineinfile module
+func LineInFile(filepath, pattern, replacement string, opt *LineInfileOpt) {
+
+}
