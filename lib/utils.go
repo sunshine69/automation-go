@@ -1,11 +1,30 @@
 package lib
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 
+	u "github.com/sunshine69/golang-tools/utils"
 	"gopkg.in/ini.v1"
 )
+
+func ReadFirstLineOfFile(filepath string) string {
+	file, err := os.Open(filepath)
+	u.CheckErr(err, "[ERROR] readFirstLineOfFile")
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+
+	if scanner.Scan() {
+		// Check for errors during scanning
+		u.CheckErr(scanner.Err(), "[ERROR] readFirstLineOfFile error scanning file")
+		return scanner.Text()
+	} else {
+		// Handle the case where there's no line in the file
+		return ""
+	}
+}
 
 // Function to convert interface{} => list string
 func ConvertListIfaceToListStr(in interface{}) []string {

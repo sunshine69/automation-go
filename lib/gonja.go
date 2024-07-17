@@ -224,23 +224,6 @@ func CustomEnvironment() *exec.Environment {
 	return e
 }
 
-func readFirstLineOfFile(filepath string) string {
-	file, err := os.Open(filepath)
-	u.CheckErr(err, "[ERROR] readFirstLineOfFile")
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-
-	if scanner.Scan() {
-		// Check for errors during scanning
-		u.CheckErr(scanner.Err(), "[ERROR] readFirstLineOfFile error scanning file")
-		return scanner.Text()
-	} else {
-		// Handle the case where there's no line in the file
-		return ""
-	}
-}
-
 func inspectTemplateFile(inputFilePath string) (needProcess bool, tempfilePath string, customConfig *config.Config) {
 	file, err := os.Open(inputFilePath)
 	if err != nil {
@@ -376,47 +359,12 @@ func MapKeysToSlice(m map[string]int) []string {
 	return keys
 }
 
-func ParseVarAnsible(filepath string) map[string]interface{} {
+func IncludeVars(filepath string) map[string]interface{} {
 	m := make(map[string]interface{})
 	dbytes, err := os.ReadFile(filepath)
 	u.CheckErr(err, "[ERROR] can not read vars-ansible.yaml")
 	u.CheckErr(yaml.Unmarshal(dbytes, &m), "[ERROR] yaml unmarshal vars-ansible.yaml")
 	return m
-}
-
-func PathLookupByApplication(project_structure_data map[string]interface{}, root_dir string) map[string][]string {
-	packages_path := project_structure_data["packages_path"].(map[string]interface{})
-	projectType := project_structure_data["projectType"].(string)
-	multiPipeline := project_structure_data["multiPipeline"].(string)
-
-	output := map[string][]string{}
-
-	for pkg, val := range packages_path {
-		output[pkg] = []string{}
-		val1 := []string{}
-		for _, v := range val.([]interface{}) {
-			val1 = append(val1, v.(string))
-		}
-		for _, inpath := range val1 {
-			os.Chdir(root_dir)
-			matches, err := filepath.Glob(fmt.Sprintf("%s*", inpath))
-			if err != nil {
-				panic(fmt.Sprintf("Error PathLookupByApplication matching pattern: %q\n", err))
-			}
-			if len(matches) == 0 {
-				panic(fmt.Sprintf("[ERROR] Path %s does not expands to any files. Please check var package_path in vars-ansible.yaml esp for the package %s\n", inpath, pkg))
-			}
-			// fmt.Printf("Matches GLOB %q\n", matches)
-			output[pkg] = append(output[pkg], matches...)
-			// }
-		}
-	}
-	if multiPipeline == "yes" && projectType == "config-pkg" {
-		for pkg, _ := range packages_path {
-			output[fmt.Sprintf("%s_config-pkg", pkg)] = []string{"ansible", "Tanzu"}
-		}
-	}
-	return output
 }
 
 func CreateDirTree(srcDirpath, targetRoot string) error {
