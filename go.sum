@@ -47,6 +47,12 @@ github.com/stvoidit/gosmtp v1.0.6 h1:IuW+vip28KajeE1YKexwnkElY/+SayVzUQt/OjxWPNA
 github.com/stvoidit/gosmtp v1.0.6/go.mod h1:PYNIJYxbFMCjQduAgVsh6L/fyGxxcsLCz2UGvPHoZ18=
 github.com/sunshine69/golang-tools/utils v0.0.0-20230903080424-1e5144ab4f87 h1:VDo9s4hbJwXMC6CSbp+px58rnCoMYWHYdeip7qAC1lo=
 github.com/sunshine69/golang-tools/utils v0.0.0-20230903080424-1e5144ab4f87/go.mod h1:+E+W8YeWR0+/IS+dTOW5wgmraJ4VsH8NCL4neSPL6Gs=
+github.com/tidwall/gjson v1.17.1 h1:wlYEnwqAHgzmhNUFfw7Xalt2JzQvsMx2Se4PcoFCT/U=
+github.com/tidwall/gjson v1.17.1/go.mod h1:/wbyibRr2FHMks5tjHJ5F8dMZh3AcwJEMf5vlfC0lxk=
+github.com/tidwall/match v1.1.1 h1:+Ho715JplO36QYgwN9PGYNhgZvoUSc9X2c80KVTi+GA=
+github.com/tidwall/match v1.1.1/go.mod h1:eRSPERbgtNPcGhD8UCthc6PmLEQXEWd3PRB5JTxsfmM=
+github.com/tidwall/pretty v1.2.0 h1:RWIZEg2iJ8/g6fDDYzMpobmaoGh5OLl4AXtGUGPcqCs=
+github.com/tidwall/pretty v1.2.0/go.mod h1:ITEVvHYasfjBbM0u2Pg8T2nJnzm8xPwvNhhsoaGGjNU=
 golang.org/x/crypto v0.14.0 h1:wBqGXzWJW6m1XrIKlAH0Hs1JJ7+9KBwnIO8v66Q9cHc=
 golang.org/x/crypto v0.14.0/go.mod h1:MVFd36DqK4CsrnJYDkBA3VC4m2GkXAM0PvzMCn4JQf4=
 golang.org/x/net v0.16.0 h1:7eBu7KsSvFDtSXUIDbh3aqlK4DPsZ1rByC8PFfBThos=

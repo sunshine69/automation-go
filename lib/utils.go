@@ -3,10 +3,16 @@ package lib
 import (
 	"bufio"
 	"fmt"
+	"io/fs"
 	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
 
 	u "github.com/sunshine69/golang-tools/utils"
+	"github.com/tidwall/gjson"
 	"gopkg.in/ini.v1"
+	"gopkg.in/yaml.v3"
 )
 
 func ReadFirstLineOfFile(filepath string) string {
@@ -142,5 +148,80 @@ type LineInfileOpt struct {
 
 // Simulate ansible lineinfile module
 func LineInFile(filepath, pattern, replacement string, opt *LineInfileOpt) {
+	fmt.Println("TODO")
+}
 
+func validateAKeyWithDotInAmap(key string, vars map[string]interface{}) bool {
+	jsonB := u.JsonDumpByte(vars, "")
+	r := gjson.GetBytes(jsonB, key)
+	return r.Exists()
+}
+
+func HelmChartValidation(chartPath string, valuesFile []string) bool {
+	// Validate helm template. Pretty simple for now, not assess the set new var directive or include
+	// directive or long access var within range etc.
+	// Trivy and helm lint with k8s validation should cover that job
+	// This only deals with when var is not defined, helm content rendered as empty string.
+	// Walk throught the template, search for all string pattern with {{ .Values.<XXX> }} -
+	// then extract the var name.
+	// Load the helm values files into map, merge them and check the var name (or path access) in there.
+	// If not print outout error
+	// If there is helm template `if` statement to test the value then do not fail
+	vars := map[string]interface{}{}
+	for _, fn := range valuesFile {
+		if ib, err := os.ReadFile(fn); err == nil {
+			err = yaml.Unmarshal(ib, vars)
+			u.CheckErr(err, "HelmChartValidation yaml.Unmarshal")
+		} else {
+			panic(fmt.Sprintf("[ERROR] loading values file %s - %s\n", fn, err.Error()))
+		}
+	}
+
+	valuesPtn := regexp.MustCompile(`\{\{[\-]{0,1}[\s]*\.Values\.([^\s\}]+)[\s]*[\-]{0,1}\}\}`)
+	valuesInIfStatementPtn := regexp.MustCompile(`\{\{[\-]{0,1}[\s]*if[\s]+\.Values\.([^\s\}]+)[\s]*[\-]{0,1}\}\}`)
+	helmTemplateFileVarList := map[string][]string{}
+	errorLogsLine := []string{}
+
+	err := filepath.Walk(fmt.Sprintf("%s/templates", chartPath), func(path string, info fs.FileInfo, err1 error) error {
+		if err1 != nil {
+			return err1
+		}
+		if info.IsDir() {
+			return nil
+		}
+		fcontentb, err := os.ReadFile(path)
+		u.CheckErr(err, "HelmChartValidation ReadFile")
+
+		findResIfB := valuesInIfStatementPtn.FindAllSubmatch(fcontentb, -1)
+		tempListIfMap := map[string]interface{}{}
+		for _, res := range findResIfB {
+			tempListIfMap[string(res[1])] = nil
+		}
+
+		findResB := valuesPtn.FindAllSubmatch(fcontentb, -1)
+		tempList := []string{}
+		for _, res := range findResB {
+			_v := string(res[1])
+			if _, ok := tempListIfMap[_v]; !ok {
+				tempList = append(tempList, _v)
+			}
+		}
+
+		helmTemplateFileVarList[info.Name()] = tempList
+		return nil
+	})
+	u.CheckErr(err, "filepath.Walk")
+
+	for k, v := range helmTemplateFileVarList {
+		for _, varname := range v {
+			if !validateAKeyWithDotInAmap(varname, vars) {
+				errorLogsLine = append(errorLogsLine, fmt.Sprintf("Var '%s' in template file %s is not defined in values file\n", varname, k))
+			}
+		}
+	}
+	if len(errorLogsLine) > 0 {
+		errMsg := strings.Join(errorLogsLine, "\n")
+		panic(errMsg)
+	}
+	return true
 }
