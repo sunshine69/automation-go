@@ -157,16 +157,16 @@ func validateAKeyWithDotInAmap(key string, vars map[string]interface{}) bool {
 	return r.Exists()
 }
 
+// Validate helm template. Pretty simple for now, not assess the set new var directive or include
+// directive or long access var within range etc.
+// Trivy and helm lint with k8s validation should cover that job
+// This only deals with when var is not defined, helm content rendered as empty string.
+// Walk throught the template, search for all string pattern with {{ .Values.<XXX> }} -
+// then extract the var name.
+// Load the helm values files into map, merge them and check the var name (or path access) in there.
+// If not print outout error
+// If there is helm template `if` statement to test the value then do not fail
 func HelmChartValidation(chartPath string, valuesFile []string) bool {
-	// Validate helm template. Pretty simple for now, not assess the set new var directive or include
-	// directive or long access var within range etc.
-	// Trivy and helm lint with k8s validation should cover that job
-	// This only deals with when var is not defined, helm content rendered as empty string.
-	// Walk throught the template, search for all string pattern with {{ .Values.<XXX> }} -
-	// then extract the var name.
-	// Load the helm values files into map, merge them and check the var name (or path access) in there.
-	// If not print outout error
-	// If there is helm template `if` statement to test the value then do not fail
 	vars := map[string]interface{}{}
 	for _, fn := range valuesFile {
 		if ib, err := os.ReadFile(fn); err == nil {
