@@ -146,11 +146,13 @@ type LineInfileOpt struct {
 	Validate      string
 }
 
-// Simulate ansible lineinfile module
+// Simulate ansible lineinfile module. Not yet implemented
 func LineInFile(filepath, pattern, replacement string, opt *LineInfileOpt) {
 	fmt.Println("TODO")
 }
 
+// Given a key as string, may have dot like objecta.field_a.b. and a map[string]interface{}
+// check if the map has the key path point to a non nil value; return true if value exists otherwise
 func validateAKeyWithDotInAmap(key string, vars map[string]interface{}) bool {
 	jsonB := u.JsonDumpByte(vars, "")
 	r := gjson.GetBytes(jsonB, key)
