@@ -224,11 +224,11 @@ func HelmChartValidation(chartPath string, valuesFile []string) bool {
 }
 
 // MaskCredential RegexPattern
-var MaskCredentialPattern *regexp.Regexp = regexp.MustCompile(`(password|token|pass|passkey|Secret|secret|secret_key|access_key|PAT=)[:]* [^\s]+`)
+var MaskCredentialPattern *regexp.Regexp = regexp.MustCompile(`(password|token|pass|passkey|Secret|secret|secret_key|access_key|PAT=)([:]*) [^\s]+`)
 
 // Mask all credentials pattern
 func MaskCredential(inputstr string) string {
-	return MaskCredentialPattern.ReplaceAllString(inputstr, "*****")
+	return MaskCredentialPattern.ReplaceAllString(inputstr, "$1$2 *****")
 }
 
 // Mask all credentials pattern
