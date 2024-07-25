@@ -359,11 +359,9 @@ func MapKeysToSlice(m map[string]int) []string {
 	return keys
 }
 
-func IncludeVars(filepath string) map[string]interface{} {
+func IncludeVars(filename string) map[string]interface{} {
 	m := make(map[string]interface{})
-	dbytes, err := os.ReadFile(filepath)
-	u.CheckErr(err, "[ERROR] can not read vars-ansible.yaml")
-	u.CheckErr(yaml.Unmarshal(dbytes, &m), "[ERROR] yaml unmarshal vars-ansible.yaml")
+	ValidateYamlFile(filename, &m)
 	return m
 }
 
