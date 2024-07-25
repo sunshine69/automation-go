@@ -198,7 +198,7 @@ var filterFuncB64Decode exec.FilterFunction = func(e *exec.Evaluator, in *exec.V
 	// wrap is unsupported in golang, try to implement it later on
 	o, err := b64.StdEncoding.DecodeString(in.String())
 	u.CheckErr(err, "b64.StdEncoding.DecodeString of "+in.String())
-	return exec.AsValue(o)
+	return exec.AsValue(string(o))
 }
 
 func CustomEnvironment() *exec.Environment {
