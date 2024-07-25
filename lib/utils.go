@@ -171,12 +171,7 @@ func validateAKeyWithDotInAmap(key string, vars map[string]interface{}) bool {
 func HelmChartValidation(chartPath string, valuesFile []string) bool {
 	vars := map[string]interface{}{}
 	for _, fn := range valuesFile {
-		if ib, err := os.ReadFile(fn); err == nil {
-			err = yaml.Unmarshal(ib, vars)
-			u.CheckErr(err, "HelmChartValidation yaml.Unmarshal")
-		} else {
-			panic(fmt.Sprintf("[ERROR] loading values file %s - %s\n", fn, err.Error()))
-		}
+		ValidateYamlFile(fn, &vars)
 	}
 
 	valuesPtn := regexp.MustCompile(`\{\{[\-]{0,1}[\s]*\.Values\.([^\s\}]+)[\s]*[\-]{0,1}\}\}`)
@@ -225,5 +220,55 @@ func HelmChartValidation(chartPath string, valuesFile []string) bool {
 		errMsg := strings.Join(errorLogsLine, "\n")
 		panic(errMsg)
 	}
+	return true
+}
+
+// MaskCredential RegexPattern
+var MaskCredentialPattern *regexp.Regexp = regexp.MustCompile(`(password|token|pass|passkey|Secret|secret|access_key|PAT=)[:]* [^\s]+`)
+
+// Mask all credentials pattern
+func MaskCredential(inputstr string) string {
+	return MaskCredentialPattern.ReplaceAllString(inputstr, "*****")
+}
+
+// Mask all credentials pattern
+func MaskCredentialByte(inputbytes []byte) string {
+	return string(MaskCredentialPattern.ReplaceAll(inputbytes, []byte("*****")))
+}
+
+// Validate yaml files
+func ValidateYamlFile(yaml_file string, yamlobj *map[string]interface{}) map[string]interface{} {
+	data, err := os.ReadFile(yaml_file)
+	u.CheckErr(err, "ValidateYamlFile ReadFile")
+	if yamlobj == nil {
+		t := map[string]interface{}{}
+		yamlobj = &t
+	}
+	err = yaml.Unmarshal(data, &yamlobj)
+	if err1 := u.CheckErrNonFatal(err, "ValidateYamlFile Unmarshal"); err1 != nil {
+		fmt.Printf("Yaml content has error:\n%s\n", MaskCredentialByte(data))
+		panic(err1.Error())
+	}
+	return *yamlobj
+}
+
+func ValidateYamlDir(yaml_dir string, yamlobj *map[string]interface{}) bool {
+	if yamlobj == nil {
+		t := map[string]interface{}{}
+		yamlobj = &t
+	}
+	filepath.Walk(yaml_dir, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		ext := filepath.Ext(info.Name())
+		if ext == ".yaml" || ext == ".yml" {
+			ValidateYamlFile(path, yamlobj)
+		}
+		return nil
+	})
 	return true
 }
