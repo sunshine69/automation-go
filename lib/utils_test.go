@@ -18,7 +18,7 @@ func TestAddhoc(t *testing.T) {
 	// 	"/home/sitsxk5/tmp/helm-values.yaml",
 	// 	"/home/sitsxk5/tmp/helm-values-1.yaml",
 	// })
-	o := MaskCredential(`secret_key: "rterte somrtthing: broken"`)
+	o := MaskCredential(`password: "rterte somrtthing: broken"`)
 	fmt.Println(o)
 
 	fmt.Println("Done test")
