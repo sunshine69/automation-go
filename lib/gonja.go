@@ -330,7 +330,7 @@ func TemplateFile(src, dest string, data map[string]interface{}, fileMode os.Fil
 	if fileMode == 0 {
 		fileMode = 0755
 	}
-	// fmt.Printf("[INFO] Template %s => %s\n", src, dest)
+
 	tmpl, err := templateFromFile(src)
 	u.CheckErr(err, fmt.Sprintf("[ERROR] failed to create gonja context from src file %s\n", src))
 	execContext := exec.NewContext(data)
@@ -344,11 +344,11 @@ func TemplateFile(src, dest string, data map[string]interface{}, fileMode os.Fil
 
 func TemplateString(srcString string, data map[string]interface{}) string {
 	tmpl, err := templateFromStringWithConfig(srcString, &CustomConfig)
-	u.CheckErr(err, fmt.Sprintf("[ERROR] failed to create gonja context from srcString %s\n", srcString))
+	u.CheckErr(err, fmt.Sprintf("[ERROR] TemplateString templateFromStringWithConfig %s\n", err.Error()))
 	execContext := exec.NewContext(data)
-	strBuff := strings.Builder{}
-	u.CheckErr(tmpl.Execute(&strBuff, execContext), "[ERROR] Can not template")
-	return strBuff.String()
+	o, err := tmpl.ExecuteToString(execContext)
+	u.CheckErr(err, "[ERROR] TemplateString ExecuteToString")
+	return o
 }
 
 func MapKeysToSlice(m map[string]int) []string {
