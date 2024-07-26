@@ -344,7 +344,7 @@ func TemplateFile(src, dest string, data map[string]interface{}, fileMode os.Fil
 
 func TemplateString(srcString string, data map[string]interface{}) string {
 	tmpl, err := templateFromStringWithConfig(srcString, &CustomConfig)
-	u.CheckErr(err, fmt.Sprintf("[ERROR] TemplateString templateFromStringWithConfig %s\n", err.Error()))
+	u.CheckErr(err, "[ERROR] TemplateString templateFromStringWithConfig")
 	execContext := exec.NewContext(data)
 	o, err := tmpl.ExecuteToString(execContext)
 	u.CheckErr(err, "[ERROR] TemplateString ExecuteToString")

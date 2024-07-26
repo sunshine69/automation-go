@@ -18,8 +18,8 @@ func TestAddhoc(t *testing.T) {
 	// 	"/home/sitsxk5/tmp/helm-values.yaml",
 	// 	"/home/sitsxk5/tmp/helm-values-1.yaml",
 	// })
-	o := MaskCredential(`password: "rterte somrtthing: broken"`)
-	fmt.Println(o)
-
+	tmplStr := `{{ "test".upper() }}`
+	o := TemplateString(tmplStr, map[string]interface{}{})
+	fmt.Printf("%s\n", o)
 	fmt.Println("Done test")
 }
