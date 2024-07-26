@@ -14,12 +14,11 @@ func init() {
 
 func TestAddhoc(t *testing.T) {
 	// varAnsible := ParseVarAnsibleNext(project_dir+"/../work/azure-devops/vars-ansible.yaml", project_dir)
-	// HelmChartValidation("/home/sitsxk5/src/Sonic.Slingshot.Config-Tanzu/Tanzu/Helm/slingshot-srv-config", []string{
-	// 	"/home/sitsxk5/tmp/helm-values.yaml",
-	// 	"/home/sitsxk5/tmp/helm-values-1.yaml",
-	// })
-	tmplStr := `{{ "test".upper() }}`
-	o := TemplateString(tmplStr, map[string]interface{}{})
-	fmt.Printf("%s\n", o)
+	HelmChartValidation("/home/stevek/src/helm_playground-1_v1/", []string{
+		"//home/stevek/src/helm_playground-1_v1/values.yaml",
+	})
+	// tmplStr := `{{ "test".upper() }}`
+	// o := TemplateString(tmplStr, map[string]interface{}{})
+	// fmt.Printf("%s\n", o)
 	fmt.Println("Done test")
 }

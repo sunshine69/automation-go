@@ -168,14 +168,18 @@ func validateAKeyWithDotInAmap(key string, vars map[string]interface{}) bool {
 // Load the helm values files into map, merge them and check the var name (or path access) in there.
 // If not print outout error
 // If there is helm template `if` statement to test the value then do not fail
+// If there is a helm `default` function of filter to test the value and set the default value then do not fail
 func HelmChartValidation(chartPath string, valuesFile []string) bool {
 	vars := map[string]interface{}{}
 	for _, fn := range valuesFile {
 		ValidateYamlFile(fn, &vars)
 	}
 
-	valuesPtn := regexp.MustCompile(`\{\{[\-]{0,1}[\s]*\.Values\.([^\s\}]+)[\s]*[\-]{0,1}\}\}`)
-	valuesInIfStatementPtn := regexp.MustCompile(`\{\{[\-]{0,1}[\s]*if[\s]+\.Values\.([^\s\}]+)[\s]*[\-]{0,1}\}\}`)
+	valuesPtn := regexp.MustCompile(`\{\{[\-]{0,1}[\s]*\.Values\.([^\s\}]+)[\s]+[\-]{0,1}\}\}`)
+	valuesInIfStatementPtn := regexp.MustCompile(`\{\{[\-]{0,1}[\s]*if[\s]+\.Values\.([^\s\}]+)[\s]+[\-]{0,1}\}\}`)
+	valuesInDefaultFuncPtn := regexp.MustCompile(`\{\{[\-]{0,1}[\s]*default[\s]+[^\s]+\.Values\.([^\s\}]+)[\s]+[\-]{0,1}\}\}`)
+	valuesInDefaultFilterPtn := regexp.MustCompile(`\{\{[\-]{0,1}[\s]+\.Values\.([^\s\}]+)[\s]+\|[\s]+default[\s]+[^\s]+[\s]+[\-]{0,1}\}\}`)
+
 	helmTemplateFileVarList := map[string][]string{}
 	errorLogsLine := []string{}
 
@@ -189,17 +193,27 @@ func HelmChartValidation(chartPath string, valuesFile []string) bool {
 		fcontentb, err := os.ReadFile(path)
 		u.CheckErr(err, "HelmChartValidation ReadFile")
 
-		findResIfB := valuesInIfStatementPtn.FindAllSubmatch(fcontentb, -1)
-		tempListIfMap := map[string]interface{}{}
-		for _, res := range findResIfB {
-			tempListIfMap[string(res[1])] = nil
+		findResIf := valuesInIfStatementPtn.FindAllSubmatch(fcontentb, -1)
+		tempListExcludeMap := map[string]interface{}{}
+		for _, res := range findResIf {
+			tempListExcludeMap[string(res[1])] = nil
 		}
 
-		findResB := valuesPtn.FindAllSubmatch(fcontentb, -1)
+		findResDefaultFunc := valuesInDefaultFuncPtn.FindAllSubmatch(fcontentb, -1)
+		for _, res := range findResDefaultFunc {
+			tempListExcludeMap[string(res[1])] = nil
+		}
+
+		findResDefaultFilter := valuesInDefaultFilterPtn.FindAllSubmatch(fcontentb, -1)
+		for _, res := range findResDefaultFilter {
+			tempListExcludeMap[string(res[1])] = nil
+		}
+
+		findRes := valuesPtn.FindAllSubmatch(fcontentb, -1)
 		tempList := []string{}
-		for _, res := range findResB {
+		for _, res := range findRes {
 			_v := string(res[1])
-			if _, ok := tempListIfMap[_v]; !ok {
+			if _, ok := tempListExcludeMap[_v]; !ok {
 				tempList = append(tempList, _v)
 			}
 		}
@@ -236,7 +250,7 @@ func MaskCredentialByte(inputbytes []byte) string {
 	return string(MaskCredentialPattern.ReplaceAll(inputbytes, []byte("*****")))
 }
 
-// Validate yaml files
+// Validate yaml files. Optionally return the unmarshalled object if you pass yamlobj not nil
 func ValidateYamlFile(yaml_file string, yamlobj *map[string]interface{}) map[string]interface{} {
 	data, err := os.ReadFile(yaml_file)
 	u.CheckErr(err, "ValidateYamlFile ReadFile")
@@ -252,6 +266,7 @@ func ValidateYamlFile(yaml_file string, yamlobj *map[string]interface{}) map[str
 	return *yamlobj
 }
 
+// Validate directory containing yaml files. Optionally return the unmarshalled object if you pass yamlobj not nil
 func ValidateYamlDir(yaml_dir string, yamlobj *map[string]interface{}) bool {
 	if yamlobj == nil {
 		t := map[string]interface{}{}
