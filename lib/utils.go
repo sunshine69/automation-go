@@ -358,10 +358,8 @@ func NewLineInfileOpt(opt map[string]interface{}) *LineInfileOpt {
 		Insertafter:   "",
 		Insertbefore:  "",
 		Line:          "",
-		Path:          "",
 		Regexp:        "",
 		Search_string: "",
-		Count:         -1,
 		State:         "present",
 		Backup:        true,
 	}
@@ -383,8 +381,6 @@ func NewLineInfileOpt(opt map[string]interface{}) *LineInfileOpt {
 			o.State = v.(string)
 		case "Backup", "backup":
 			o.Backup = v.(string) == "yes"
-		case "Count", "count":
-			o.Count = v.(int)
 		default:
 			panic("[ERROR] NewLineInfileOpt unknown option " + k)
 		}
@@ -394,6 +390,7 @@ func NewLineInfileOpt(opt map[string]interface{}) *LineInfileOpt {
 
 // Simulate ansible lineinfile module. There are some difference intentionaly to avoid confusing behaviour and reduce complexbility
 // No option backref, the default behaviour is yes. That is when Regex is set it never add new line. To add new line use search_string or insert_after, insert_before opts.
+// TODO bugs still when state=absent :P
 func LineInFile(filename string, opt *LineInfileOpt) (err error, changed bool) {
 	var returnFunc = func(err error, changed bool) (error, bool) {
 		if !changed || !opt.Backup {
@@ -404,10 +401,6 @@ func LineInFile(filename string, opt *LineInfileOpt) (err error, changed bool) {
 	if opt.State == "" {
 		opt.State = "present"
 	}
-	if opt.Count == 0 {
-		opt.Count = -1
-	}
-	fmt.Printf("[DEBUG] %s\n", u.JsonDump(opt, "  "))
 	finfo, err := os.Stat(filename)
 	u.CheckErr(err, "SearchReplaceFile Stat")
 	fmode := finfo.Mode()
@@ -433,28 +426,28 @@ func LineInFile(filename string, opt *LineInfileOpt) (err error, changed bool) {
 	// Basically the priority is search_string == regexp (thus they are mutually exclusive); and then insertafter or before. They can be all regex except search_string
 	// If state is absent it remove all line matching the string, ignore the `line` param
 	processAbsentLines := func(line_exist_idx map[int]interface{}, index_list []int, search_string_found bool) (error, bool) {
-		d, d1, d2 := []string{}, []string{}, map[int]string{}
+		d, d2 := []string{}, map[int]string{}
+		// fmt.Printf("DEBUG line_exist_idx %v index_list %v search_string_found %v\n", line_exist_idx, index_list, search_string_found)
 		if len(line_exist_idx) == 0 && len(index_list) == 0 {
 			return nil, false
 		}
 		for idx, l := range datalines {
-			d = append(d, string(l))
-			if _, ok := line_exist_idx[idx]; !ok {
-				d1 = append(d1, string(l))
+			_l := string(l)
+			d = append(d, _l)
+			if _, ok := line_exist_idx[idx]; ok {
+				d2[idx] = _l
 			}
 		}
-		if len(line_exist_idx) > 0 {
-			d = d1
-		} else {
-			for idx := range index_list {
-				if search_string_found {
-					d2[idx] = d[idx] // remember the value to this map
-				}
-			}
-			for _, v := range d2 { // then remove by val here.
-				d = u.RemoveItemByVal(d, v)
+		for _, idx := range index_list {
+			if search_string_found {
+				d2[idx] = d[idx] // remember the value to this map
 			}
 		}
+		// fmt.Printf("DEBUG d2 %s\n", u.JsonDump(d2, "  "))
+		for _, v := range d2 { // then remove by val here.
+			d = u.RemoveItemByVal(d, v)
+		}
+
 		os.WriteFile(filename, []byte(strings.Join(d, "\n")), fmode)
 		return nil, true
 	}
@@ -469,7 +462,9 @@ func LineInFile(filename string, opt *LineInfileOpt) (err error, changed bool) {
 				if opt.State == "present" {
 					return returnFunc(nil, changed)
 				} else {
-					line_exist_idx[idx] = nil
+					if !bytes.Equal(optLineB, []byte("")) {
+						line_exist_idx[idx] = nil
+					}
 				}
 			}
 		}
@@ -533,7 +528,9 @@ func LineInFile(filename string, opt *LineInfileOpt) (err error, changed bool) {
 					if opt.State == "present" {
 						return returnFunc(nil, changed)
 					} else {
-						line_exist_idx[idx] = nil
+						if !bytes.Equal(optLineB, []byte("")) {
+							line_exist_idx[idx] = nil
+						}
 					}
 				}
 			}

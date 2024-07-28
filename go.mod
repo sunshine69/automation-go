@@ -27,6 +27,7 @@ require (
 	github.com/sendgrid/rest v2.6.9+incompatible // indirect
 	github.com/sendgrid/sendgrid-go v3.14.0+incompatible // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
+	github.com/spf13/pflag v1.0.5
 	github.com/stvoidit/gosmtp v1.0.7 // indirect
 	github.com/tidwall/gjson v1.17.1
 	golang.org/x/crypto v0.25.0 // indirect

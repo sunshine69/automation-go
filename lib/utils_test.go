@@ -37,11 +37,11 @@ func TestAddhoc(t *testing.T) {
 	// str2 := re.ReplaceAllStringFunc(str, repl)
 	// fmt.Println(str2)
 
-	err, changed := LineInFile("t.yaml", &LineInfileOpt{
+	err, changed := LineInFile("/home/stevek/tmp/hosts", &LineInfileOpt{
 		// Insertafter: "NOT FOUND",
-		Search_string: "new data here",
-		// Regexp: `NOT FOUND .*$`,
-		Line:  "new data here",
+		// Search_string: "127.0.0.1",
+		Regexp: `127\.0\.[01]\.1`,
+		// Line:  "new data here",
 		State: "absent",
 	})
 	u.CheckErr(err, "")
