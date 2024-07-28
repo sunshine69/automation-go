@@ -2,6 +2,7 @@ package lib
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io/fs"
 	"os"
@@ -127,43 +128,23 @@ func IniSetVal(inifilepath, section, option, value string) {
 	cfg.SaveToIndent(inifilepath, "  ")
 }
 
-type LineInfileOpt struct {
-	Attributes    string
-	Backrefs      bool
-	Backup        bool
-	Create        bool
-	Firstmatch    bool
-	Group         string
-	Insertafter   string
-	Insertbefore  string
-	Line          string
-	Mode          string
-	Owner         string
-	Path          string
-	Regexp        string
-	Search_string string
-	State         string
-	Validate      string
-}
-
-// Simulate ansible lineinfile module. Not yet implemented
-func LineInFile(filepath, pattern, replacement string, opt *LineInfileOpt) {
-	fmt.Println("TODO")
-}
-
 // Given a key as string, may have dot like objecta.field_a.b. and a map[string]interface{}
 // check if the map has the key path point to a non nil value; return true if value exists otherwise
 func validateAKeyWithDotInAmap(key string, vars map[string]interface{}) bool {
 	jsonB := u.JsonDumpByte(vars, "")
+	if !gjson.ValidBytes(jsonB) {
+		panic("Invalid jsonstring input")
+	}
 	r := gjson.GetBytes(jsonB, key)
 	return r.Exists()
 }
 
 // Validate helm template. Pretty simple for now, not assess the set new var directive or include
 // directive or long access var within range etc.
-// Trivy and helm lint with k8s validation should cover that job
+// `trivy` and `helm lint` with k8s validation should cover that job
 // This only deals with when var is not defined, helm content rendered as empty string.
-// Walk throught the template, search for all string pattern with {{ .Values.<XXX> }} -
+// `helm lint` wont give you error for that.
+// Walk through the template, search for all string pattern with {{ .Values.<XXX> }} -
 // then extract the var name.
 // Load the helm values files into map, merge them and check the var name (or path access) in there.
 // If not print outout error
@@ -286,4 +267,338 @@ func ValidateYamlDir(yaml_dir string, yamlobj *map[string]interface{}) bool {
 		return nil
 	})
 	return true
+}
+
+// ReplaceAllFuncN extends regexp.Regexp to support count of replacements for []byte
+func ReplaceAllFuncN(re *regexp.Regexp, src []byte, repl func([]int, [][]byte) []byte, n int) ([]byte, int) {
+	if n == 0 {
+		return src, 0
+	}
+
+	matches := re.FindAllSubmatchIndex(src, n)
+	if matches == nil {
+		return src, 0
+	}
+
+	var result bytes.Buffer
+	lastIndex := 0
+	replacementCount := 0
+	for _, match := range matches {
+		result.Write(src[lastIndex:match[0]])
+		submatches := make([][]byte, (len(match) / 2))
+		for i := 0; i < len(match); i += 2 {
+			if match[i] >= 0 && match[i+1] >= 0 {
+				submatches[i/2] = src[match[i]:match[i+1]]
+			} else {
+				submatches[i/2] = nil
+			}
+		}
+		result.Write(repl(match, submatches))
+		lastIndex = match[1]
+		replacementCount++
+	}
+	result.Write(src[lastIndex:])
+
+	return result.Bytes(), replacementCount
+}
+
+func ReplacePattern(input []byte, pattern string, repl string, count int) ([]byte, int) {
+	re := regexp.MustCompile(pattern)
+	replaceFunc := func(matchIndex []int, submatches [][]byte) []byte {
+		expandedRepl := []byte(repl)
+		for i, submatch := range submatches {
+			if submatch != nil {
+				placeholder := fmt.Sprintf("$%d", i)
+				expandedRepl = bytes.Replace(expandedRepl, []byte(placeholder), submatch, -1)
+			}
+		}
+		return expandedRepl
+	}
+
+	return ReplaceAllFuncN(re, input, replaceFunc, count)
+}
+
+// Do regex search and replace in a file
+func SearchReplaceFile(filename, ptn, repl string, count int, backup bool) int {
+	finfo, err := os.Stat(filename)
+	u.CheckErr(err, "SearchReplaceFile Stat")
+	fmode := finfo.Mode()
+	if !(fmode.IsRegular()) {
+		panic("CopyFile: non-regular destination file")
+	}
+	data, err := os.ReadFile(filename)
+	u.CheckErr(err, "SearchReplaceFile ReadFile")
+	if backup {
+		os.WriteFile(filename+".bak", data, fmode)
+	}
+	dataout, count := ReplacePattern(data, ptn, repl, count)
+	os.WriteFile(filename, dataout, fmode)
+	return count
+}
+
+func SearchReplaceString(instring, ptn, repl string, count int) string {
+	o, _ := ReplacePattern([]byte(instring), ptn, repl, count)
+	return string(o)
+}
+
+type LineInfileOpt struct {
+	Insertafter   string
+	Insertbefore  string
+	Line          string
+	Path          string
+	Regexp        string
+	Search_string string
+	Count         int
+	State         string
+	Backup        bool
+}
+
+func NewLineInfileOpt(opt map[string]interface{}) *LineInfileOpt {
+	o := LineInfileOpt{
+		Insertafter:   "",
+		Insertbefore:  "",
+		Line:          "",
+		Path:          "",
+		Regexp:        "",
+		Search_string: "",
+		Count:         -1,
+		State:         "present",
+		Backup:        true,
+	}
+	for k, v := range opt {
+		switch k {
+		case "Insertafter", "insertafter":
+			o.Insertafter = v.(string)
+		case "Insertbefore", "insertbefore":
+			o.Insertbefore = v.(string)
+		case "Line", "line":
+			o.Line = v.(string)
+		case "Path", "path":
+			o.Path = v.(string)
+		case "Regexp", "regexp":
+			o.Regexp = v.(string)
+		case "Search_string", "search_string":
+			o.Search_string = v.(string)
+		case "State", "state":
+			o.State = v.(string)
+		case "Backup", "backup":
+			o.Backup = v.(string) == "yes"
+		case "Count", "count":
+			o.Count = v.(int)
+		default:
+			panic("[ERROR] NewLineInfileOpt unknown option " + k)
+		}
+	}
+	return &o
+}
+
+// Simulate ansible lineinfile module. There are some difference intentionaly to avoid confusing behaviour and reduce complexbility
+// No option backref, the default behaviour is yes. That is when Regex is set it never add new line. To add new line use search_string or insert_after, insert_before opts.
+func LineInFile(filename string, opt *LineInfileOpt) (err error, changed bool) {
+	var returnFunc = func(err error, changed bool) (error, bool) {
+		if !changed || !opt.Backup {
+			os.Remove(filename + ".bak")
+		}
+		return err, changed
+	}
+	if opt.State == "" {
+		opt.State = "present"
+	}
+	if opt.Count == 0 {
+		opt.Count = -1
+	}
+	fmt.Printf("[DEBUG] %s\n", u.JsonDump(opt, "  "))
+	finfo, err := os.Stat(filename)
+	u.CheckErr(err, "SearchReplaceFile Stat")
+	fmode := finfo.Mode()
+	if !(fmode.IsRegular()) {
+		panic("LineInFile: non-regular destination file")
+	}
+	if opt.Search_string != "" && opt.Regexp != "" {
+		panic("[ERROR] conflicting option. Search_string and Regexp can not be both set")
+	}
+	if opt.Insertafter != "" && opt.Insertbefore != "" {
+		panic("[ERROR] conflicting option. Insertafter and Insertbefore can not be both set")
+	}
+	data, err := os.ReadFile(filename)
+	u.CheckErr(err, "LineInFile ReadFile")
+
+	if opt.Backup {
+		os.WriteFile(filename+".bak", data, fmode)
+	}
+	changed = false
+	optLineB := []byte(opt.Line)
+	datalines := bytes.Split(data, []byte("\n"))
+	// ansible lineinfile is confusing. If set search_string and insertafter or inserbefore if search found the line is replaced and the other options has no effect. Unless search_string is not found then they will do it. Why we need that?
+	// Basically the priority is search_string == regexp (thus they are mutually exclusive); and then insertafter or before. They can be all regex except search_string
+	// If state is absent it remove all line matching the string, ignore the `line` param
+	processAbsentLines := func(line_exist_idx map[int]interface{}, index_list []int, search_string_found bool) (error, bool) {
+		d, d1, d2 := []string{}, []string{}, map[int]string{}
+		if len(line_exist_idx) == 0 && len(index_list) == 0 {
+			return nil, false
+		}
+		for idx, l := range datalines {
+			d = append(d, string(l))
+			if _, ok := line_exist_idx[idx]; !ok {
+				d1 = append(d1, string(l))
+			}
+		}
+		if len(line_exist_idx) > 0 {
+			d = d1
+		} else {
+			for idx := range index_list {
+				if search_string_found {
+					d2[idx] = d[idx] // remember the value to this map
+				}
+			}
+			for _, v := range d2 { // then remove by val here.
+				d = u.RemoveItemByVal(d, v)
+			}
+		}
+		os.WriteFile(filename, []byte(strings.Join(d, "\n")), fmode)
+		return nil, true
+	}
+	if opt.Search_string != "" {
+		search_string_found, line_exist_idx := true, map[int]interface{}{}
+		index_list := []int{}
+		for idx, lineb := range datalines {
+			if bytes.Contains(lineb, []byte(opt.Search_string)) {
+				index_list = append(index_list, idx)
+			}
+			if bytes.Equal(lineb, optLineB) { // Line already exists
+				if opt.State == "present" {
+					return returnFunc(nil, changed)
+				} else {
+					line_exist_idx[idx] = nil
+				}
+			}
+		}
+		if len(index_list) == 0 { // Did not find any search string. Will look insertafter  and before
+			search_string_found = false
+			ptnstring := opt.Insertafter
+			if ptnstring == "" {
+				ptnstring = opt.Insertbefore
+			}
+			if ptnstring != "" {
+				ptn := regexp.MustCompile(ptnstring)
+				for idx, lineb := range datalines {
+					if ptn.Match(lineb) {
+						index_list = append(index_list, idx)
+					}
+				}
+			}
+		}
+		if len(index_list) == 0 && len(line_exist_idx) == 0 {
+			// Can not find any insert_XXX match. Just add a new line at the end by setting this to the last
+			index_list = append(index_list, len(datalines)-1)
+		}
+		switch opt.State {
+		case "absent":
+			return returnFunc(processAbsentLines(line_exist_idx, index_list, search_string_found))
+		case "present":
+			last := index_list[len(index_list)-1]
+			if search_string_found {
+				datalines[last] = optLineB
+			} else {
+				if opt.Insertafter != "" {
+					datalines = InsertItemAfter(datalines, last, optLineB)
+				} else if opt.Insertbefore != "" {
+					datalines = InsertItemBefore(datalines, last, optLineB)
+				} else { // to the end as always
+					datalines = InsertItemAfter(datalines, last, optLineB)
+				}
+			}
+			os.WriteFile(filename, []byte(bytes.Join(datalines, []byte("\n"))), fmode)
+			changed = true
+		}
+	}
+	// Assume the behaviour is the same as search_string for Regex, just it is a regex now. So if it matches then the line matched will be replaced. If no match then process the insertbefore or after
+	if opt.Regexp != "" {
+		search_string_found := true
+		regex_ptn := regexp.MustCompile(opt.Regexp)
+		index_list := []int{}
+		matches := [][]byte{}
+		line_exist_idx := map[int]interface{}{}
+
+		for idx, lineb := range datalines {
+			matches = regex_ptn.FindSubmatch(lineb)
+			if len(matches) > 0 || matches != nil {
+				index_list = append(index_list, idx)
+			}
+		}
+		if len(index_list) == 0 { // Did not find any search string. Will look insertafter  and before
+			search_string_found = false
+			for idx, lineb := range datalines {
+				if bytes.Equal(lineb, optLineB) { // Line already exists
+					if opt.State == "present" {
+						return returnFunc(nil, changed)
+					} else {
+						line_exist_idx[idx] = nil
+					}
+				}
+			}
+			ptnstring := opt.Insertafter
+			if ptnstring == "" {
+				ptnstring = opt.Insertbefore
+			}
+			if ptnstring == "" {
+				return returnFunc(nil, false)
+			}
+			ptn := regexp.MustCompile(ptnstring)
+			for idx, lineb := range datalines {
+				if ptn.Match(lineb) {
+					index_list = append(index_list, idx)
+				}
+			}
+		}
+		if len(index_list) == 0 && len(line_exist_idx) == 0 {
+			// Can not find any insert_XXX match. Just add a new line at the end by setting this to the last
+			index_list = append(index_list, len(datalines)-1)
+		}
+		switch opt.State {
+		case "absent":
+			return returnFunc(processAbsentLines(line_exist_idx, index_list, search_string_found))
+		case "present":
+			last := index_list[len(index_list)-1]
+			if search_string_found {
+				// Expanding submatch
+				for i, submatch := range matches {
+					if submatch != nil {
+						placeholder := fmt.Sprintf("$%d", i)
+						optLineB = bytes.Replace(optLineB, []byte(placeholder), submatch, -1)
+					}
+				}
+				datalines[last] = optLineB
+			} else {
+				if opt.Insertafter != "" {
+					datalines = InsertItemAfter(datalines, last, optLineB)
+				} else if opt.Insertbefore != "" {
+					datalines = InsertItemBefore(datalines, last, optLineB)
+				} else { // Insert to the last then :P
+					datalines = InsertItemAfter(datalines, last, optLineB)
+				}
+			}
+			os.WriteFile(filename, []byte(bytes.Join(datalines, []byte("\n"))), fmode)
+			changed = true
+		}
+	}
+	return err, changed
+}
+
+// InsertItemBefore inserts an item into a slice before a specified index
+func InsertItemBefore[T any](slice []T, index int, item T) []T {
+	if index < 0 || index > len(slice) {
+		panic("InsertItemBefore: index out of range")
+	}
+	slice = append(slice[:index], append([]T{item}, slice[index:]...)...)
+	return slice
+}
+
+// InsertItemAfter inserts an item into a slice after a specified index
+func InsertItemAfter[T any](slice []T, index int, item T) []T {
+	if index < -1 || index >= len(slice) {
+		panic("InsertItemAfter: index out of range")
+	}
+	slice = append(slice[:index+1], append([]T{item}, slice[index+1:]...)...)
+	return slice
 }

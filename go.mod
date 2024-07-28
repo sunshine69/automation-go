@@ -6,7 +6,7 @@ require (
 	github.com/json-iterator/go v1.1.12
 	github.com/nikolalohinski/gonja/v2 v2.3.0
 	github.com/pkg/errors v0.9.1
-	github.com/sunshine69/golang-tools/utils v0.0.0-20240719111316-ecaa68c12f4a
+	github.com/sunshine69/golang-tools/utils v0.0.0-20240727140801-875d6eb266d8
 	gopkg.in/ini.v1 v1.67.0
 	gopkg.in/yaml.v3 v3.0.1
 )
