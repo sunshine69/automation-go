@@ -79,7 +79,7 @@ func main() {
 
 		if !info.IsDir() && filename_regexp.MatchString(fname) && ((excludePtn == nil) || (excludePtn != nil && !excludePtn.MatchString(fname))) && ((defaultExcludePtn == nil) || (defaultExcludePtn != nil && !defaultExcludePtn.MatchString(fname))) {
 			if *skipBinary {
-				isbin, err := lib.IsBinaryFile(path)
+				isbin, err := lib.IsBinaryFileSimple(path)
 				if (err == nil) && isbin {
 					return nil
 				}

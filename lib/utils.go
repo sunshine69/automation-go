@@ -640,3 +640,27 @@ func IsBinaryFile(filePath string) (bool, error) {
 		return true, nil
 	}
 }
+
+func IsBinaryFileSimple(filePath string) (bool, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return false, err
+	}
+	defer file.Close()
+
+	buffer := make([]byte, 512)
+	n, err := file.Read(buffer)
+	if err != nil {
+		return false, err
+	}
+
+	for i := 0; i < n; i++ {
+		if buffer[i] == 0 {
+			return true, nil
+		}
+		if buffer[i] < 0x20 && buffer[i] != 0x09 && buffer[i] != 0x0A && buffer[i] != 0x0D {
+			return true, nil
+		}
+	}
+	return false, nil
+}
