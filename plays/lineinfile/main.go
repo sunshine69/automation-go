@@ -23,10 +23,10 @@ func main() {
 	backup := optFlag.Bool("backup", true, "backup")
 	cmd_mode := optFlag.StringP("cmd", "c", "lineinfile", "Command; choice lineinfile, search_replace")
 	state := optFlag.String("state", "present", "state; choices: present, absent, print. Print only print lines of matches but do nothing")
-	grep := optFlag.StringP("grep", "g", "", "Simulate grep cmd. It will set state to print and take -r or -s for pattern/string to grep")
+	grep := optFlag.StringP("grep", "g", "", "Simulate grep cmd. It will set state to print and take -r for pattern to grep")
 	filename_ptn := optFlag.StringP("fptn", "f", ".*", "Filename regex pattern")
 	exclude := optFlag.StringP("exclude", "e", "", "Exclude file name pattern")
-	defaultExclude := optFlag.StringP("defaultexclude", "d", `^(\.git|.*\.zip|.*\.gz|.*\.xz|.*\.bz2|.*\.zstd|.*\.7z)$`, "Default exclude pattern. Clean it if you need to control")
+	defaultExclude := optFlag.StringP("defaultexclude", "d", `^(\.git|.*\.zip|.*\.gz|.*\.xz|.*\.bz2|.*\.zstd|.*\.7z|.*\.dll|.*\.iso|.*\.bin|.*\.tar|.*\.exe)$`, "Default exclude pattern. Set it to empty string if you need to")
 
 	file_path := os.Args[1]
 	optFlag.Usage = func() {
@@ -69,12 +69,13 @@ func main() {
 		if err != nil {
 			return err
 		}
-		if info.IsDir() && ((excludePtn != nil && excludePtn.MatchString(info.Name())) || (defaultExcludePtn != nil && defaultExcludePtn.MatchString(info.Name()))) {
+		fname := info.Name()
+		if info.IsDir() && ((excludePtn != nil && excludePtn.MatchString(fname)) || (defaultExcludePtn != nil && defaultExcludePtn.MatchString(fname))) {
 			return filepath.SkipDir
 		}
 		// Check if the file matches the pattern
-		fname := filepath.Base(path)
-		if !info.IsDir() && filename_regexp.MatchString(fname) {
+
+		if !info.IsDir() && filename_regexp.MatchString(fname) && ((excludePtn == nil) || (excludePtn != nil && !excludePtn.MatchString(fname))) && ((defaultExcludePtn == nil) || (defaultExcludePtn != nil && !defaultExcludePtn.MatchString(fname))) {
 			if excludePtn != nil {
 				if excludePtn.MatchString(fname) {
 					return nil

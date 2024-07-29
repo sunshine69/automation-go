@@ -415,7 +415,7 @@ func LineInFile(filename string, opt *LineInfileOpt) (err error, changed bool) {
 	data, err := os.ReadFile(filename)
 	u.CheckErr(err, "LineInFile ReadFile")
 
-	if opt.Backup {
+	if opt.Backup && opt.State != "print" {
 		os.WriteFile(filename+".bak", data, fmode)
 	}
 	changed = false
@@ -452,7 +452,6 @@ func LineInFile(filename string, opt *LineInfileOpt) (err error, changed bool) {
 				"matched_lines": d2,
 			}
 			fmt.Printf("%s\n", u.JsonDump(o, "  "))
-			os.Remove(filename + ".bak")
 		} else {
 			os.WriteFile(filename, []byte(strings.Join(d, "\n")), fmode)
 		}
