@@ -67,7 +67,8 @@ func main() {
 
 	err := filepath.Walk(file_path, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
-			return err
+			fmt.Println(err.Error())
+			return nil
 		}
 		fname := info.Name()
 		if info.IsDir() && ((excludePtn != nil && excludePtn.MatchString(fname)) || (defaultExcludePtn != nil && defaultExcludePtn.MatchString(fname))) {
