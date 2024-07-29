@@ -23,7 +23,10 @@ func main() {
 	backup := optFlag.Bool("backup", true, "backup")
 	cmd_mode := optFlag.StringP("cmd", "c", "lineinfile", "Command; choice lineinfile, search_replace")
 	state := optFlag.String("state", "present", "state; choices: present, absent, print. Print only print lines of matches but do nothing")
+	grep := optFlag.StringP("grep", "g", "", "Simulate grep cmd. It will set state to print and take -r or -s for pattern/string to grep")
 	filename_ptn := optFlag.StringP("fptn", "f", ".*", "Filename regex pattern")
+	exclude := optFlag.StringP("exclude", "e", "", "Exclude file name pattern")
+	defaultExclude := optFlag.StringP("defaultexclude", "d", `^(\.git|.*\.zip|.*\.gz|.*\.xz|.*\.bz2|.*\.zstd|.*\.7z)$`, "Default exclude pattern. Clean it if you need to control")
 
 	file_path := os.Args[1]
 	optFlag.Usage = func() {
@@ -31,6 +34,14 @@ func main() {
 		optFlag.PrintDefaults()
 	}
 	optFlag.Parse(os.Args[1:])
+
+	if *grep != "" {
+		*state = "print"
+		*regexptn = *grep
+		*search_string = ""
+		*backup = false
+		*line = ""
+	}
 
 	opt := lib.LineInfileOpt{
 		Insertafter:   *inserfater,
@@ -41,17 +52,34 @@ func main() {
 		State:         *state,
 		Backup:        *backup,
 	}
-	fmt.Printf("cmd: %s\nOpt: %s\n", *cmd_mode, u.JsonDump(opt, "  "))
+	// fmt.Printf("cmd: %s\nOpt: %s\n", *cmd_mode, u.JsonDump(opt, "  "))
 
 	filename_regexp := regexp.MustCompile(*filename_ptn)
+	excludePtn := regexp.MustCompile(*exclude)
+	if *exclude == "" {
+		excludePtn = nil
+	}
+	defaultExcludePtn := regexp.MustCompile(*defaultExclude)
+	if *defaultExclude == "" {
+		defaultExcludePtn = nil
+	}
 	output := map[string][]interface{}{}
 
 	err := filepath.Walk(file_path, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
+		if info.IsDir() && ((excludePtn != nil && excludePtn.MatchString(info.Name())) || (defaultExcludePtn != nil && defaultExcludePtn.MatchString(info.Name()))) {
+			return filepath.SkipDir
+		}
 		// Check if the file matches the pattern
-		if !info.IsDir() && filename_regexp.MatchString(info.Name()) {
+		fname := filepath.Base(path)
+		if !info.IsDir() && filename_regexp.MatchString(fname) {
+			if excludePtn != nil {
+				if excludePtn.MatchString(fname) {
+					return nil
+				}
+			}
 			switch *cmd_mode {
 			case "lineinfile":
 				err, changed := lib.LineInFile(path, &opt)
@@ -71,5 +99,7 @@ func main() {
 		return nil
 	})
 	u.CheckErr(err, "")
-	fmt.Printf("output: %s\n", u.JsonDump(output, "  "))
+	if *state != "print" {
+		fmt.Printf("output: %s\n", u.JsonDump(output, "  "))
+	}
 }
