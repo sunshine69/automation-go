@@ -27,6 +27,7 @@ func main() {
 	filename_ptn := optFlag.StringP("fptn", "f", ".*", "Filename regex pattern")
 	exclude := optFlag.StringP("exclude", "e", "", "Exclude file name pattern")
 	defaultExclude := optFlag.StringP("defaultexclude", "d", `^(\.git|.*\.zip|.*\.gz|.*\.xz|.*\.bz2|.*\.zstd|.*\.7z|.*\.dll|.*\.iso|.*\.bin|.*\.tar|.*\.exe)$`, "Default exclude pattern. Set it to empty string if you need to")
+	skipBinary := optFlag.BoolP("skipbinary", "y", true, "Skip binary file")
 
 	file_path := os.Args[1]
 	optFlag.Usage = func() {
@@ -77,8 +78,9 @@ func main() {
 		// Check if the file matches the pattern
 
 		if !info.IsDir() && filename_regexp.MatchString(fname) && ((excludePtn == nil) || (excludePtn != nil && !excludePtn.MatchString(fname))) && ((defaultExcludePtn == nil) || (defaultExcludePtn != nil && !defaultExcludePtn.MatchString(fname))) {
-			if excludePtn != nil {
-				if excludePtn.MatchString(fname) {
+			if *skipBinary {
+				isbin, err := lib.IsBinaryFile(path)
+				if (err == nil) && isbin {
 					return nil
 				}
 			}

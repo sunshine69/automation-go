@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/fs"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -608,4 +609,34 @@ func InsertItemAfter[T any](slice []T, index int, item T) []T {
 	}
 	slice = append(slice[:index+1], append([]T{item}, slice[index+1:]...)...)
 	return slice
+}
+
+func IsBinaryFile(filePath string) (bool, error) {
+	// Open the file
+	file, err := os.Open(filePath)
+	if err != nil {
+		return false, err
+	}
+	defer file.Close()
+
+	// Read the first 512 bytes
+	buffer := make([]byte, 512)
+	n, err := file.Read(buffer)
+	if err != nil {
+		return false, err
+	}
+
+	// Detect the content type
+	contentType := http.DetectContentType(buffer[:n])
+
+	// Check if the content type indicates a binary file
+	switch contentType {
+	case "application/octet-stream", "application/x-executable", "application/x-mach-binary":
+		return true, nil
+	default:
+		if len(contentType) > 0 && contentType[:5] == "text/" {
+			return false, nil
+		}
+		return true, nil
+	}
 }
