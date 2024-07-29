@@ -348,7 +348,6 @@ type LineInfileOpt struct {
 	Path          string
 	Regexp        string
 	Search_string string
-	Count         int
 	State         string
 	Backup        bool
 }
@@ -447,8 +446,16 @@ func LineInFile(filename string, opt *LineInfileOpt) (err error, changed bool) {
 		for _, v := range d2 { // then remove by val here.
 			d = u.RemoveItemByVal(d, v)
 		}
-
-		os.WriteFile(filename, []byte(strings.Join(d, "\n")), fmode)
+		if opt.State == "print" {
+			o := map[string]interface{}{
+				"file":          filename,
+				"matched_lines": d2,
+			}
+			fmt.Printf("%s\n", u.JsonDump(o, "  "))
+			os.Remove(filename + ".bak")
+		} else {
+			os.WriteFile(filename, []byte(strings.Join(d, "\n")), fmode)
+		}
 		return nil, true
 	}
 	if opt.Search_string != "" {
@@ -505,6 +512,8 @@ func LineInFile(filename string, opt *LineInfileOpt) (err error, changed bool) {
 			}
 			os.WriteFile(filename, []byte(bytes.Join(datalines, []byte("\n"))), fmode)
 			changed = true
+		case "print":
+			return returnFunc(processAbsentLines(line_exist_idx, index_list, search_string_found))
 		}
 	}
 	// Assume the behaviour is the same as search_string for Regex, just it is a regex now. So if it matches then the line matched will be replaced. If no match then process the insertbefore or after
@@ -577,6 +586,8 @@ func LineInFile(filename string, opt *LineInfileOpt) (err error, changed bool) {
 			}
 			os.WriteFile(filename, []byte(bytes.Join(datalines, []byte("\n"))), fmode)
 			changed = true
+		case "print":
+			return returnFunc(processAbsentLines(line_exist_idx, index_list, search_string_found))
 		}
 	}
 	return err, changed
