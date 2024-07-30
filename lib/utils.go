@@ -5,11 +5,13 @@ import (
 	"bytes"
 	"fmt"
 	"io/fs"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"unicode"
 
 	u "github.com/sunshine69/golang-tools/utils"
 	"github.com/tidwall/gjson"
@@ -407,7 +409,7 @@ func LineInFile(filename string, opt *LineInfileOpt) (err error, changed bool) {
 	}
 	fmode := finfo.Mode()
 	if !(fmode.IsRegular()) {
-		panic("LineInFile: non-regular destination file")
+		return fmt.Errorf("LineInFile: non-regular destination file %s", filename), false
 	}
 	if opt.Search_string != "" && opt.Regexp != "" {
 		panic("[ERROR] conflicting option. Search_string and Regexp can not be both set")
@@ -667,4 +669,59 @@ func IsBinaryFileSimple(filePath string) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+// Heuristic detect if the values is likely a real password etc
+func IsLikelyPasswordOrToken(value, check_mode string) bool {
+	// Check length
+	if len(value) < 8 || len(value) > 64 {
+		return false
+	}
+
+	// Check for character variety
+	var hasLetter, hasDigit, hasSpecial bool
+	for _, char := range value {
+		switch {
+		case unicode.IsLetter(char):
+			hasLetter = true
+		case unicode.IsDigit(char):
+			hasDigit = true
+		case unicode.IsPunct(char) || unicode.IsSymbol(char):
+			hasSpecial = true
+		}
+	}
+	const entropyThreshold = 3.0
+	if entropy := calculateEntropy(value); entropy < entropyThreshold {
+		return false
+	}
+
+	switch check_mode {
+	case "letter":
+		return hasLetter
+	case "digit":
+		return hasDigit
+	case "letter-digit":
+		return hasLetter && hasDigit
+	default:
+		return ((hasLetter && hasDigit) || hasSpecial) || hasDigit
+	}
+
+}
+
+func calculateEntropy(s string) float64 {
+	// Count the frequency of each character
+	frequency := make(map[rune]int)
+	for _, char := range s {
+		frequency[char]++
+	}
+
+	// Calculate the entropy
+	var entropy float64
+	length := float64(len(s))
+	for _, count := range frequency {
+		p := float64(count) / length
+		entropy -= p * math.Log2(p)
+	}
+
+	return entropy
 }

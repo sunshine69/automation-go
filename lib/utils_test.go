@@ -45,6 +45,7 @@ func TestAddhoc(t *testing.T) {
 		State: "absent",
 	})
 	u.CheckErr(err, "")
+	fmt.Printf("Likely a password: %v\n", IsLikelyPasswordOrToken("DUMMY", ""))
 	fmt.Println(changed)
 	fmt.Println("Done test")
 }
