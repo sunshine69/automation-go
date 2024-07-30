@@ -679,11 +679,13 @@ func IsLikelyPasswordOrToken(value, check_mode string) bool {
 	}
 
 	// Check for character variety
-	var hasLetter, hasDigit, hasSpecial bool
+	var hasDigit, hasSpecial, hasUpper, hasLower bool
 	for _, char := range value {
 		switch {
-		case unicode.IsLetter(char):
-			hasLetter = true
+		case unicode.IsUpper(char):
+			hasUpper = true
+		case unicode.IsLower(char):
+			hasLower = true
 		case unicode.IsDigit(char):
 			hasDigit = true
 		case unicode.IsPunct(char) || unicode.IsSymbol(char):
@@ -697,13 +699,13 @@ func IsLikelyPasswordOrToken(value, check_mode string) bool {
 
 	switch check_mode {
 	case "letter":
-		return hasLetter
+		return hasUpper && hasLower
 	case "digit":
 		return hasDigit
 	case "letter-digit":
-		return hasLetter && hasDigit
+		return hasUpper && hasLower && hasDigit
 	default:
-		return ((hasLetter && hasDigit) || hasSpecial) || hasDigit
+		return hasUpper && hasLower && hasDigit && hasSpecial
 	}
 
 }
