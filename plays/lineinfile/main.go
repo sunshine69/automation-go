@@ -28,6 +28,7 @@ func main() {
 	exclude := optFlag.StringP("exclude", "e", "", "Exclude file name pattern")
 	defaultExclude := optFlag.StringP("defaultexclude", "d", `^(\.git|.*\.zip|.*\.gz|.*\.xz|.*\.bz2|.*\.zstd|.*\.7z|.*\.dll|.*\.iso|.*\.bin|.*\.tar|.*\.exe)$`, "Default exclude pattern. Set it to empty string if you need to")
 	skipBinary := optFlag.BoolP("skipbinary", "y", false, "Skip binary file")
+	debug := optFlag.Bool("debug", false, "Enable debugging")
 
 	file_path := os.Args[1]
 	optFlag.Usage = func() {
@@ -53,7 +54,9 @@ func main() {
 		State:         *state,
 		Backup:        *backup,
 	}
-	// fmt.Printf("cmd: %s\nOpt: %s\n", *cmd_mode, u.JsonDump(opt, "  "))
+	if *debug {
+		fmt.Printf("cmd: %s\nOpt: %s\n", *cmd_mode, u.JsonDump(opt, "  "))
+	}
 
 	filename_regexp := regexp.MustCompile(*filename_ptn)
 	excludePtn := regexp.MustCompile(*exclude)
@@ -87,7 +90,7 @@ func main() {
 			switch *cmd_mode {
 			case "lineinfile":
 				err, changed := lib.LineInFile(path, &opt)
-				u.CheckErr(err, "")
+				u.CheckErrNonFatal(err, "main lineinfile")
 				output[path] = append(output[path], []interface{}{err, changed})
 			case "search_replace":
 				if *regexptn == "" {
@@ -98,11 +101,10 @@ func main() {
 			default:
 				panic("Unknown command " + *cmd_mode)
 			}
-
 		}
 		return nil
 	})
-	u.CheckErr(err, "")
+	u.CheckErrNonFatal(err, "main 107")
 	if *state != "print" {
 		fmt.Printf("output: %s\n", u.JsonDump(output, "  "))
 	}

@@ -402,7 +402,9 @@ func LineInFile(filename string, opt *LineInfileOpt) (err error, changed bool) {
 		opt.State = "present"
 	}
 	finfo, err := os.Stat(filename)
-	u.CheckErr(err, "SearchReplaceFile Stat")
+	if err1 := u.CheckErrNonFatal(err, "LineInFile Stat"); err1 != nil {
+		return err1, false
+	}
 	fmode := finfo.Mode()
 	if !(fmode.IsRegular()) {
 		panic("LineInFile: non-regular destination file")
@@ -414,7 +416,9 @@ func LineInFile(filename string, opt *LineInfileOpt) (err error, changed bool) {
 		panic("[ERROR] conflicting option. Insertafter and Insertbefore can not be both set")
 	}
 	data, err := os.ReadFile(filename)
-	u.CheckErr(err, "LineInFile ReadFile")
+	if err1 := u.CheckErrNonFatal(err, "LineInFile ReadFile"); err1 != nil {
+		return err1, false
+	}
 
 	if opt.Backup && opt.State != "print" {
 		os.WriteFile(filename+".bak", data, fmode)
