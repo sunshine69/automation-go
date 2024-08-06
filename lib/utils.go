@@ -440,19 +440,18 @@ func LineInFile(filename string, opt *LineInfileOpt) (err error, changed bool) {
 		for idx, l := range datalines {
 			_l := string(l)
 			d = append(d, _l)
+			// line_exist_idx output of the case of matched the whole line
 			if _, ok := line_exist_idx[idx]; ok {
 				d2[idx] = _l
 			}
 		}
+		// index_list is the outcome of the search_string/regex opt (search raw string).
 		for _, idx := range index_list {
 			if search_string_found {
 				d2[idx] = d[idx] // remember the value to this map
 			}
 		}
 		// fmt.Printf("DEBUG d2 %s\n", u.JsonDump(d2, "  "))
-		for _, v := range d2 { // then remove by val here.
-			d = u.RemoveItemByVal(d, v)
-		}
 		if opt.State == "print" {
 			o := map[string]interface{}{
 				"file":          filename,
@@ -460,6 +459,9 @@ func LineInFile(filename string, opt *LineInfileOpt) (err error, changed bool) {
 			}
 			fmt.Printf("%s\n", u.JsonDump(o, "  "))
 		} else {
+			for _, v := range d2 { // then remove by val here.
+				d = u.RemoveItemByVal(d, v)
+			}
 			os.WriteFile(filename, []byte(strings.Join(d, "\n")), fmode)
 		}
 		return nil, true

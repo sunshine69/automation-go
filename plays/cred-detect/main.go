@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io/fs"
 	"os"
@@ -12,11 +13,15 @@ import (
 	u "github.com/sunshine69/golang-tools/utils"
 )
 
+// var Credential_patterns = []string{
+// 	`(?i)['"]?password['"]?\s*[=:]\s*['"]?([^'"\s]+)['"]?`, // Matches "password [=:] value"
+// 	`(?i)['"]?token['"]?\s*[=:]\s*['"]?([^'"\s]+)['"]?`,    // Matches "token [=:] value"
+// 	`(?i)['"]?api_key['"]?\s*[=:]\s*['"]?([^'"\s]+)['"]?`,  // Matches "api_key [=:] value"
+// 	`(?i)['"]?secret['"]?\s*[=:]\s*['"]?([^'"\s]+)['"]?`,   // Matches "secret [=:] value"
+// }
+
 var Credential_patterns = []string{
-	`(?i)['"]?password['"]?\s*[=:]\s*['"]?([^'"\s]+)['"]?`, // Matches "password [=:] value"
-	`(?i)['"]?token['"]?\s*[=:]\s*['"]?([^'"\s]+)['"]?`,    // Matches "token [=:] value"
-	`(?i)['"]?api_key['"]?\s*[=:]\s*['"]?([^'"\s]+)['"]?`,  // Matches "api_key [=:] value"
-	`(?i)['"]?secret['"]?\s*[=:]\s*['"]?([^'"\s]+)['"]?`,   // Matches "secret [=:] value"
+	`(?i)['"]?(password|token|api_key|secret)['"]?\s*[=:]\s*['"]?([^'"\s]+)['"]?`,
 }
 
 func main() {
@@ -39,9 +44,9 @@ func main() {
 	if len(*cred_regexptn) > 0 {
 		*default_cred_regexptn = append(*default_cred_regexptn, *cred_regexptn...)
 	}
-	cred_ptn_compiled := []*regexp.Regexp{}
+	cred_ptn_compiled := map[string]*regexp.Regexp{}
 	for _, ptn := range *default_cred_regexptn {
-		cred_ptn_compiled = append(cred_ptn_compiled, regexp.MustCompile(ptn))
+		cred_ptn_compiled[ptn] = regexp.MustCompile(ptn)
 	}
 
 	filename_regexp := regexp.MustCompile(*filename_ptn)
@@ -53,7 +58,13 @@ func main() {
 	if *defaultExclude == "" {
 		defaultExcludePtn = nil
 	}
-	output := map[string][]string{}
+	type OutputFmt struct {
+		Line_no int
+		Pattern string
+		Matches []string
+	}
+	output := map[string]OutputFmt{}
+	newline_byte := []byte("\n")
 
 	err1 := filepath.Walk(file_path, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
@@ -73,21 +84,38 @@ func main() {
 					return nil
 				}
 			}
-			datab, err := os.ReadFile(path)
-			if err != nil {
-				return err
+
+			finfo, err := os.Stat(path)
+			if err1 := u.CheckErrNonFatal(err, "LineInFile Stat"); err1 != nil {
+				return nil
 			}
-			// if err1 := u.CheckErrNonFatal(err, "ReadFile "+path); err1 != nil {
-			// 	return nil
-			// }
-			data := string(datab)
-			for _, ptn := range cred_ptn_compiled {
-				matches := ptn.FindAllStringSubmatch(data, -1)
-				if len(matches) > 1 {
-					for _, match := range matches {
-						if len(match) > 1 && ag.IsLikelyPasswordOrToken(match[1], "") {
-							output[path] = []string{}
-							output[path] = append(output[path], match[0], match[1])
+			fmode := finfo.Mode()
+			if !(fmode.IsRegular()) {
+				return nil
+			}
+
+			datab, err := os.ReadFile(path)
+			if err1 := u.CheckErrNonFatal(err, "ReadFile "+path); err1 != nil {
+				return nil
+			}
+			datalines := bytes.Split(datab, newline_byte)
+			for idx, data := range datalines {
+				for ptnStr, ptn := range cred_ptn_compiled {
+					matches := ptn.FindAllSubmatch(data, -1)
+					if len(matches) > 1 {
+						o := OutputFmt{
+							Line_no: idx,
+							Pattern: ptnStr,
+							Matches: []string{},
+						}
+						for _, match := range matches {
+							passVal := string(match[2])
+							if len(match) > 1 && ag.IsLikelyPasswordOrToken(passVal, "letter-digit") {
+								o.Matches = append(o.Matches, ag.MaskCredential(string(match[0])))
+							}
+						}
+						if len(o.Matches) > 0 {
+							output[path] = o
 						}
 					}
 				}
