@@ -32,6 +32,7 @@ func main() {
 	exclude := optFlag.StringP("exclude", "e", "", "Exclude file name pattern")
 	defaultExclude := optFlag.StringP("defaultexclude", "d", `^(\.git|.*\.zip|.*\.gz|.*\.xz|.*\.bz2|.*\.zstd|.*\.7z|.*\.dll|.*\.iso|.*\.bin|.*\.tar|.*\.exe)$`, "Default exclude pattern. Set it to empty string if you need to")
 	skipBinary := optFlag.BoolP("skipbinary", "y", false, "Skip binary file")
+	password_check_mode := optFlag.String("check-mode", "letter-digit-word", "Password check mod, see function IsLikelyPasswordOrToken for list of allowed values. The default one requires a file words.txt in the current directory. Link to download https://github.com/dwyl/english-words/blob/master/words.txt")
 	// debug := optFlag.Bool("debug", false, "Enable debugging")
 
 	file_path := os.Args[1]
@@ -110,8 +111,8 @@ func main() {
 						}
 						for _, match := range matches {
 							passVal := string(match[2])
-							if len(match) > 1 && ag.IsLikelyPasswordOrToken(passVal, "letter-digit") {
-								o.Matches = append(o.Matches, ag.MaskCredential(string(match[0])))
+							if len(match) > 1 && ag.IsLikelyPasswordOrToken(passVal, *password_check_mode) {
+								o.Matches = append(o.Matches, string(match[1]), ag.MaskCredentialByte(match[2]))
 							}
 						}
 						if len(o.Matches) > 0 {

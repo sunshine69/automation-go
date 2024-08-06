@@ -178,19 +178,19 @@ func HelmChartValidation(chartPath string, valuesFile []string) bool {
 		u.CheckErr(err, "HelmChartValidation ReadFile")
 
 		findResIf := valuesInIfStatementPtn.FindAllSubmatch(fcontentb, -1)
-		tempListExcludeMap := map[string]interface{}{}
+		tempListExcludeMap := map[string]struct{}{}
 		for _, res := range findResIf {
-			tempListExcludeMap[string(res[1])] = nil
+			tempListExcludeMap[string(res[1])] = struct{}{}
 		}
 
 		findResDefaultFunc := valuesInDefaultFuncPtn.FindAllSubmatch(fcontentb, -1)
 		for _, res := range findResDefaultFunc {
-			tempListExcludeMap[string(res[1])] = nil
+			tempListExcludeMap[string(res[1])] = struct{}{}
 		}
 
 		findResDefaultFilter := valuesInDefaultFilterPtn.FindAllSubmatch(fcontentb, -1)
 		for _, res := range findResDefaultFilter {
-			tempListExcludeMap[string(res[1])] = nil
+			tempListExcludeMap[string(res[1])] = struct{}{}
 		}
 
 		findRes := valuesPtn.FindAllSubmatch(fcontentb, -1)
@@ -706,6 +706,13 @@ func IsLikelyPasswordOrToken(value, check_mode string) bool {
 		return hasDigit
 	case "letter-digit":
 		return hasUpper && hasLower && hasDigit
+	case "letter-digit-word":
+		dict, err := loadDictionary("words.txt", 0)
+		u.CheckErr(err, "IsLikelyPasswordOrToken loadDictionary")
+		if containsDictionaryWord(value, dict) {
+			return false
+		}
+		return hasUpper && hasLower && hasDigit
 	default:
 		return hasUpper && hasLower && hasDigit && hasSpecial
 	}
@@ -728,4 +735,45 @@ func calculateEntropy(s string) float64 {
 	}
 
 	return entropy
+}
+
+// Load dictionary words from a file and return a map for faster lookups
+func loadDictionary(filename string, word_len int) (map[string]struct{}, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	if word_len == 0 || word_len == -1 {
+		word_len = 4
+	}
+	dictionary := make(map[string]struct{})
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		word := strings.ToLower(scanner.Text())
+		if len(word) >= word_len {
+			dictionary[word] = struct{}{}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return dictionary, nil
+}
+
+// Function to check if a string contains any dictionary words using a map
+func containsDictionaryWord(s string, dictionary map[string]struct{}) bool {
+	words := strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
+		return !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9'))
+	})
+
+	for _, word := range words {
+		if _, exists := dictionary[word]; exists {
+			return true
+		}
+	}
+	return false
 }
