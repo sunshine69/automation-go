@@ -222,7 +222,7 @@ func HelmChartValidation(chartPath string, valuesFile []string) bool {
 }
 
 // MaskCredential RegexPattern
-var MaskCredentialPattern *regexp.Regexp = regexp.MustCompile(`(?i)(password|token|pass|passkey|secret|secret_key|access_key|PAT=)([:]*) [^\s]+`)
+var MaskCredentialPattern *regexp.Regexp = regexp.MustCompile(`(?i)(password|token|pass|passkey|secret|secret_key|access_key|PAT)([:=]{1,1})[\s]*[^\s]+`)
 
 // Mask all credentials pattern
 func MaskCredential(inputstr string) string {
@@ -231,7 +231,7 @@ func MaskCredential(inputstr string) string {
 
 // Mask all credentials pattern
 func MaskCredentialByte(inputbytes []byte) string {
-	return string(MaskCredentialPattern.ReplaceAll(inputbytes, []byte("*****")))
+	return string(MaskCredentialPattern.ReplaceAll(inputbytes, []byte("$1$2 *****")))
 }
 
 // Validate yaml files. Optionally return the unmarshalled object if you pass yamlobj not nil

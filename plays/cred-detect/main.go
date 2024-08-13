@@ -49,7 +49,10 @@ func main() {
 	for _, ptn := range *default_cred_regexptn {
 		cred_ptn_compiled[ptn] = regexp.MustCompile(ptn)
 	}
-
+	if res, _ := u.FileExists("words.txt"); !res {
+		_, err := u.Curl("GET", "https://github.com/dwyl/english-words/blob/master/words.txt?raw=True", "", "words.txt", []string{})
+		u.CheckErr(err, "Download")
+	}
 	filename_regexp := regexp.MustCompile(*filename_ptn)
 	excludePtn := regexp.MustCompile(*exclude)
 	if *exclude == "" {
