@@ -351,20 +351,6 @@ func TemplateString(srcString string, data map[string]interface{}) string {
 	return o
 }
 
-func MapKeysToSlice(m map[string]int) []string {
-	keys := make([]string, 0, len(m)) // Preallocate slice with the map's size
-	for key := range m {
-		keys = append(keys, key)
-	}
-	return keys
-}
-
-func IncludeVars(filename string) map[string]interface{} {
-	m := make(map[string]interface{})
-	ValidateYamlFile(filename, &m)
-	return m
-}
-
 func CreateDirTree(srcDirpath, targetRoot string) error {
 	// Path should be absolute path. They should not overlap to avoid recursive loop
 	if isExist, err := u.FileExists(srcDirpath); !isExist || err != nil {
@@ -408,14 +394,4 @@ func TemplateDirTree(srcDirpath, targetRoot string, tmplData map[string]interfac
 		return nil
 	})
 	return nil
-}
-
-// Custom JSON marshalling function
-func CustomJsonMarshal(v interface{}) ([]byte, error) {
-	converted := convertInterface(v)
-	return json.Marshal(converted)
-}
-func CustomJsonMarshalIndent(v interface{}, indent int) ([]byte, error) {
-	converted := convertInterface(v)
-	return json.MarshalIndent(converted, "", strings.Repeat(" ", indent))
 }

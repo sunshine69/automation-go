@@ -13,11 +13,26 @@ import (
 	"strings"
 	"unicode"
 
+	json "github.com/json-iterator/go"
 	u "github.com/sunshine69/golang-tools/utils"
 	"github.com/tidwall/gjson"
 	"gopkg.in/ini.v1"
 	"gopkg.in/yaml.v3"
 )
+
+func MapKeysToSlice(m map[string]int) []string {
+	keys := make([]string, 0, len(m)) // Preallocate slice with the map's size
+	for key := range m {
+		keys = append(keys, key)
+	}
+	return keys
+}
+
+func IncludeVars(filename string) map[string]interface{} {
+	m := make(map[string]interface{})
+	ValidateYamlFile(filename, &m)
+	return m
+}
 
 func ReadFirstLineOfFile(filepath string) string {
 	file, err := os.Open(filepath)
@@ -44,42 +59,6 @@ func ConvertListIfaceToListStr(in interface{}) []string {
 	}
 	return o
 }
-
-// // Function to recursively convert interface{} to JSON-compatible types
-// func convertInterface(value interface{}) interface{} {
-// 	switch v := value.(type) {
-// 	case map[interface{}]interface{}:
-// 		return convertMap(v)
-// 	case []interface{}:
-// 		return convertSlice(v)
-// 	default:
-// 		return v
-// 	}
-// }
-
-// // Function to convert map[interface{}]interface{} to map[string]interface{}
-// func convertMap(m map[interface{}]interface{}) map[string]interface{} {
-// 	newMap := make(map[string]interface{})
-// 	for key, value := range m {
-// 		strKey, ok := key.(string)
-// 		if !ok {
-// 			// Handle the case where the key is not a string
-// 			// Here, we simply skip the key-value pair
-// 			continue
-// 		}
-// 		newMap[strKey] = convertInterface(value)
-// 	}
-// 	return newMap
-// }
-
-// // Function to recursively convert slices
-// func convertSlice(s []interface{}) []interface{} {
-// 	newSlice := make([]interface{}, len(s))
-// 	for i, value := range s {
-// 		newSlice[i] = convertInterface(value)
-// 	}
-// 	return newSlice
-// }
 
 func InterfaceToStringList(in []interface{}) []string {
 	o := []string{}
@@ -776,4 +755,50 @@ func containsDictionaryWord(s string, dictionary map[string]struct{}) bool {
 		}
 	}
 	return false
+}
+
+// Function to recursively convert interface{} to JSON-compatible types
+func convertInterface(value interface{}) interface{} {
+	switch v := value.(type) {
+	case map[interface{}]interface{}:
+		return convertMap(v)
+	case []interface{}:
+		return convertSlice(v)
+	default:
+		return v
+	}
+}
+
+// Function to convert map[interface{}]interface{} to map[string]interface{}
+func convertMap(m map[interface{}]interface{}) map[string]interface{} {
+	newMap := make(map[string]interface{})
+	for key, value := range m {
+		strKey, ok := key.(string)
+		if !ok {
+			// Handle the case where the key is not a string
+			// Here, we simply skip the key-value pair
+			continue
+		}
+		newMap[strKey] = convertInterface(value)
+	}
+	return newMap
+}
+
+// Function to recursively convert slices
+func convertSlice(s []interface{}) []interface{} {
+	newSlice := make([]interface{}, len(s))
+	for i, value := range s {
+		newSlice[i] = convertInterface(value)
+	}
+	return newSlice
+}
+
+// Custom JSON marshalling function
+func CustomJsonMarshal(v interface{}) ([]byte, error) {
+	converted := convertInterface(v)
+	return json.Marshal(converted)
+}
+func CustomJsonMarshalIndent(v interface{}, indent int) ([]byte, error) {
+	converted := convertInterface(v)
+	return json.MarshalIndent(converted, "", strings.Repeat(" ", indent))
 }
