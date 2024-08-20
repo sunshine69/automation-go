@@ -653,12 +653,18 @@ func IsBinaryFileSimple(filePath string) (bool, error) {
 }
 
 // Heuristic detect if the values is likely a real password etc
-func IsLikelyPasswordOrToken(value, check_mode string) bool {
+// possible values for check_mode: letter, digit, letter+digit, letter+digit+word
+// The last one requires words_file_path to be set to a path of the words file; if the value is empty stirng then it
+// have the default value is "words.txt". You need to be sure to create the file yourself.
+// Link to download https://github.com/dwyl/english-words/blob/master/words.txt
+func IsLikelyPasswordOrToken(value, check_mode, words_file_path string) bool {
 	// Check length
 	if len(value) < 8 || len(value) > 64 {
 		return false
 	}
-
+	if words_file_path == "" {
+		words_file_path = "words.txt"
+	}
 	// Check for character variety
 	var hasDigit, hasSpecial, hasUpper, hasLower bool
 	for _, char := range value {
@@ -678,21 +684,40 @@ func IsLikelyPasswordOrToken(value, check_mode string) bool {
 		return false
 	}
 
+	var word_dict *map[string]struct{} = nil
+	hasWord := false
+	detectHasWord := func(word_dict *map[string]struct{}) (bool, *map[string]struct{}) {
+		if word_dict == nil {
+			_word_dict, err := loadDictionary(words_file_path, 0)
+			word_dict = &_word_dict
+			u.CheckErr(err, "IsLikelyPasswordOrToken loadDictionary")
+		}
+		if containsDictionaryWord(value, *word_dict) {
+			return true, word_dict
+		}
+		return false, word_dict
+	}
+
 	switch check_mode {
 	case "letter":
 		return hasUpper && hasLower
 	case "digit":
 		return hasDigit
-	case "letter-digit":
+	case "special":
+		return hasSpecial
+	case "letter+digit":
 		return hasUpper && hasLower && hasDigit
-	case "letter-digit-word":
-		dict, err := loadDictionary("words.txt", 0)
-		u.CheckErr(err, "IsLikelyPasswordOrToken loadDictionary")
-		if containsDictionaryWord(value, dict) {
+	case "letter+digit+word":
+		hasWord, _ = detectHasWord(word_dict)
+		if hasWord {
 			return false
 		}
 		return hasUpper && hasLower && hasDigit
 	default:
+		hasWord, _ = detectHasWord(word_dict)
+		if hasWord {
+			return false
+		}
 		return hasUpper && hasLower && hasDigit && hasSpecial
 	}
 

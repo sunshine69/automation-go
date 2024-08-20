@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/spf13/pflag"
 	ag "github.com/sunshine69/automation-go/lib"
@@ -32,7 +33,9 @@ func main() {
 	exclude := optFlag.StringP("exclude", "e", "", "Exclude file name pattern")
 	defaultExclude := optFlag.StringP("defaultexclude", "d", `^(\.git|.*\.zip|.*\.gz|.*\.xz|.*\.bz2|.*\.zstd|.*\.7z|.*\.dll|.*\.iso|.*\.bin|.*\.tar|.*\.exe)$`, "Default exclude pattern. Set it to empty string if you need to")
 	skipBinary := optFlag.BoolP("skipbinary", "y", false, "Skip binary file")
-	password_check_mode := optFlag.String("check-mode", "letter-digit-word", "Password check mod, see function IsLikelyPasswordOrToken for list of allowed values. The default one requires a file words.txt in the current directory. Link to download https://github.com/dwyl/english-words/blob/master/words.txt")
+	password_check_mode := optFlag.String("check-mode", "letter+digit+word", "Password check mode. List of allowed values: letter, digit, special, letter+digit, letter+digit+word, all. The default value (letter+digit+word) requires a file /tmp/words.txt; it will automatically download it if it does not exist. Link to download https://github.com/dwyl/english-words/blob/master/words.txt . It describes what it looks like a password for example if the value is 'letter' means any random ascii letter can be treated as password and will be reported. Same for others, eg, letter+digit+word means value has letter, digit and NOT looks like English word will be treated as password. Value 'all' is like letter+digit+special ")
+	words_list_url := optFlag.String("words-list-url", "https://raw.githubusercontent.com/dwyl/english-words/master/words.txt", "Word list url to download")
+
 	// debug := optFlag.Bool("debug", false, "Enable debugging")
 
 	file_path := os.Args[1]
@@ -45,14 +48,19 @@ func main() {
 	if len(*cred_regexptn) > 0 {
 		*default_cred_regexptn = append(*default_cred_regexptn, *cred_regexptn...)
 	}
+
+	if strings.Contains(*password_check_mode, "word") {
+		if res, _ := u.FileExists("/tmp/words.txt"); !res {
+			fmt.Println("Downloading words.txt")
+			u.Curl("GET", *words_list_url, "", "/tmp/words.txt", []string{})
+		}
+	}
+
 	cred_ptn_compiled := map[string]*regexp.Regexp{}
 	for _, ptn := range *default_cred_regexptn {
 		cred_ptn_compiled[ptn] = regexp.MustCompile(ptn)
 	}
-	if res, _ := u.FileExists("words.txt"); !res {
-		_, err := u.Curl("GET", "https://github.com/dwyl/english-words/blob/master/words.txt?raw=True", "", "words.txt", []string{})
-		u.CheckErr(err, "Download")
-	}
+
 	filename_regexp := regexp.MustCompile(*filename_ptn)
 	excludePtn := regexp.MustCompile(*exclude)
 	if *exclude == "" {
@@ -114,7 +122,7 @@ func main() {
 						}
 						for _, match := range matches {
 							passVal := string(match[2])
-							if len(match) > 1 && ag.IsLikelyPasswordOrToken(passVal, *password_check_mode) {
+							if len(match) > 1 && ag.IsLikelyPasswordOrToken(passVal, *password_check_mode, "/tmp/words.txt") {
 								o.Matches = append(o.Matches, string(match[1]), ag.MaskCredentialByte(match[2]))
 							}
 						}
