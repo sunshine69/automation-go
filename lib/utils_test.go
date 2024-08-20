@@ -3,10 +3,9 @@ package lib
 import (
 	"fmt"
 	"os"
+	"regexp"
 
 	"testing"
-
-	u "github.com/sunshine69/golang-tools/utils"
 )
 
 var project_dir string
@@ -37,15 +36,18 @@ func TestAddhoc(t *testing.T) {
 	// str2 := re.ReplaceAllStringFunc(str, repl)
 	// fmt.Println(str2)
 
-	err, changed := LineInFile("/home/stevek/tmp/hosts", &LineInfileOpt{
-		// Insertafter: "NOT FOUND",
-		// Search_string: "127.0.0.1",
-		Regexp: `127\.0\.[01]\.1`,
-		// Line:  "new data here",
-		State: "absent",
-	})
-	u.CheckErr(err, "")
-	fmt.Printf("Likely a password: %v\n", IsLikelyPasswordOrToken("DUMMY", ""))
-	fmt.Println(changed)
+	// err, changed := LineInFile("/home/stevek/tmp/hosts", &LineInfileOpt{
+	// 	// Insertafter: "NOT FOUND",
+	// 	// Search_string: "127.0.0.1",
+	// 	Regexp: `127\.0\.[01]\.1`,
+	// 	// Line:  "new data here",
+	// 	State: "absent",
+	// })
+	// u.CheckErr(err, "")
+	fmt.Printf("Likely a password: %v\n", IsLikelyPasswordOrToken("QweIop!@%644!", "letter+digit+word", "/tmp/words.txt"))
+	// fmt.Println(changed)
+	ptn := regexp.MustCompile(`(?i)['"]?(password|passwd|token|api_key|secret)['"]?[=:]?[\s]*?['"]?([^'"\s]+)['"]?`)
+	matches := ptn.FindAllStringSubmatch(`Password 7-Pk6&u3clD$*J8Tr_Vx)17Z&9M6SCt_`, -1)
+	fmt.Printf("%v\n", matches)
 	fmt.Println("Done test")
 }

@@ -660,6 +660,7 @@ func IsBinaryFileSimple(filePath string) (bool, error) {
 func IsLikelyPasswordOrToken(value, check_mode, words_file_path string) bool {
 	// Check length
 	if len(value) < 8 || len(value) > 64 {
+		// fmt.Printf("[WARN] Skipping %s as len is not > 8 and < 64\n", value)
 		return false
 	}
 	if words_file_path == "" {
@@ -679,7 +680,7 @@ func IsLikelyPasswordOrToken(value, check_mode, words_file_path string) bool {
 			hasSpecial = true
 		}
 	}
-	const entropyThreshold = 3.0
+	const entropyThreshold = 2.0
 	if entropy := calculateEntropy(value); entropy < entropyThreshold {
 		return false
 	}
