@@ -44,10 +44,10 @@ func TestAddhoc(t *testing.T) {
 	// 	State: "absent",
 	// })
 	// u.CheckErr(err, "")
-	fmt.Printf("Likely a password: %v\n", IsLikelyPasswordOrToken("QweIop!@%644!", "letter+digit+word", "/tmp/words.txt"))
+	fmt.Printf("Likely a password: %v\n", IsLikelyPasswordOrToken("SecurePass123!", "letter+digit+word", "/tmp/words.txt", 2))
 	// fmt.Println(changed)
-	ptn := regexp.MustCompile(`(?i)['"]?(password|passwd|token|api_key|secret)['"]?[=:]?[\s]*?['"]?([^'"\s]+)['"]?`)
-	matches := ptn.FindAllStringSubmatch(`Password 7-Pk6&u3clD$*J8Tr_Vx)17Z&9M6SCt_`, -1)
-	fmt.Printf("%v\n", matches)
+	ptn := regexp.MustCompile(`(?i)['"]?(password|passwd|token|api_key|secret)['"]?[=:\s][\s]*?['"]?([^'"\s]+)['"]?`)
+	matches := ptn.FindAllStringSubmatch(`<PkgAWSSDK_SecurityToken Condition=" '$(PkgAWSSDK_SecurityToken)' == '' ">/home/sitsxk5/.nuget/packages/awssdk.securitytoken/3.7.100.14</PkgAWSSDK_SecurityToken>`, -1)
+	fmt.Printf("%q\n", matches)
 	fmt.Println("Done test")
 }

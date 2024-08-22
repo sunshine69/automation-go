@@ -22,7 +22,7 @@ import (
 // }
 
 var Credential_patterns = []string{
-	`(?i)['"]?(password|passwd|token|api_key|secret)['"]?[=:]?[\s]*?['"]?([^'"\s]+)['"]?`,
+	`(?i)['"]?(password|passwd|token|api_key|secret)['"]?[=:\s][\s]*?['"]?([^'"\s]+)['"]?`,
 }
 
 func main() {
@@ -123,7 +123,7 @@ func main() {
 						for _, match := range matches {
 							fmt.Printf("%s - %s\n", string(match[1]), string(match[2]))
 							passVal := string(match[2])
-							if len(match) > 1 && ag.IsLikelyPasswordOrToken(passVal, *password_check_mode, "/tmp/words.txt") {
+							if len(match) > 1 && ag.IsLikelyPasswordOrToken(passVal, *password_check_mode, "/tmp/words.txt", 0) {
 								o.Matches = append(o.Matches, string(match[1]), ag.MaskCredentialByte(match[2]))
 							}
 						}
