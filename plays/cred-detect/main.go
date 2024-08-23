@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -33,31 +34,35 @@ type OutputFmt struct {
 	Matches []string
 }
 
-func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch []string, cred_ptn_compiled map[string]*regexp.Regexp, password_check_mode, words_file_path string, entropy_threshold float64, output_chan chan<- OutputFmt, log_chan chan<- string, debug bool) {
+func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileInfo, cred_ptn_compiled map[string]*regexp.Regexp, password_check_mode, words_file_path string, entropy_threshold float64, output_chan chan<- OutputFmt, log_chan chan<- string, debug bool) {
 	defer wg.Done()
 
 	newline_byte := []byte("\n")
-	for _, path := range fileBatch {
-		datab, err := os.ReadFile(path)
-		if err1 := u.CheckErrNonFatal(err, "ReadFile "+path); err1 != nil {
+	for fpath, finfo := range fileBatch {
+		datab, err := os.ReadFile(fpath)
+		if err1 := u.CheckErrNonFatal(err, "ReadFile "+fpath); err1 != nil {
 			log_chan <- err1.Error()
 		}
 		datalines := bytes.Split(datab, newline_byte)
+		if strings.HasSuffix(path.Ext(finfo.Name()), "js") && len(datalines) < 10 && finfo.Size() >= 1000 { // Skip as it is likely js minified file
+			continue
+		}
 		for idx, data := range datalines {
 			for ptnStr, ptn := range cred_ptn_compiled {
 				matches := ptn.FindAllSubmatch(data, -1)
-				if len(matches) > 1 {
+				if len(matches) > 0 {
 					o := OutputFmt{
-						File:    path,
+						File:    fpath,
 						Line_no: idx,
 						Pattern: ptnStr,
 						Matches: []string{},
 					}
 					for _, match := range matches {
 						if debug {
-							log_chan <- fmt.Sprintf("%s:%d - %s: %s\n", path, idx, string(match[1]), string(match[2]))
+							log_chan <- fmt.Sprintf("%s:%d - %s: %s", fpath, idx, string(match[1]), string(match[2]))
 						}
 						passVal := string(match[2])
+
 						if len(match) > 1 && ag.IsLikelyPasswordOrToken(passVal, password_check_mode, words_file_path, entropy_threshold) {
 							if debug {
 								o.Matches = append(o.Matches, string(match[1]), string(match[2]))
@@ -81,9 +86,10 @@ func main() {
 	default_cred_regexptn := optFlag.StringArrayP("default-regexp", "p", Credential_patterns, "Default list of crec pattern.")
 	filename_ptn := optFlag.StringP("fptn", "f", ".*", "Filename regex pattern")
 	exclude := optFlag.StringP("exclude", "e", "", "Exclude file name pattern")
+	path_exclude := optFlag.String("path-exclude", "", "File Path to Exclude pattern")
 	defaultExclude := optFlag.StringP("defaultexclude", "d", `^(\.git|.*\.zip|.*\.gz|.*\.xz|.*\.bz2|.*\.zstd|.*\.7z|.*\.dll|.*\.iso|.*\.bin|.*\.tar|.*\.exe)$`, "Default exclude pattern. Set it to empty string if you need to")
-	skipBinary := optFlag.BoolP("skipbinary", "y", false, "Skip binary file")
-	password_check_mode := optFlag.String("check-mode", "letter+digit+word", "Password check mode. List of allowed values: letter, digit, special, letter+digit, letter+digit+word, all. The default value (letter+digit+word) requires a file /tmp/words.txt; it will automatically download it if it does not exist. Link to download https://github.com/dwyl/english-words/blob/master/words.txt . It describes what it looks like a password for example if the value is 'letter' means any random ascii letter can be treated as password and will be reported. Same for others, eg, letter+digit+word means value has letter, digit and NOT looks like English word will be treated as password. Value 'all' is like letter+digit+special ")
+	skipBinary := optFlag.BoolP("skipbinary", "y", true, "Skip binary file")
+	password_check_mode := optFlag.String("check-mode", "letter+word", "Password check mode. List of allowed values: letter, digit, special, letter+digit, letter+digit+word, all. The default value (letter+digit+word) requires a file /tmp/words.txt; it will automatically download it if it does not exist. Link to download https://github.com/dwyl/english-words/blob/master/words.txt . It describes what it looks like a password for example if the value is 'letter' means any random ascii letter can be treated as password and will be reported. Same for others, eg, letter+digit+word means value has letter, digit and NOT looks like English word will be treated as password. Value 'all' is like letter+digit+special ")
 	words_list_url := optFlag.String("words-list-url", "https://raw.githubusercontent.com/dwyl/english-words/master/words.txt", "Word list url to download")
 
 	debug := optFlag.Bool("debug", false, "Enable debugging")
@@ -121,6 +127,11 @@ func main() {
 		defaultExcludePtn = nil
 	}
 
+	var path_exclude_ptn *regexp.Regexp = nil
+	if *path_exclude != "" {
+		path_exclude_ptn = regexp.MustCompile(*path_exclude)
+	}
+
 	output := map[string]OutputFmt{}
 	logs := []string{}
 	var wg sync.WaitGroup
@@ -128,61 +139,71 @@ func main() {
 	log_chan := make(chan string)
 	// Setup the harvest worker
 	go func(output *map[string]OutputFmt, logs *[]string, output_chan <-chan OutputFmt, log_chan <-chan string) {
-		var morelog, moredata bool
-		var msg string
-		var out OutputFmt
 		for {
 			select {
-			case msg, morelog = <-log_chan:
+			case msg, morelog := <-log_chan:
 				*logs = append(*logs, msg)
-			case out, moredata = <-output_chan:
+				if !morelog {
+					log_chan = nil
+				}
+			case out, moredata := <-output_chan:
 				if out.File != "" {
 					(*output)[out.File] = out
 				}
-			default:
-				if !morelog && !moredata {
-					break
+				if !moredata {
+					output_chan = nil
 				}
+			}
+			if log_chan == nil && output_chan == nil {
+				// use like this might not be needed as after wg is done the main thread go ahead and print out thigns and then quit, this go routine will be gone too
+				// however it looks better to close channel and then break here
+				fmt.Fprintln(os.Stderr, "Channels closed, quit harvestor")
+				break
 			}
 		}
 	}(&output, &logs, output_chan, log_chan)
 	// 10 is fastest
 	batchSize := 10
-	filesBatch := []string{}
+	filesBatch := map[string]fs.FileInfo{}
 
-	err1 := filepath.Walk(file_path, func(path string, info fs.FileInfo, err error) error {
+	err1 := filepath.Walk(file_path, func(fpath string, info fs.FileInfo, err error) error {
+		fmt.Fprintf(os.Stderr, "File: %s\n", fpath)
 		if err != nil {
-			fmt.Println(err.Error())
+			fmt.Fprintln(os.Stderr, err.Error())
 			return nil
+		}
+		if path_exclude_ptn != nil {
+			if path_exclude_ptn.MatchString(fpath) {
+				fmt.Fprintf(os.Stderr, "SKIP PATH %s\n", fpath)
+				return nil
+			}
 		}
 		fname := info.Name()
 		if info.IsDir() && ((excludePtn != nil && excludePtn.MatchString(fname)) || (defaultExcludePtn != nil && defaultExcludePtn.MatchString(fname))) {
+			fmt.Fprintf(os.Stderr, "SKIP DIR %s\n", fpath)
 			return filepath.SkipDir
 		}
 		// Check if the file matches the pattern
 
 		if !info.IsDir() && filename_regexp.MatchString(fname) && ((excludePtn == nil) || (excludePtn != nil && !excludePtn.MatchString(fname))) && ((defaultExcludePtn == nil) || (defaultExcludePtn != nil && !defaultExcludePtn.MatchString(fname))) {
 			if *skipBinary {
-				isbin, err := ag.IsBinaryFileSimple(path)
+				isbin, err := ag.IsBinaryFileSimple(fpath)
 				if (err == nil) && isbin {
+					fmt.Fprintf(os.Stderr, "SKIP BIN %s\n", fpath)
 					return nil
 				}
 			}
 
-			finfo, err := os.Stat(path)
-			if err1 := u.CheckErrNonFatal(err, "LineInFile Stat"); err1 != nil {
-				return nil
-			}
-			fmode := finfo.Mode()
+			fmode := info.Mode()
 			if !(fmode.IsRegular()) {
 				return nil
 			}
 			if len(filesBatch) < batchSize {
-				filesBatch = append(filesBatch, path)
+				filesBatch[fpath] = info
 			} else {
 				wg.Add(1)
 				go cred_detect_ProcessFiles(&wg, filesBatch, cred_ptn_compiled, *password_check_mode, "/tmp/words.txt", 0, output_chan, log_chan, *debug)
-				filesBatch = []string{}
+				filesBatch = map[string]fs.FileInfo{}
 			}
 		}
 		return nil
@@ -201,7 +222,7 @@ func main() {
 		panic(err1.Error())
 	}
 	if len(logs) > 0 {
-		fmt.Println(strings.Join(logs, "\n"))
+		fmt.Fprintln(os.Stderr, strings.Join(logs, "\n"))
 	}
 	if len(output) > 0 {
 		fmt.Printf("%s\n", u.JsonDump(output, "     "))

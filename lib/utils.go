@@ -717,6 +717,12 @@ func IsLikelyPasswordOrToken(value, check_mode, words_file_path string, entropy_
 		return hasSpecial
 	case "letter+digit":
 		return hasUpper && hasLower && hasDigit
+	case "letter+word":
+		hasWord, _ = detectHasWord(word_dict)
+		if hasWord {
+			return false
+		}
+		return hasUpper && hasLower
 	case "letter+digit+word":
 		hasWord, _ = detectHasWord(word_dict)
 		if hasWord {
@@ -785,6 +791,9 @@ func containsDictionaryWord(s string, dictionary map[string]struct{}) bool {
 	})
 
 	for _, word := range words {
+		if len(word) < 5 {
+			return false
+		}
 		if _, exists := dictionary[word]; exists {
 			return true
 		}
