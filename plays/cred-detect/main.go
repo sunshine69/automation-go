@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -37,19 +37,19 @@ type OutputFmt struct {
 func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileInfo, cred_ptn_compiled map[string]*regexp.Regexp, password_check_mode, words_file_path string, entropy_threshold float64, output_chan chan<- OutputFmt, log_chan chan<- string, debug bool) {
 	defer wg.Done()
 
-	newline_byte := []byte("\n")
+	// newline_byte := []byte("\n")
 	for fpath, finfo := range fileBatch {
 		datab, err := os.ReadFile(fpath)
 		if err1 := u.CheckErrNonFatal(err, "ReadFile "+fpath); err1 != nil {
 			log_chan <- err1.Error()
 		}
-		datalines := bytes.Split(datab, newline_byte)
+		datalines := strings.Split(string(datab), "\n")
 		if strings.HasSuffix(path.Ext(finfo.Name()), "js") && len(datalines) < 10 && finfo.Size() >= 1000 { // Skip as it is likely js minified file
 			continue
 		}
 		for idx, data := range datalines {
 			for ptnStr, ptn := range cred_ptn_compiled {
-				matches := ptn.FindAllSubmatch(data, -1)
+				matches := ptn.FindAllStringSubmatch(data, -1)
 				if len(matches) > 0 {
 					o := OutputFmt{
 						File:    fpath,
@@ -59,15 +59,14 @@ func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileIn
 					}
 					for _, match := range matches {
 						if debug {
-							log_chan <- fmt.Sprintf("%s:%d - %s: %s", fpath, idx, string(match[1]), string(match[2]))
+							log_chan <- fmt.Sprintf("%s:%d - %s: %s", fpath, idx, match[1], match[2])
 						}
-						passVal := string(match[2])
 
-						if len(match) > 1 && ag.IsLikelyPasswordOrToken(passVal, password_check_mode, words_file_path, entropy_threshold) {
+						if len(match) > 1 && ag.IsLikelyPasswordOrToken(match[2], password_check_mode, words_file_path, entropy_threshold) {
 							if debug {
-								o.Matches = append(o.Matches, string(match[1]), string(match[2]))
+								o.Matches = append(o.Matches, match[1], match[2])
 							} else {
-								o.Matches = append(o.Matches, string(match[1]), "*****")
+								o.Matches = append(o.Matches, match[1], "*****")
 							}
 						}
 					}
@@ -167,7 +166,6 @@ func main() {
 	filesBatch := map[string]fs.FileInfo{}
 
 	err1 := filepath.Walk(file_path, func(fpath string, info fs.FileInfo, err error) error {
-		fmt.Fprintf(os.Stderr, "File: %s\n", fpath)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err.Error())
 			return nil
@@ -225,7 +223,11 @@ func main() {
 		fmt.Fprintln(os.Stderr, strings.Join(logs, "\n"))
 	}
 	if len(output) > 0 {
-		fmt.Printf("%s\n", u.JsonDump(output, "     "))
+		// fmt.Printf("%s\n", u.JsonDump(output, "     "))
+		je := json.NewEncoder(os.Stdout)
+		je.SetEscapeHTML(false) // prevent < or > to be backspace like \uXXXX
+		je.SetIndent("", "  ")
+		je.Encode(output)
 		os.Exit(1)
 	}
 }
