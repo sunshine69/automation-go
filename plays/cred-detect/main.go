@@ -127,7 +127,7 @@ func main() {
 	output_chan := make(chan OutputFmt)
 	log_chan := make(chan string)
 	// Setup the harvest worker
-	go func(output *map[string]OutputFmt, logs *[]string, output_chan chan OutputFmt, log_chan chan string) {
+	go func(output *map[string]OutputFmt, logs *[]string, output_chan <-chan OutputFmt, log_chan <-chan string) {
 		var morelog, moredata bool
 		var msg string
 		var out OutputFmt
