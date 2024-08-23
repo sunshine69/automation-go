@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/spf13/pflag"
 	ag "github.com/sunshine69/automation-go/lib"
@@ -25,8 +26,53 @@ var Credential_patterns = []string{
 	`(?i)['"]?(password|passwd|token|api_key|secret)['"]?[=:\s][\s]*?['"]?([^'"\s]+)['"]?`,
 }
 
-func cred_detect_ProcessLines() {
+type OutputFmt struct {
+	File    string
+	Line_no int
+	Pattern string
+	Matches []string
+}
 
+func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch []string, cred_ptn_compiled map[string]*regexp.Regexp, password_check_mode, words_file_path string, entropy_threshold float64, output_chan chan<- OutputFmt, log_chan chan<- string, debug bool) {
+	defer wg.Done()
+
+	newline_byte := []byte("\n")
+	for _, path := range fileBatch {
+		datab, err := os.ReadFile(path)
+		if err1 := u.CheckErrNonFatal(err, "ReadFile "+path); err1 != nil {
+			log_chan <- err1.Error()
+		}
+		datalines := bytes.Split(datab, newline_byte)
+		for idx, data := range datalines {
+			for ptnStr, ptn := range cred_ptn_compiled {
+				matches := ptn.FindAllSubmatch(data, -1)
+				if len(matches) > 1 {
+					o := OutputFmt{
+						File:    path,
+						Line_no: idx,
+						Pattern: ptnStr,
+						Matches: []string{},
+					}
+					for _, match := range matches {
+						if debug {
+							log_chan <- fmt.Sprintf("%s:%d - %s: %s\n", path, idx, string(match[1]), string(match[2]))
+						}
+						passVal := string(match[2])
+						if len(match) > 1 && ag.IsLikelyPasswordOrToken(passVal, password_check_mode, words_file_path, entropy_threshold) {
+							if debug {
+								o.Matches = append(o.Matches, string(match[1]), string(match[2]))
+							} else {
+								o.Matches = append(o.Matches, string(match[1]), "*****")
+							}
+						}
+					}
+					if len(o.Matches) > 0 && o.File != "" {
+						output_chan <- o
+					}
+				}
+			}
+		}
+	}
 }
 
 func main() {
@@ -74,13 +120,35 @@ func main() {
 	if *defaultExclude == "" {
 		defaultExcludePtn = nil
 	}
-	type OutputFmt struct {
-		Line_no int
-		Pattern string
-		Matches []string
-	}
+
 	output := map[string]OutputFmt{}
-	newline_byte := []byte("\n")
+	logs := []string{}
+	var wg sync.WaitGroup
+	output_chan := make(chan OutputFmt)
+	log_chan := make(chan string)
+	// Setup the harvest worker
+	go func(output *map[string]OutputFmt, logs *[]string, output_chan chan OutputFmt, log_chan chan string) {
+		var morelog, moredata bool
+		var msg string
+		var out OutputFmt
+		for {
+			select {
+			case msg, morelog = <-log_chan:
+				*logs = append(*logs, msg)
+			case out, moredata = <-output_chan:
+				if out.File != "" {
+					(*output)[out.File] = out
+				}
+			default:
+				if !morelog && !moredata {
+					break
+				}
+			}
+		}
+	}(&output, &logs, output_chan, log_chan)
+	// 10 is fastest
+	batchSize := 10
+	filesBatch := []string{}
 
 	err1 := filepath.Walk(file_path, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
@@ -109,45 +177,31 @@ func main() {
 			if !(fmode.IsRegular()) {
 				return nil
 			}
-
-			datab, err := os.ReadFile(path)
-			if err1 := u.CheckErrNonFatal(err, "ReadFile "+path); err1 != nil {
-				return nil
-			}
-			datalines := bytes.Split(datab, newline_byte)
-			for idx, data := range datalines {
-				for ptnStr, ptn := range cred_ptn_compiled {
-					matches := ptn.FindAllSubmatch(data, -1)
-					if len(matches) > 1 {
-						o := OutputFmt{
-							Line_no: idx,
-							Pattern: ptnStr,
-							Matches: []string{},
-						}
-						for _, match := range matches {
-							if *debug {
-								fmt.Printf("%s:%d - %s: %s\n", path, idx, string(match[1]), string(match[2]))
-							}
-							passVal := string(match[2])
-							if len(match) > 1 && ag.IsLikelyPasswordOrToken(passVal, *password_check_mode, "/tmp/words.txt", 0) {
-								if *debug {
-									o.Matches = append(o.Matches, string(match[1]), string(match[2]))
-								} else {
-									o.Matches = append(o.Matches, string(match[1]), "*****")
-								}
-							}
-						}
-						if len(o.Matches) > 0 {
-							output[path] = o
-						}
-					}
-				}
+			if len(filesBatch) < batchSize {
+				filesBatch = append(filesBatch, path)
+			} else {
+				wg.Add(1)
+				go cred_detect_ProcessFiles(&wg, filesBatch, cred_ptn_compiled, *password_check_mode, "/tmp/words.txt", 0, output_chan, log_chan, *debug)
+				filesBatch = []string{}
 			}
 		}
 		return nil
 	})
+
+	if len(filesBatch) > 0 { // Last batch
+		wg.Add(1)
+		go cred_detect_ProcessFiles(&wg, filesBatch, cred_ptn_compiled, *password_check_mode, "/tmp/words.txt", 0, output_chan, log_chan, *debug)
+	}
+
+	wg.Wait()
+	close(log_chan)
+	close(output_chan)
+
 	if err1 != nil {
 		panic(err1.Error())
+	}
+	if len(logs) > 0 {
+		fmt.Println(strings.Join(logs, "\n"))
 	}
 	if len(output) > 0 {
 		fmt.Printf("%s\n", u.JsonDump(output, "     "))
