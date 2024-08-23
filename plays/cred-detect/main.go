@@ -25,6 +25,10 @@ var Credential_patterns = []string{
 	`(?i)['"]?(password|passwd|token|api_key|secret)['"]?[=:\s][\s]*?['"]?([^'"\s]+)['"]?`,
 }
 
+func cred_detect_ProcessLines() {
+
+}
+
 func main() {
 	optFlag := pflag.NewFlagSet("opt", pflag.ExitOnError)
 	cred_regexptn := optFlag.StringArrayP("regexp", "r", []string{}, "List pattern to detect credential values")
@@ -36,7 +40,7 @@ func main() {
 	password_check_mode := optFlag.String("check-mode", "letter+digit+word", "Password check mode. List of allowed values: letter, digit, special, letter+digit, letter+digit+word, all. The default value (letter+digit+word) requires a file /tmp/words.txt; it will automatically download it if it does not exist. Link to download https://github.com/dwyl/english-words/blob/master/words.txt . It describes what it looks like a password for example if the value is 'letter' means any random ascii letter can be treated as password and will be reported. Same for others, eg, letter+digit+word means value has letter, digit and NOT looks like English word will be treated as password. Value 'all' is like letter+digit+special ")
 	words_list_url := optFlag.String("words-list-url", "https://raw.githubusercontent.com/dwyl/english-words/master/words.txt", "Word list url to download")
 
-	// debug := optFlag.Bool("debug", false, "Enable debugging")
+	debug := optFlag.Bool("debug", false, "Enable debugging")
 
 	file_path := os.Args[1]
 	optFlag.Usage = func() {
@@ -121,10 +125,16 @@ func main() {
 							Matches: []string{},
 						}
 						for _, match := range matches {
-							fmt.Printf("%s - %s\n", string(match[1]), string(match[2]))
+							if *debug {
+								fmt.Printf("%s:%d - %s: %s\n", path, idx, string(match[1]), string(match[2]))
+							}
 							passVal := string(match[2])
 							if len(match) > 1 && ag.IsLikelyPasswordOrToken(passVal, *password_check_mode, "/tmp/words.txt", 0) {
-								o.Matches = append(o.Matches, string(match[1]), ag.MaskCredentialByte(match[2]))
+								if *debug {
+									o.Matches = append(o.Matches, string(match[1]), string(match[2]))
+								} else {
+									o.Matches = append(o.Matches, string(match[1]), "*****")
+								}
 							}
 						}
 						if len(o.Matches) > 0 {
@@ -139,5 +149,8 @@ func main() {
 	if err1 != nil {
 		panic(err1.Error())
 	}
-	fmt.Printf("%s\n", u.JsonDump(output, "     "))
+	if len(output) > 0 {
+		fmt.Printf("%s\n", u.JsonDump(output, "     "))
+		os.Exit(1)
+	}
 }

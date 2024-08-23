@@ -654,9 +654,16 @@ func IsBinaryFileSimple(filePath string) (bool, error) {
 
 // Heuristic detect if the values is likely a real password etc
 // possible values for check_mode: letter, digit, letter+digit, letter+digit+word
-// The last one requires words_file_path to be set to a path of the words file; if the value is empty stirng then it
+// if any other values it will be the same effect as letter+digit+word+special
+// if you provide `letter` means the function will detect letter(s) in the value AND as long as it is greater than the
+// entropy_threshold level it will return true
+// Same `letter+digit` - the value must contain at least letter and digit so on
+// word means if the value is an english word it return false (not 100% if entropy is high it might return true)
+// The word check requires `words_file_path` to be set to a path of the words file; if the value is empty string then it
 // have the default value is "words.txt". You need to be sure to create the file yourself.
 // Link to download https://github.com/dwyl/english-words/blob/master/words.txt
+// These rules to reduce the false positive detection as people might put there as an example of password rather then real password,
+// we only want to spot out real password.
 func IsLikelyPasswordOrToken(value, check_mode, words_file_path string, entropy_threshold float64) bool {
 	// Check length
 	if len(value) < 6 || len(value) > 64 {
@@ -680,8 +687,10 @@ func IsLikelyPasswordOrToken(value, check_mode, words_file_path string, entropy_
 			hasSpecial = true
 		}
 	}
-	if entropy_threshold == 0 { entropy_threshold = 2.5 }
-	if entropy := calculateEntropy(value); entropy < entropy_threshold {
+	if entropy_threshold == 0 {
+		entropy_threshold = 2.5
+	}
+	if entropy := calculateEntropy(value); entropy <= entropy_threshold {
 		return false
 	}
 
