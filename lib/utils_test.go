@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"regexp"
-	"strings"
 	"testing"
 )
 
@@ -46,12 +45,12 @@ func TestAddhoc(t *testing.T) {
 	// u.CheckErr(err, "")
 	// words, _ := loadDictionary("/tmp/words", 0)
 
-	words := strings.FieldsFunc(strings.ToLower("#A<V_$AvQ{Yj!Y"), func(r rune) bool {
-		return !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9'))
-	})
-	fmt.Printf("%v\n", words)
+	// words := strings.FieldsFunc(strings.ToLower("#A<V_$AvQ{Yj!Y"), func(r rune) bool {
+	// 	return !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9'))
+	// })
+	// fmt.Printf("%v\n", words)
 
-	fmt.Printf("Likely a password: %v\n", IsLikelyPasswordOrToken("#A<V_$AvQ{Yj!Y", "letter+word", "/tmp/words.txt", 2.5))
+	fmt.Printf("Likely a password: %v\n", IsLikelyPasswordOrToken("b03f5f7f11d50a3a", "letter+word", "/tmp/words.txt", 0, 1))
 	// fmt.Println(changed)
 	ptn := regexp.MustCompile(`(?i)['"]?(password|passwd|token|api_key|secret)['"]?[=:\s][\s]*?['"]?([^'"\s]+)['"]?`)
 	matches := ptn.FindAllStringSubmatch(`PublicKeyToken=null</TypeInfo>`, -1)

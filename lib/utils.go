@@ -664,7 +664,7 @@ func IsBinaryFileSimple(filePath string) (bool, error) {
 // Link to download https://github.com/dwyl/english-words/blob/master/words.txt
 // These rules to reduce the false positive detection as people might put there as an example of password rather then real password,
 // we only want to spot out real password.
-func IsLikelyPasswordOrToken(value, check_mode, words_file_path string, entropy_threshold float64) bool {
+func IsLikelyPasswordOrToken(value, check_mode, words_file_path string, word_len int, entropy_threshold float64) bool {
 	// Check length
 	if len(value) < 6 || len(value) > 64 {
 		// fmt.Printf("[WARN] Skipping %s as len is not > 8 and < 64\n", value)
@@ -672,6 +672,9 @@ func IsLikelyPasswordOrToken(value, check_mode, words_file_path string, entropy_
 	}
 	if words_file_path == "" {
 		words_file_path = "words.txt"
+	}
+	if word_len == 0 {
+		word_len = 4
 	}
 	// Check for character variety
 	var hasDigit, hasSpecial, hasUpper, hasLower bool
@@ -698,11 +701,12 @@ func IsLikelyPasswordOrToken(value, check_mode, words_file_path string, entropy_
 	hasWord := false
 	detectHasWord := func(word_dict *map[string]struct{}) (bool, *map[string]struct{}) {
 		if word_dict == nil {
-			_word_dict, err := loadDictionary(words_file_path, 0)
+			_word_dict, err := loadDictionary(words_file_path, word_len)
+			// cache word_dict
 			word_dict = &_word_dict
 			u.CheckErr(err, "IsLikelyPasswordOrToken loadDictionary")
 		}
-		if containsDictionaryWord(value, *word_dict) {
+		if ContainsDictionaryWord(value, *word_dict) {
 			return true, word_dict
 		}
 		return false, word_dict
@@ -785,19 +789,19 @@ func loadDictionary(filename string, word_len int) (map[string]struct{}, error) 
 }
 
 // Function to check if a string contains any dictionary words using a map
-func containsDictionaryWord(s string, dictionary map[string]struct{}) bool {
+func ContainsDictionaryWord(s string, dictionary map[string]struct{}) bool {
 	words := strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
 		return !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9'))
 	})
 
+	words = append(words, CamelCaseToWords(s)...)
+
 	for _, word := range words {
-		if len(word) < 5 {
-			return false
-		}
 		if _, exists := dictionary[word]; exists {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -845,4 +849,23 @@ func CustomJsonMarshal(v interface{}) ([]byte, error) {
 func CustomJsonMarshalIndent(v interface{}, indent int) ([]byte, error) {
 	converted := convertInterface(v)
 	return json.MarshalIndent(converted, "", strings.Repeat(" ", indent))
+}
+
+// CamelCaseToWords converts a camel case string into a list of words.
+func CamelCaseToWords(s string) []string {
+	var words []string
+	runes := []rune(s)
+	start := 0
+
+	for i := 1; i < len(runes); i++ {
+		if unicode.IsUpper(runes[i]) {
+			words = append(words, string(runes[start:i]))
+			start = i
+		}
+	}
+
+	// Add the last word
+	words = append(words, string(runes[start:]))
+
+	return words
 }
