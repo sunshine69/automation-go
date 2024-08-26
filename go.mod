@@ -12,6 +12,7 @@ require (
 )
 
 require (
+	github.com/deckarep/golang-set/v2 v2.6.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect

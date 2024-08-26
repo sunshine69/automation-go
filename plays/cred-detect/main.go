@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/spf13/pflag"
 	ag "github.com/sunshine69/automation-go/lib"
 	u "github.com/sunshine69/golang-tools/utils"
@@ -34,10 +35,29 @@ type OutputFmt struct {
 	Matches []string
 }
 
+// loadProfile to load a existing previous run output into map and used it to compare this run against. The comparison is in
+func loadProfile(filename string) (output map[string]OutputFmt, err error) {
+	datab, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(datab, &output)
+	return output, err
+}
+
+// cred_detect_ProcessFiles to process a batch of files to detect credential pattern and send result to output_chan
 func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileInfo, cred_ptn_compiled map[string]*regexp.Regexp, password_check_mode, words_file_path string, entropy_threshold float64, output_chan chan<- OutputFmt, log_chan chan<- string, debug bool) {
 	defer wg.Done()
 
-	// newline_byte := []byte("\n")
+	load_profile_path := os.Getenv("LOAD_PROFILE_PATH")
+	previous_run_result := map[string]OutputFmt{}
+
+	if load_profile_path != "" {
+		var err error
+		previous_run_result, err = loadProfile(load_profile_path)
+		u.CheckErrNonFatal(err, "[WARN] can nto load profile "+load_profile_path)
+	}
+
 	for fpath, finfo := range fileBatch {
 		datab, err := os.ReadFile(fpath)
 		if err1 := u.CheckErrNonFatal(err, "ReadFile "+fpath); err1 != nil {
@@ -57,13 +77,19 @@ func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileIn
 						Pattern: ptnStr,
 						Matches: []string{},
 					}
+					var oldmatches, newmatches mapset.Set[string]
+					if check_prev, ok := previous_run_result[fpath]; ok {
+						if check_prev.Line_no == idx {
+							oldmatches = mapset.NewSet[string](previous_run_result[fpath].Matches...)
+						}
+					}
 					for _, match := range matches {
 						if debug {
 							log_chan <- fmt.Sprintf("%s:%d - %s: %s", fpath, idx, match[1], match[2])
 						}
 
 						if len(match) > 1 && ag.IsLikelyPasswordOrToken(match[2], password_check_mode, words_file_path, 4, entropy_threshold) {
-							if debug {
+							if debug || load_profile_path != "" {
 								o.Matches = append(o.Matches, match[1], match[2])
 							} else {
 								o.Matches = append(o.Matches, match[1], "*****")
@@ -71,7 +97,19 @@ func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileIn
 						}
 					}
 					if len(o.Matches) > 0 && o.File != "" {
-						output_chan <- o
+						newmatches = mapset.NewSet[string](o.Matches...)
+						if load_profile_path != "" && !oldmatches.IsEmpty() && !newmatches.IsEmpty() && oldmatches.Equal(newmatches) {
+							log_chan <- fmt.Sprintf("File: %s - Line: %d matches exist in profile, skipping", fpath, idx)
+						} else {
+							if load_profile_path != "" {
+								for idx, _ := range o.Matches {
+									if idx%2 == 1 {
+										o.Matches[idx] = "*****"
+									}
+								}
+							}
+							output_chan <- o
+						}
 					}
 				}
 			}
@@ -82,10 +120,11 @@ func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileIn
 func main() {
 	optFlag := pflag.NewFlagSet("opt", pflag.ExitOnError)
 	cred_regexptn := optFlag.StringArrayP("regexp", "r", []string{}, "List pattern to detect credential values")
-	default_cred_regexptn := optFlag.StringArrayP("default-regexp", "p", Credential_patterns, "Default list of crec pattern.")
+	default_cred_regexptn := optFlag.StringArrayP("default-regexp", "p", Credential_patterns, "Default list of credencial pattern.")
 	filename_ptn := optFlag.StringP("fptn", "f", ".*", "Filename regex pattern")
 	exclude := optFlag.StringP("exclude", "e", "", "Exclude file name pattern")
 	path_exclude := optFlag.String("path-exclude", "", "File Path to Exclude pattern")
+	load_profile_path := optFlag.String("profile", "", "File Path to load the result from previous run")
 	defaultExclude := optFlag.StringP("defaultexclude", "d", `^(\.git|.*\.zip|.*\.gz|.*\.xz|.*\.bz2|.*\.zstd|.*\.7z|.*\.dll|.*\.iso|.*\.bin|.*\.tar|.*\.exe)$`, "Default exclude pattern. Set it to empty string if you need to")
 	skipBinary := optFlag.BoolP("skipbinary", "y", true, "Skip binary file")
 	password_check_mode := optFlag.String("check-mode", "letter+word", "Password check mode. List of allowed values: letter, digit, special, letter+digit, letter+digit+word, all. The default value (letter+digit+word) requires a file /tmp/words.txt; it will automatically download it if it does not exist. Link to download https://github.com/dwyl/english-words/blob/master/words.txt . It describes what it looks like a password for example if the value is 'letter' means any random ascii letter can be treated as password and will be reported. Same for others, eg, letter+digit+word means value has letter, digit and NOT looks like English word will be treated as password. Value 'all' is like letter+digit+special ")
@@ -110,6 +149,8 @@ func main() {
 			u.Curl("GET", *words_list_url, "", "/tmp/words.txt", []string{})
 		}
 	}
+
+	os.Setenv("LOAD_PROFILE_PATH", *load_profile_path)
 
 	cred_ptn_compiled := map[string]*regexp.Regexp{}
 	for _, ptn := range *default_cred_regexptn {
@@ -155,7 +196,7 @@ func main() {
 			}
 			if log_chan == nil && output_chan == nil {
 				// use like this might not be needed as after wg is done the main thread go ahead and print out thigns and then quit, this go routine will be gone too
-				// however it looks better to close channel and then break here
+				// however it looks better to close channel in main thread; detect and then break here
 				fmt.Fprintln(os.Stderr, "Channels closed, quit harvestor")
 				break
 			}
