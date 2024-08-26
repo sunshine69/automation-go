@@ -28,6 +28,7 @@ var Credential_patterns = []string{
 	`(?i)['"]?(password|passwd|token|api_key|secret)['"]?[=:\s][\s]*?['"]?([^'"\s]+)['"]?`,
 }
 
+// Output format of each line. A file may have many lines; each line may have more than 1 creds pair matches
 type OutputFmt struct {
 	File    string
 	Line_no int
@@ -35,8 +36,13 @@ type OutputFmt struct {
 	Matches []string
 }
 
-// loadProfile to load a existing previous run output into map and used it to compare this run against. The comparison is in
-func loadProfile(filename string) (output map[string]OutputFmt, err error) {
+// The output format of the program
+// map of filename => map of line_no => OutputFmt
+// Design like this so we can lookup by file name and line number quickly using hash map (O1 lookup) to compare between runs
+type ProjectOutputFmt map[string]map[int]OutputFmt
+
+// loadProfile to load a existing previous run output into map and used it to compare this run against.
+func loadProfile(filename string) (output ProjectOutputFmt, err error) {
 	datab, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
@@ -50,7 +56,7 @@ func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileIn
 	defer wg.Done()
 
 	load_profile_path := os.Getenv("LOAD_PROFILE_PATH")
-	previous_run_result := map[string]OutputFmt{}
+	previous_run_result := ProjectOutputFmt{}
 
 	if load_profile_path != "" {
 		var err error
@@ -62,6 +68,7 @@ func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileIn
 		datab, err := os.ReadFile(fpath)
 		if err1 := u.CheckErrNonFatal(err, "ReadFile "+fpath); err1 != nil {
 			log_chan <- err1.Error()
+			continue
 		}
 		datalines := strings.Split(string(datab), "\n")
 		if strings.HasSuffix(path.Ext(finfo.Name()), "js") && len(datalines) < 10 && finfo.Size() >= 1000 { // Skip as it is likely js minified file
@@ -79,8 +86,8 @@ func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileIn
 					}
 					var oldmatches, newmatches mapset.Set[string]
 					if check_prev, ok := previous_run_result[fpath]; ok {
-						if check_prev.Line_no == idx {
-							oldmatches = mapset.NewSet[string](previous_run_result[fpath].Matches...)
+						if _, ok := check_prev[idx]; ok {
+							oldmatches = mapset.NewSet[string](previous_run_result[fpath][idx].Matches...)
 						}
 					}
 					for _, match := range matches {
@@ -96,9 +103,9 @@ func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileIn
 							}
 						}
 					}
-					if len(o.Matches) > 0 && o.File != "" {
+					if len(o.Matches) > 0 {
 						newmatches = mapset.NewSet[string](o.Matches...)
-						if load_profile_path != "" && !oldmatches.IsEmpty() && !newmatches.IsEmpty() && oldmatches.Equal(newmatches) {
+						if load_profile_path != "" && oldmatches != nil && newmatches != nil && oldmatches.Equal(newmatches) {
 							log_chan <- fmt.Sprintf("File: %s - Line: %d matches exist in profile, skipping", fpath, idx)
 						} else {
 							if load_profile_path != "" {
@@ -119,6 +126,7 @@ func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileIn
 
 func main() {
 	optFlag := pflag.NewFlagSet("opt", pflag.ExitOnError)
+	// config_file := optFlag.String("project-config", "", "File Path to Exclude pattern")
 	cred_regexptn := optFlag.StringArrayP("regexp", "r", []string{}, "List pattern to detect credential values")
 	default_cred_regexptn := optFlag.StringArrayP("default-regexp", "p", Credential_patterns, "Default list of credencial pattern.")
 	filename_ptn := optFlag.StringP("fptn", "f", ".*", "Filename regex pattern")
@@ -172,13 +180,13 @@ func main() {
 		path_exclude_ptn = regexp.MustCompile(*path_exclude)
 	}
 
-	output := map[string]OutputFmt{}
+	output := ProjectOutputFmt{}
 	logs := []string{}
 	var wg sync.WaitGroup
 	output_chan := make(chan OutputFmt)
 	log_chan := make(chan string)
 	// Setup the harvest worker
-	go func(output *map[string]OutputFmt, logs *[]string, output_chan <-chan OutputFmt, log_chan <-chan string) {
+	go func(output *ProjectOutputFmt, logs *[]string, output_chan <-chan OutputFmt, log_chan <-chan string) {
 		for {
 			select {
 			case msg, morelog := <-log_chan:
@@ -187,9 +195,16 @@ func main() {
 					log_chan = nil
 				}
 			case out, moredata := <-output_chan:
-				if out.File != "" {
-					(*output)[out.File] = out
+				if out.File == "" {
+					continue
 				}
+				val, ok := (*output)[out.File]
+				if !ok {
+					(*output)[out.File] = map[int]OutputFmt{}
+					val = (*output)[out.File]
+				}
+				val[out.Line_no] = out
+
 				if !moredata {
 					output_chan = nil
 				}
