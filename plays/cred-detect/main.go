@@ -13,6 +13,7 @@ import (
 
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 	ag "github.com/sunshine69/automation-go/lib"
 	u "github.com/sunshine69/golang-tools/utils"
 )
@@ -139,6 +140,7 @@ func main() {
 	words_list_url := optFlag.String("words-list-url", "https://raw.githubusercontent.com/dwyl/english-words/master/words.txt", "Word list url to download")
 
 	debug := optFlag.Bool("debug", false, "Enable debugging")
+	save_config_file := optFlag.String("save-config", "cred-detect-config.yaml", "Path to save config from command flags to a yaml file")
 
 	file_path := os.Args[1]
 	optFlag.Usage = func() {
@@ -146,6 +148,33 @@ func main() {
 		optFlag.PrintDefaults()
 	}
 	optFlag.Parse(os.Args[1:])
+	viper.BindPFlags(optFlag)
+
+	viper.SetConfigName("cred-detect-config") // name of config file (without extension)
+	viper.SetConfigType("yaml")               // REQUIRED if the config file does not have the extension in the name
+	viper.AddConfigPath("/etc/cred-detect/")  // path to look for the config file in
+	viper.AddConfigPath("$HOME/.config/")     // call multiple times to add many search paths
+	viper.AddConfigPath(".")                  // optionally look for config in the working directory
+	err := viper.ReadInConfig()               // Find and read the config file
+	if err != nil {                           // Handle errors reading the config file
+		fmt.Fprintf(os.Stderr, "[WARN] config file not found - %s\n", err.Error())
+	}
+
+	if *save_config_file != "" {
+		viper.WriteConfigAs(*save_config_file)
+	}
+
+	*cred_regexptn = viper.GetStringSlice("regexp")
+	*default_cred_regexptn = viper.GetStringSlice("default-regexp")
+	*filename_ptn = viper.GetString("fptn")
+	*exclude = viper.GetString("exclude")
+	*path_exclude = viper.GetString("path-exclude")
+	*load_profile_path = viper.GetString("profile")
+	*defaultExclude = viper.GetString("defaultexclude")
+	*skipBinary = viper.GetBool("skipbinary")
+	*password_check_mode = viper.GetString("check-mode")
+	*words_list_url = viper.GetString("words-list-url")
+	*debug = viper.GetBool("debug")
 
 	if len(*cred_regexptn) > 0 {
 		*default_cred_regexptn = append(*default_cred_regexptn, *cred_regexptn...)
