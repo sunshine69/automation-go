@@ -62,7 +62,7 @@ func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileIn
 	if load_profile_path != "" {
 		var err error
 		previous_run_result, err = loadProfile(load_profile_path)
-		u.CheckErrNonFatal(err, "[WARN] can nto load profile "+load_profile_path)
+		u.CheckErrNonFatal(err, "[WARN] can not load profile "+load_profile_path)
 	}
 
 	for fpath, finfo := range fileBatch {
@@ -139,12 +139,38 @@ func main() {
 	password_check_mode := optFlag.String("check-mode", "letter+word", "Password check mode. List of allowed values: letter, digit, special, letter+digit, letter+digit+word, all. The default value (letter+digit+word) requires a file /tmp/words.txt; it will automatically download it if it does not exist. Link to download https://github.com/dwyl/english-words/blob/master/words.txt . It describes what it looks like a password for example if the value is 'letter' means any random ascii letter can be treated as password and will be reported. Same for others, eg, letter+digit+word means value has letter, digit and NOT looks like English word will be treated as password. Value 'all' is like letter+digit+special ")
 	words_list_url := optFlag.String("words-list-url", "https://raw.githubusercontent.com/dwyl/english-words/master/words.txt", "Word list url to download")
 
-	debug := optFlag.Bool("debug", false, "Enable debugging")
+	debug := optFlag.Bool("debug", false, "Enable debugging. Note that it will print password values unmasked. Do not run it on CI/CD")
 	save_config_file := optFlag.String("save-config", "cred-detect-config.yaml", "Path to save config from command flags to a yaml file")
 
 	file_path := os.Args[1]
 	optFlag.Usage = func() {
-		fmt.Printf("Usage: %s [filename/path] [opt]\n", os.Args[0])
+		fmt.Printf(`Usage: %s [filename/path] [opt]
+		Run with option -h for complete help.
+		The app search for config file named 'cred-detect-config.yaml' in any of
+		  - the current working directory,
+		  - $HOME/.config
+		  - /etc/cred-detect
+
+		The command line options has higher priority. Config file existance is optional however you can save the current commandline
+		opts into config file using option '--save-config'; by default it is enabled to save it to the current directory.
+
+		***** WORKFLOW *****
+		cd <project-to-scan-root-dir>
+		./cred-detect . --debug <extra-opt> > cred-detect-profile.json
+		# extra-opt if u need, mostly depending on each project you may optimize the exclude option or even change the regex pattern etc
+		# examine the json file and see any false positive case; if they are, leave it in the profile. Fix up your code for real case.
+		# Re-run the above until all data in json file are false positive.
+		# commit the profile file and the cred-detect-config.yaml into your project git.
+		# Now in CI/CD design the command to run like this
+
+		cd <project>
+		./cred-detect . --profile cred-detect-profile.json
+
+		It will discover new real case from now on.
+
+		Options below:
+
+		`, os.Args[0])
 		optFlag.PrintDefaults()
 	}
 	optFlag.Parse(os.Args[1:])
@@ -314,5 +340,7 @@ func main() {
 		je.SetIndent("", "  ")
 		je.Encode(output)
 		os.Exit(1)
+	} else {
+		fmt.Print("{}")
 	}
 }
