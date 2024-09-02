@@ -164,7 +164,7 @@ func main() {
 		# Now in CI/CD design the command to run like this
 
 		cd <project>
-		./cred-detect . --profile cred-detect-profile.json
+		./cred-detect . --profile cred-detect-profile.json --debug=false
 
 		It will discover new real case from now on.
 

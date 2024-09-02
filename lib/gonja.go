@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"text/template"
 
 	json "github.com/json-iterator/go"
 
@@ -349,6 +350,29 @@ func TemplateString(srcString string, data map[string]interface{}) string {
 	o, err := tmpl.ExecuteToString(execContext)
 	u.CheckErr(err, "[ERROR] TemplateString ExecuteToString")
 	return o
+}
+
+func GoTemplateString(srcString string, data map[string]interface{}) string {
+	t1 := template.New("")
+	t1 = template.Must(t1.Parse(srcString))
+	var buff bytes.Buffer
+	u.CheckErr(t1.Execute(&buff, data), "GoTemplateString Execute")
+	return buff.String()
+}
+
+func GoTemplateFile(src, dest string, data map[string]interface{}, fileMode os.FileMode) {
+	if fileMode == 0 {
+		fileMode = 0755
+	}
+	t1 := template.New("")
+	t1 = template.Must(t1.Parse(src))
+
+	destFile, err := os.Create(dest)
+	u.CheckErr(err, fmt.Sprintf("[ERROR] GoTemplateFile os.Create %s", dest))
+	u.CheckErr(destFile.Chmod(fileMode), fmt.Sprintf("[ERROR] GoTemplateFile can not chmod %d for file %s\n", fileMode, dest))
+	defer destFile.Close()
+	u.CheckErr(err, fmt.Sprintf("[ERROR] GoTemplateFile Can not create destination file %s\n", dest))
+	u.CheckErr(t1.Execute(destFile, data), "[ERROR] GoTemplateFile Can not template "+src+" => "+dest)
 }
 
 func CreateDirTree(srcDirpath, targetRoot string) error {
