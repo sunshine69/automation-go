@@ -50,7 +50,7 @@ func TestAddhoc(t *testing.T) {
 	// })
 	// fmt.Printf("%v\n", words)
 
-	fmt.Printf("Likely a password: %v\n", IsLikelyPasswordOrToken("b03f5f7f11d50a3a", "letter+word", "/tmp/words.txt", 0, 1))
+	fmt.Printf("Likely a password: %v\n", IsLikelyPasswordOrToken("VHuGgaJvV", "letter+word", "/tmp/words.txt", 0, 1))
 	// fmt.Println(changed)
 	ptn := regexp.MustCompile(`(?i)['"]?(password|passwd|token|api_key|secret)['"]?[=:\s][\s]*?['"]?([^'"\s]+)['"]?`)
 	matches := ptn.FindAllStringSubmatch(`PublicKeyToken=null</TypeInfo>`, -1)

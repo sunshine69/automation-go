@@ -334,39 +334,15 @@ type LineInfileOpt struct {
 	Backup        bool
 }
 
-func NewLineInfileOpt(opt map[string]interface{}) *LineInfileOpt {
-	o := LineInfileOpt{
-		Insertafter:   "",
-		Insertbefore:  "",
-		Line:          "",
-		Regexp:        "",
-		Search_string: "",
-		State:         "present",
-		Backup:        true,
+func NewLineInfileOpt(opt *LineInfileOpt) *LineInfileOpt {
+	if !opt.Backup {
+		opt.Backup = true
 	}
-	for k, v := range opt {
-		switch k {
-		case "Insertafter", "insertafter":
-			o.Insertafter = v.(string)
-		case "Insertbefore", "insertbefore":
-			o.Insertbefore = v.(string)
-		case "Line", "line":
-			o.Line = v.(string)
-		case "Path", "path":
-			o.Path = v.(string)
-		case "Regexp", "regexp":
-			o.Regexp = v.(string)
-		case "Search_string", "search_string":
-			o.Search_string = v.(string)
-		case "State", "state":
-			o.State = v.(string)
-		case "Backup", "backup":
-			o.Backup = v.(string) == "yes"
-		default:
-			panic("[ERROR] NewLineInfileOpt unknown option " + k)
-		}
+	if opt.State == "" {
+		opt.State = "present"
 	}
-	return &o
+	return opt
+
 }
 
 // Simulate ansible lineinfile module. There are some difference intentionaly to avoid confusing behaviour and reduce complexbility

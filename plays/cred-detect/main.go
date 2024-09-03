@@ -25,9 +25,13 @@ import (
 // 	`(?i)['"]?secret['"]?\s*[=:]\s*['"]?([^'"\s]+)['"]?`,   // Matches "secret [=:] value"
 // }
 
-var Credential_patterns = []string{
-	`(?i)['"]?(password|passwd|token|api_key|secret)['"]?[=:\s][\s]*?['"]?([^'"\s]+)['"]?`,
-}
+var (
+	Credential_patterns = []string{
+		`(?i)['"]?(password|passwd|token|api_key|secret)['"]?[=:\s][\s]*?['"]?([^'"\s]+)['"]?`,
+	}
+	version   string // Will hold the version number
+	buildTime string // Will hold the build time
+)
 
 // Output format of each line. A file may have many lines; each line may have more than 1 creds pair matches
 type OutputFmt struct {
@@ -53,7 +57,7 @@ func loadProfile(filename string) (output ProjectOutputFmt, err error) {
 }
 
 // cred_detect_ProcessFiles to process a batch of files to detect credential pattern and send result to output_chan
-func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileInfo, cred_ptn_compiled map[string]*regexp.Regexp, password_check_mode, words_file_path string, entropy_threshold float64, output_chan chan<- OutputFmt, log_chan chan<- string, debug bool) {
+func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileInfo, cred_ptn_compiled map[string]*regexp.Regexp, password_check_mode, words_file_path string, entropy_threshold float64, output_chan chan<- OutputFmt, log_chan chan<- string, stat_chan chan<- int, debug bool) {
 	defer wg.Done()
 
 	load_profile_path := os.Getenv("LOAD_PROFILE_PATH")
@@ -62,10 +66,13 @@ func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileIn
 	if load_profile_path != "" {
 		var err error
 		previous_run_result, err = loadProfile(load_profile_path)
-		u.CheckErrNonFatal(err, "[WARN] can not load profile "+load_profile_path)
+		if u.CheckErrNonFatal(err, "[WARN] can not load profile "+load_profile_path) != nil {
+			os.Setenv("LOAD_PROFILE_PATH", "")
+		}
 	}
 
 	for fpath, finfo := range fileBatch {
+		stat_chan <- 1
 		datab, err := os.ReadFile(fpath)
 		if err1 := u.CheckErrNonFatal(err, "ReadFile "+fpath); err1 != nil {
 			log_chan <- err1.Error()
@@ -125,6 +132,10 @@ func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileIn
 	}
 }
 
+func printVersionBuildInfo() {
+	fmt.Printf("Version: %s\nBuild time: %s\n", version, buildTime)
+}
+
 func main() {
 	optFlag := pflag.NewFlagSet("opt", pflag.ExitOnError)
 	// config_file := optFlag.String("project-config", "", "File Path to Exclude pattern")
@@ -156,7 +167,7 @@ func main() {
 
 		***** WORKFLOW *****
 		cd <project-to-scan-root-dir>
-		./cred-detect . --debug <extra-opt> > cred-detect-profile.json
+		cred-detect . --debug <extra-opt> > cred-detect-profile.json
 		# extra-opt if u need, mostly depending on each project you may optimize the exclude option or even change the regex pattern etc
 		# examine the json file and see any false positive case; if they are, leave it in the profile. Fix up your code for real case.
 		# Re-run the above until all data in json file are false positive.
@@ -164,9 +175,16 @@ func main() {
 		# Now in CI/CD design the command to run like this
 
 		cd <project>
-		./cred-detect . --profile cred-detect-profile.json --debug=false
+		cred-detect . --profile cred-detect-profile.json --debug=false
 
-		It will discover new real case from now on.
+		It will discover new real case from now on. You can edit the profile json file to remove/add new ignore case.
+
+		If you need to re-generate the profile then you need to delete the current profile file
+
+		rm -f cred-detect-profile.json
+		cred-detect . --debug=true > cred-detect-profile.json
+
+		Also as the config file has already generated; you should have a look at the option in there to be sure the run is correct.
 
 		Options below:
 
@@ -174,6 +192,12 @@ func main() {
 		optFlag.PrintDefaults()
 	}
 	optFlag.Parse(os.Args[1:])
+
+	if file_path == "version" {
+		printVersionBuildInfo()
+		os.Exit(0)
+	}
+
 	viper.BindPFlags(optFlag)
 
 	viper.SetConfigName("cred-detect-config") // name of config file (without extension)
@@ -201,15 +225,18 @@ func main() {
 	*password_check_mode = viper.GetString("check-mode")
 	*words_list_url = viper.GetString("words-list-url")
 	*debug = viper.GetBool("debug")
+	user_home_dir, err := os.UserHomeDir()
+	u.CheckErr(err, "UserHomeDir")
+	word_file_path := path.Join(user_home_dir, "cred-detect-word.txt")
 
 	if len(*cred_regexptn) > 0 {
 		*default_cred_regexptn = append(*default_cred_regexptn, *cred_regexptn...)
 	}
 
 	if strings.Contains(*password_check_mode, "word") {
-		if res, _ := u.FileExists("/tmp/words.txt"); !res {
+		if res, _ := u.FileExists(word_file_path); !res {
 			fmt.Println("Downloading words.txt")
-			u.Curl("GET", *words_list_url, "", "/tmp/words.txt", []string{})
+			u.Curl("GET", *words_list_url, "", word_file_path, []string{})
 		}
 	}
 
@@ -240,8 +267,12 @@ func main() {
 	var wg sync.WaitGroup
 	output_chan := make(chan OutputFmt)
 	log_chan := make(chan string)
+	stat_chan := make(chan int)
+
+	total_files_scanned, total_files_process := 0, 0
+
 	// Setup the harvest worker
-	go func(output *ProjectOutputFmt, logs *[]string, output_chan <-chan OutputFmt, log_chan <-chan string) {
+	go func(output *ProjectOutputFmt, logs *[]string, output_chan <-chan OutputFmt, log_chan <-chan string, stat_chan <-chan int) {
 		for {
 			select {
 			case msg, morelog := <-log_chan:
@@ -263,17 +294,22 @@ func main() {
 				if !moredata {
 					output_chan = nil
 				}
+			case file_count, more_file := <-stat_chan:
+				total_files_process += file_count
+				if !more_file {
+					stat_chan = nil
+				}
 			}
-			if log_chan == nil && output_chan == nil {
+			if log_chan == nil && output_chan == nil && stat_chan == nil {
 				// use like this might not be needed as after wg is done the main thread go ahead and print out thigns and then quit, this go routine will be gone too
 				// however it looks better to close channel in main thread; detect and then break here
 				fmt.Fprintln(os.Stderr, "Channels closed, quit harvestor")
 				break
 			}
 		}
-	}(&output, &logs, output_chan, log_chan)
+	}(&output, &logs, output_chan, log_chan, stat_chan)
 	// 10 is fastest
-	batchSize := 10
+	batchSize := 3
 	filesBatch := map[string]fs.FileInfo{}
 
 	err1 := filepath.Walk(file_path, func(fpath string, info fs.FileInfo, err error) error {
@@ -294,25 +330,31 @@ func main() {
 		}
 		// Check if the file matches the pattern
 
-		if !info.IsDir() && filename_regexp.MatchString(fname) && ((excludePtn == nil) || (excludePtn != nil && !excludePtn.MatchString(fname))) && ((defaultExcludePtn == nil) || (defaultExcludePtn != nil && !defaultExcludePtn.MatchString(fname))) {
-			if *skipBinary {
-				isbin, err := ag.IsBinaryFileSimple(fpath)
-				if (err == nil) && isbin {
-					fmt.Fprintf(os.Stderr, "SKIP BIN %s\n", fpath)
+		if !info.IsDir() {
+			total_files_scanned++
+			if fpath != *load_profile_path && filename_regexp.MatchString(fname) && ((excludePtn == nil) || (excludePtn != nil && !excludePtn.MatchString(fname))) && ((defaultExcludePtn == nil) || (defaultExcludePtn != nil && !defaultExcludePtn.MatchString(fname))) {
+				if *skipBinary {
+					isbin, err := ag.IsBinaryFileSimple(fpath)
+					if (err == nil) && isbin {
+						fmt.Fprintf(os.Stderr, "SKIP BIN %s\n", fpath)
+						return nil
+					}
+				}
+
+				fmode := info.Mode()
+				if !(fmode.IsRegular()) {
 					return nil
 				}
-			}
-
-			fmode := info.Mode()
-			if !(fmode.IsRegular()) {
-				return nil
-			}
-			if len(filesBatch) < batchSize {
-				filesBatch[fpath] = info
-			} else {
-				wg.Add(1)
-				go cred_detect_ProcessFiles(&wg, filesBatch, cred_ptn_compiled, *password_check_mode, "/tmp/words.txt", 0, output_chan, log_chan, *debug)
-				filesBatch = map[string]fs.FileInfo{}
+				if len(filesBatch) < batchSize {
+					if *debug {
+						fmt.Fprintf(os.Stderr, "Add file: %s\n", fpath)
+					}
+					filesBatch[fpath] = info
+				} else {
+					wg.Add(1)
+					go cred_detect_ProcessFiles(&wg, filesBatch, cred_ptn_compiled, *password_check_mode, word_file_path, 0, output_chan, log_chan, *debug)
+					filesBatch = map[string]fs.FileInfo{fpath: info} // Need to add this one as the batch is full we miss add it.
+				}
 			}
 		}
 		return nil
@@ -320,7 +362,7 @@ func main() {
 
 	if len(filesBatch) > 0 { // Last batch
 		wg.Add(1)
-		go cred_detect_ProcessFiles(&wg, filesBatch, cred_ptn_compiled, *password_check_mode, "/tmp/words.txt", 0, output_chan, log_chan, *debug)
+		go cred_detect_ProcessFiles(&wg, filesBatch, cred_ptn_compiled, *password_check_mode, word_file_path, 0, output_chan, log_chan, *debug)
 	}
 
 	wg.Wait()
@@ -343,4 +385,5 @@ func main() {
 	} else {
 		fmt.Print("{}")
 	}
+	fmt.Fprintf(os.Stderr, "Scanned %d files and has processed %d files\n", total_files_scanned, total_files_process)
 }
