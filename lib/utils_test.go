@@ -5,6 +5,8 @@ import (
 	"os"
 	"regexp"
 	"testing"
+
+	u "github.com/sunshine69/golang-tools/utils"
 )
 
 var project_dir string
@@ -35,13 +37,6 @@ func TestAddhoc(t *testing.T) {
 	// str2 := re.ReplaceAllStringFunc(str, repl)
 	// fmt.Println(str2)
 
-	// err, changed := LineInFile("/home/stevek/tmp/hosts", &LineInfileOpt{
-	// 	// Insertafter: "NOT FOUND",
-	// 	// Search_string: "127.0.0.1",
-	// 	Regexp: `127\.0\.[01]\.1`,
-	// 	// Line:  "new data here",
-	// 	State: "absent",
-	// })
 	// u.CheckErr(err, "")
 	// words, _ := loadDictionary("/tmp/words", 0)
 
@@ -56,4 +51,14 @@ func TestAddhoc(t *testing.T) {
 	matches := ptn.FindAllStringSubmatch(`PublicKeyToken=null</TypeInfo>`, -1)
 	fmt.Printf("%q\n", matches)
 	fmt.Println("Done test")
+}
+
+func TestLineinfile(t *testing.T) {
+	err, changed := LineInFile("../tmp/tests", NewLineInfileOpt(&LineInfileOpt{
+		Regexp:     `v1.0.1(.*)`,
+		Line:       "This is new line to be reaplced at line 4 - $1",
+		ReplaceAll: true,
+	}))
+	u.CheckErr(err, "Error")
+	fmt.Println(changed)
 }

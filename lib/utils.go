@@ -327,22 +327,20 @@ type LineInfileOpt struct {
 	Insertafter   string
 	Insertbefore  string
 	Line          string
+	LineNo        int
 	Path          string
 	Regexp        string
 	Search_string string
 	State         string
 	Backup        bool
+	ReplaceAll    bool
 }
 
 func NewLineInfileOpt(opt *LineInfileOpt) *LineInfileOpt {
-	if !opt.Backup {
-		opt.Backup = true
-	}
 	if opt.State == "" {
 		opt.State = "present"
 	}
 	return opt
-
 }
 
 // Simulate ansible lineinfile module. There are some difference intentionaly to avoid confusing behaviour and reduce complexbility
@@ -371,6 +369,9 @@ func LineInFile(filename string, opt *LineInfileOpt) (err error, changed bool) {
 	}
 	if opt.Insertafter != "" && opt.Insertbefore != "" {
 		panic("[ERROR] conflicting option. Insertafter and Insertbefore can not be both set")
+	}
+	if opt.LineNo > 0 && opt.Regexp != "" {
+		panic("[ERROR] conflicting option. LineNo and Regexp can not be both set")
 	}
 	data, err := os.ReadFile(filename)
 	if err1 := u.CheckErrNonFatal(err, "LineInFile ReadFile"); err1 != nil {
@@ -421,19 +422,24 @@ func LineInFile(filename string, opt *LineInfileOpt) (err error, changed bool) {
 		}
 		return nil, true
 	}
-	if opt.Search_string != "" {
+	// Now we process case by case
+	if opt.Search_string != "" || opt.LineNo > 0 { // Match the whole line or we have line number. This is derterministic behaviour
 		search_string_found, line_exist_idx := true, map[int]interface{}{}
 		index_list := []int{}
-		for idx, lineb := range datalines {
-			if bytes.Contains(lineb, []byte(opt.Search_string)) {
-				index_list = append(index_list, idx)
-			}
-			if bytes.Equal(lineb, optLineB) { // Line already exists
-				if opt.State == "present" {
-					return returnFunc(nil, changed)
-				} else {
-					if !bytes.Equal(optLineB, []byte("")) {
-						line_exist_idx[idx] = nil
+		if opt.LineNo > 0 { // If we have line number we ignore the search string to be fast
+			index_list = append(index_list, opt.LineNo-1)
+		} else {
+			for idx, lineb := range datalines {
+				if bytes.Contains(lineb, []byte(opt.Search_string)) {
+					index_list = append(index_list, idx)
+				}
+				if bytes.Equal(lineb, optLineB) { // Line already exists
+					if opt.State == "present" {
+						return returnFunc(nil, changed)
+					} else {
+						if !bytes.Equal(optLineB, []byte("")) {
+							line_exist_idx[idx] = nil
+						}
 					}
 				}
 			}
@@ -463,7 +469,13 @@ func LineInFile(filename string, opt *LineInfileOpt) (err error, changed bool) {
 		case "present":
 			last := index_list[len(index_list)-1]
 			if search_string_found {
-				datalines[last] = optLineB
+				if !opt.ReplaceAll {
+					datalines[last] = optLineB
+				} else {
+					for _, idx := range index_list {
+						datalines[idx] = optLineB
+					}
+				}
 			} else {
 				if opt.Insertafter != "" {
 					datalines = InsertItemAfter(datalines, last, optLineB)
@@ -484,13 +496,14 @@ func LineInFile(filename string, opt *LineInfileOpt) (err error, changed bool) {
 		search_string_found := true
 		regex_ptn := regexp.MustCompile(opt.Regexp)
 		index_list := []int{}
-		matches := [][]byte{}
+		matchesMap := map[int][][]byte{}
 		line_exist_idx := map[int]interface{}{}
 
 		for idx, lineb := range datalines {
-			matches = regex_ptn.FindSubmatch(lineb)
+			matches := regex_ptn.FindSubmatch(lineb)
 			if len(matches) > 0 || matches != nil {
 				index_list = append(index_list, idx)
+				matchesMap[idx] = matches
 			}
 		}
 		if len(index_list) == 0 { // Did not find any search string. Will look insertafter  and before
@@ -531,13 +544,25 @@ func LineInFile(filename string, opt *LineInfileOpt) (err error, changed bool) {
 			last := index_list[len(index_list)-1]
 			if search_string_found {
 				// Expanding submatch
-				for i, submatch := range matches {
-					if submatch != nil {
-						placeholder := fmt.Sprintf("$%d", i)
-						optLineB = bytes.Replace(optLineB, []byte(placeholder), submatch, -1)
+				if !opt.ReplaceAll {
+					for i, submatch := range matchesMap[last] {
+						if submatch != nil {
+							placeholder := fmt.Sprintf("$%d", i)
+							optLineB = bytes.Replace(optLineB, []byte(placeholder), submatch, -1)
+						}
+					}
+					datalines[last] = optLineB
+				} else {
+					for _, line := range index_list {
+						for i, submatch := range matchesMap[line] {
+							if submatch != nil {
+								placeholder := fmt.Sprintf("$%d", i)
+								optLineB = bytes.Replace(optLineB, []byte(placeholder), submatch, -1)
+								datalines[line] = optLineB
+							}
+						}
 					}
 				}
-				datalines[last] = optLineB
 			} else {
 				if opt.Insertafter != "" {
 					datalines = InsertItemAfter(datalines, last, optLineB)
