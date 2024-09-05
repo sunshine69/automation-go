@@ -906,8 +906,7 @@ func ExtractTextBlock(filename string, start_pattern, end_pattern []string) (blo
 		if start_line_no == all_lines_count-1 {
 			found_end, end_line_no = true, all_lines_count
 		} else {
-			found_end, end_line_no, _ = SearchPatternListInStrings(datalines, end_pattern, start_line_no, all_lines_count, 0)
-			end_line_no++
+			found_end, end_line_no, _ = SearchPatternListInStrings(datalines, end_pattern, start_line_no+1, all_lines_count, 0)
 		}
 		if found_end {
 			outputlines := datalines[start_line_no:end_line_no]
@@ -947,20 +946,19 @@ func ExtractTextBlockContains(filename string, upper_bound_pattern, lower_bound_
 		found_upper, start_line_no, _ = SearchPatternListInStrings(datalines, upper_bound_pattern, marker_line_no, all_lines_count, -1)
 	}
 	if !found_upper {
-		fmt.Fprintf(os.Stderr, "UPPER not found. Ptn: %v\n", upper_bound_pattern)
+		// fmt.Fprintf(os.Stderr, "UPPER not found. Ptn: %v\n", upper_bound_pattern)
 		return "", 0, 0, []string{}
 	}
 	// Search lower
 	if marker_line_no == all_lines_count-1 { // already at the end
 		found_lower, end_line_no = true, all_lines_count
-	} else { // as the current marker_line_no already match teh upper, we started to search from that + 1
+	} else { // as the current marker_line_no already match the upper, we started to search from that + 1
 		found_lower, end_line_no, _ = SearchPatternListInStrings(datalines, lower_bound_pattern, marker_line_no+1, all_lines_count, 0)
 	}
 	if !found_lower {
-		fmt.Fprintf(os.Stderr, "LOWER not found. Ptn: %v\n", lower_bound_pattern)
+		// fmt.Fprintf(os.Stderr, "LOWER not found. Ptn: %v\n", lower_bound_pattern)
 		return "", 0, 0, []string{}
 	}
-	fmt.Fprintf(os.Stderr, "start_no:%d end_no:%d\n", start_line_no, end_line_no)
 	return strings.Join(datalines[start_line_no:end_line_no], "\n"), start_line_no, end_line_no, datalines
 }
 
@@ -987,7 +985,7 @@ func SearchPatternListInStrings(datalines []string, pattern []string, start_line
 datalines_Loop:
 	for idx := start_line; idx < max_line && idx >= 0; idx = idx + step {
 		line := datalines[idx]
-		fmt.Fprintf(os.Stderr, "line:%d|step:%d - %s\n", idx, step, line)
+		// fmt.Fprintf(os.Stderr, "line:%d|step:%d - %s\n", idx, step, line)
 		if marker_ptn[0].MatchString(line) { // Found first one. Lets look forward count_ptn_found-1 lines and see we got match
 			for i := 1; i < count_ptn_found; i++ {
 				if idx+count_ptn_found-1 >= max_line { // -1 because we already move 1 to get idx.

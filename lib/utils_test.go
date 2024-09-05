@@ -67,9 +67,9 @@ func TestLineinfile(t *testing.T) {
 
 func TestExtractBlock(t *testing.T) {
 	o, _, _, _ := ExtractTextBlock("../tmp/tests.yaml", []string{
-		"[\\s]+- name: \"Run setup-project-go validatehelm command\"",
+		`- name: "Run trivy to scan Dockerfile"`,
 	},
-		[]string{"[\\s]+- name: \"Install chart using helm local package\""})
+		[]string{`msg: \|`})
 	// o = `MYVAR:\n` + o
 	fmt.Println(o)
 	o1 := []map[string]interface{}{}
@@ -84,11 +84,19 @@ func TestExtractBlockContains(t *testing.T) {
 	o1 := []map[string]interface{}{}
 	u.CheckErr(yaml.Unmarshal([]byte(o), &o1), "ERR")
 	fmt.Printf("%s\n", u.JsonDump(o1, "  "))
+
 	fmt.Println("\n****** PTN *******")
 	o, _, _, _ = ExtractTextBlockContains("../tmp/tests.yaml", []string{`- [^\s]+:[ ]?[^\s]*`}, []string{`- [^\s]+:[ ]?[^\s]*`}, []string{`- name: "Get list of service names from container_deployment var"`})
+	fmt.Printf("'%s'\n", o)
 	o1 = []map[string]interface{}{}
 	u.CheckErr(yaml.Unmarshal([]byte(o), &o1), "ERR")
-	fmt.Printf("'%s'\n", o)
 	fmt.Printf("%s\n", u.JsonDump(o1, "  "))
+
+	fmt.Println("\n****** PTN *******")
+	o, _, _, _ = ExtractTextBlockContains("../tmp/tests.yaml", []string{`- when: "build_enabled_docker or build_enabled_helm"`}, []string{`msg: "ssssss{{ fail_msg }}"`}, []string{`msg: "{{ fail_msg }}"`})
+	fmt.Printf("'%s'\n", o)
+	// o1 = []map[string]interface{}{}
+	// u.CheckErr(yaml.Unmarshal([]byte(o), &o1), "ERR")
+	// fmt.Printf("%s\n", u.JsonDump(o1, "  "))
 
 }
