@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	u "github.com/sunshine69/golang-tools/utils"
+	"gopkg.in/yaml.v3"
 )
 
 var project_dir string
@@ -55,10 +56,30 @@ func TestAddhoc(t *testing.T) {
 
 func TestLineinfile(t *testing.T) {
 	err, changed := LineInFile("../tmp/tests", NewLineInfileOpt(&LineInfileOpt{
-		Regexp:     `v1.0.1(.*)`,
-		Line:       "This is new line to be reaplced at line 4 - $1",
-		ReplaceAll: true,
+		// Regexp:     `v1.0.1(.*)`,
+		Search_string: "This is new line",
+		Line:          "This is new line to be reaplced at line 4",
+		// ReplaceAll: true,
 	}))
 	u.CheckErr(err, "Error")
 	fmt.Println(changed)
+}
+
+func TestExtractBlock(t *testing.T) {
+	o, _, _ := ExtractTextBlock("../tmp/tests", []string{
+		"[\\s]+- name: \"Run setup-project-go validatehelm command\"",
+	},
+		[]string{"[\\s]+- name: \"Install chart using helm local package\""})
+	// o = `MYVAR:\n` + o
+	fmt.Println(o)
+	o1 := []map[string]interface{}{}
+	u.CheckErr(yaml.Unmarshal([]byte(o), &o1), "ERR")
+	fmt.Printf("%s\n", u.JsonDump(o1, "  "))
+}
+
+func TestExtractBlockContains(t *testing.T) {
+	o, _, _ := ExtractTextBlockContains("../tmp/tests", []string{`- name: [^\s]+`}, []string{`- name: [^\s]+`}, 70)
+	o1 := []map[string]interface{}{}
+	u.CheckErr(yaml.Unmarshal([]byte(o), &o1), "ERR")
+	fmt.Printf("USE INT %s\n", u.JsonDump(o1, "  "))
 }
