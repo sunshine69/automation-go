@@ -82,4 +82,9 @@ func TestExtractBlockContains(t *testing.T) {
 	o1 := []map[string]interface{}{}
 	u.CheckErr(yaml.Unmarshal([]byte(o), &o1), "ERR")
 	fmt.Printf("USE INT %s\n", u.JsonDump(o1, "  "))
+
+	o, _, _ = ExtractTextBlockContains("../tmp/tests", []string{`- name: [^\s]+`}, []string{`- name: [^\s]+`}, []string{`tar --strip-components=1 -xf "{{ helm_chart_resource_fact }}" -C`})
+	o1 = []map[string]interface{}{}
+	u.CheckErr(yaml.Unmarshal([]byte(o), &o1), "ERR")
+	fmt.Printf("USE INT %s\n", u.JsonDump(o1, "  "))
 }
