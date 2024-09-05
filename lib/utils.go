@@ -871,6 +871,22 @@ func CamelCaseToWords(s string) []string {
 	return words
 }
 
+// Pick some lines from a line number. Note line number is human counted - that is started from 1
+func PickLinesInFile(filename string, line_no, count int) (lines []string) {
+	datab, err := os.ReadFile(filename)
+	u.CheckErr(err, "PickLinesInFile ReadFile")
+	datalines := strings.Split(string(datab), "\n")
+	max_lines := len(datalines)
+	if count == 0 {
+		count = 1
+	}
+	start_index := line_no - 1
+	if start_index > max_lines {
+		return
+	}
+	return datalines[start_index : start_index+count]
+}
+
 // ExtractTextBlock extract a text from two set regex patterns. The text started with the line matched start_pattern
 // and when hit the match for end_pattern it will stop not including_endlines
 func ExtractTextBlock(filename string, start_pattern, end_pattern []string) (string, int, int) {
