@@ -55,7 +55,7 @@ func TestAddhoc(t *testing.T) {
 }
 
 func TestLineinfile(t *testing.T) {
-	err, changed := LineInFile("../tmp/tests", NewLineInfileOpt(&LineInfileOpt{
+	err, changed := LineInFile("../tmp/tests.yaml", NewLineInfileOpt(&LineInfileOpt{
 		// Regexp:     `v1.0.1(.*)`,
 		Search_string: "This is new line",
 		Line:          "This is new line to be reaplced at line 4",
@@ -66,7 +66,7 @@ func TestLineinfile(t *testing.T) {
 }
 
 func TestExtractBlock(t *testing.T) {
-	o, _, _ := ExtractTextBlock("../tmp/tests", []string{
+	o, _, _, _ := ExtractTextBlock("../tmp/tests.yaml", []string{
 		"[\\s]+- name: \"Run setup-project-go validatehelm command\"",
 	},
 		[]string{"[\\s]+- name: \"Install chart using helm local package\""})
@@ -78,13 +78,17 @@ func TestExtractBlock(t *testing.T) {
 }
 
 func TestExtractBlockContains(t *testing.T) {
-	o, _, _ := ExtractTextBlockContains("../tmp/tests", []string{`- name: [^\s]+`}, []string{`- name: [^\s]+`}, 70)
+	fmt.Println("****** INTEGER *******")
+	o, _, _, _ := ExtractTextBlockContains("../tmp/tests.yaml", []string{`- [^\s]+:[ ]?[^\s]*`}, []string{`- [^\s]+:[ ]?[^\s]*`}, 0)
+	fmt.Printf("'%s'\n", o)
 	o1 := []map[string]interface{}{}
 	u.CheckErr(yaml.Unmarshal([]byte(o), &o1), "ERR")
-	fmt.Printf("USE INT %s\n", u.JsonDump(o1, "  "))
-
-	o, _, _ = ExtractTextBlockContains("../tmp/tests", []string{`- name: [^\s]+`}, []string{`- name: [^\s]+`}, []string{`tar --strip-components=1 -xf "{{ helm_chart_resource_fact }}" -C`})
+	fmt.Printf("%s\n", u.JsonDump(o1, "  "))
+	fmt.Println("\n****** PTN *******")
+	o, _, _, _ = ExtractTextBlockContains("../tmp/tests.yaml", []string{`- [^\s]+:[ ]?[^\s]*`}, []string{`- [^\s]+:[ ]?[^\s]*`}, []string{`- name: "Get list of service names from container_deployment var"`})
 	o1 = []map[string]interface{}{}
 	u.CheckErr(yaml.Unmarshal([]byte(o), &o1), "ERR")
-	fmt.Printf("USE INT %s\n", u.JsonDump(o1, "  "))
+	fmt.Printf("'%s'\n", o)
+	fmt.Printf("%s\n", u.JsonDump(o1, "  "))
+
 }
