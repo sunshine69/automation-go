@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 	"testing"
 
 	u "github.com/sunshine69/golang-tools/utils"
@@ -99,4 +100,8 @@ func TestExtractBlockContains(t *testing.T) {
 	// u.CheckErr(yaml.Unmarshal([]byte(o), &o1), "ERR")
 	// fmt.Printf("%s\n", u.JsonDump(o1, "  "))
 
+}
+
+func TestPickLinesInFile(t *testing.T) {
+	fmt.Println(strings.Join(PickLinesInFile("../tmp/tests.yaml", 70, 1), "\n"))
 }
