@@ -11,7 +11,6 @@ import (
 	"strings"
 	"sync"
 
-	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	ag "github.com/sunshine69/automation-go/lib"
@@ -36,15 +35,15 @@ var (
 // Output format of each line. A file may have many lines; each line may have more than 1 creds pair matches
 type OutputFmt struct {
 	File    string
-	Line_no int
+	Line_no []int
 	Pattern string
 	Matches []string
 }
 
 // The output format of the program
-// map of filename => map of line_no => OutputFmt
+// map of filename => map of TokenName+TokenValue => OutputFmt
 // Design like this so we can lookup by file name and line number quickly using hash map (O1 lookup) to compare between runs
-type ProjectOutputFmt map[string]map[int]OutputFmt
+type ProjectOutputFmt map[string]map[string]OutputFmt
 
 // loadProfile to load a existing previous run output into map and used it to compare this run against.
 func loadProfile(filename string) (output ProjectOutputFmt, err error) {
@@ -57,7 +56,7 @@ func loadProfile(filename string) (output ProjectOutputFmt, err error) {
 }
 
 // cred_detect_ProcessFiles to process a batch of files to detect credential pattern and send result to output_chan
-func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileInfo, cred_ptn_compiled map[string]*regexp.Regexp, password_check_mode, words_file_path string, entropy_threshold float64, output_chan chan<- OutputFmt, log_chan chan<- string, stat_chan chan<- int, debug bool) {
+func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileInfo, cred_ptn_compiled map[string]*regexp.Regexp, password_check_mode, words_file_path string, entropy_threshold float64, output_chan chan<- OutputFmt, log_chan chan<- string, debug bool) {
 	defer wg.Done()
 
 	load_profile_path := os.Getenv("LOAD_PROFILE_PATH")
@@ -72,7 +71,6 @@ func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileIn
 	}
 
 	for fpath, finfo := range fileBatch {
-		stat_chan <- 1
 		datab, err := os.ReadFile(fpath)
 		if err1 := u.CheckErrNonFatal(err, "ReadFile "+fpath); err1 != nil {
 			log_chan <- err1.Error()
@@ -82,21 +80,21 @@ func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileIn
 		if strings.HasSuffix(path.Ext(finfo.Name()), "js") && len(datalines) < 10 && finfo.Size() >= 1000 { // Skip as it is likely js minified file
 			continue
 		}
+		o := OutputFmt{
+			File:    fpath,
+			Line_no: []int{},
+			Matches: []string{},
+		}
 		for idx, data := range datalines {
 			for ptnStr, ptn := range cred_ptn_compiled {
 				matches := ptn.FindAllStringSubmatch(data, -1)
 				if len(matches) > 0 {
-					o := OutputFmt{
-						File:    fpath,
-						Line_no: idx,
-						Pattern: ptnStr,
-						Matches: []string{},
-					}
-					var oldmatches, newmatches mapset.Set[string]
+					o.Pattern = ptnStr
+					o.Line_no = append(o.Line_no, idx)
+
+					var oldmatches map[string]OutputFmt
 					if check_prev, ok := previous_run_result[fpath]; ok {
-						if _, ok := check_prev[idx]; ok {
-							oldmatches = mapset.NewSet[string](previous_run_result[fpath][idx].Matches...)
-						}
+						oldmatches = check_prev
 					}
 					for _, match := range matches {
 						if debug {
@@ -104,19 +102,15 @@ func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileIn
 						}
 
 						if len(match) > 1 && ag.IsLikelyPasswordOrToken(match[2], password_check_mode, words_file_path, 4, entropy_threshold) {
-							if debug || load_profile_path != "" {
-								o.Matches = append(o.Matches, match[1], match[2])
-							} else {
-								o.Matches = append(o.Matches, match[1], "*****")
-							}
+							o.Matches = append(o.Matches, match[1], match[2])
 						}
 					}
 					if len(o.Matches) > 0 {
-						newmatches = mapset.NewSet[string](o.Matches...)
-						if load_profile_path != "" && oldmatches != nil && newmatches != nil && oldmatches.Equal(newmatches) {
-							log_chan <- fmt.Sprintf("File: %s - Line: %d matches exist in profile, skipping", fpath, idx)
+						match_Sig := o.Matches[0] + o.Matches[1]
+						if _, ok := oldmatches[match_Sig]; ok {
+							log_chan <- fmt.Sprintf("File: %s - matches %s exist in profile, skipping", fpath, match_Sig)
 						} else {
-							if load_profile_path != "" {
+							if !debug { // Mask value
 								for idx, _ := range o.Matches {
 									if idx%2 == 1 {
 										o.Matches[idx] = "*****"
@@ -167,7 +161,7 @@ func main() {
 
 		***** WORKFLOW *****
 		cd <project-to-scan-root-dir>
-		cred-detect . --debug <extra-opt> > cred-detect-profile.json
+		cred-detect . --debug <extra-opt> --profile="" --save-profile cred-detect-profile.json
 		# extra-opt if u need, mostly depending on each project you may optimize the exclude option or even change the regex pattern etc
 		# examine the json file and see any false positive case; if they are, leave it in the profile. Fix up your code for real case.
 		# Re-run the above until all data in json file are false positive.
@@ -284,12 +278,15 @@ func main() {
 				if out.File == "" {
 					continue
 				}
-				val, ok := (*output)[out.File]
-				if !ok {
-					(*output)[out.File] = map[int]OutputFmt{}
-					val = (*output)[out.File]
+
+				tokenSig := out.Matches[0] + out.Matches[1]
+				val, ok := (*output)[out.File] // Check if we already have this file
+				if !ok {                       // If not we create new
+					(*output)[out.File] = map[string]OutputFmt{}
+					(*output)[out.File][tokenSig] = out
+				} else { //If exist just add new tokenSig in
+					val[tokenSig] = out
 				}
-				val[out.Line_no] = out
 
 				if !moredata {
 					output_chan = nil
@@ -309,7 +306,7 @@ func main() {
 		}
 	}(&output, &logs, output_chan, log_chan, stat_chan)
 	// 10 is fastest
-	batchSize := 3
+	batchSize := 5
 	filesBatch := map[string]fs.FileInfo{}
 
 	err1 := filepath.Walk(file_path, func(fpath string, info fs.FileInfo, err error) error {
