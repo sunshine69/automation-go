@@ -917,7 +917,7 @@ func ExtractTextBlock(filename string, start_pattern, end_pattern []string) (blo
 }
 
 // Extract a text block which contains marker which could be an int or a list of pattern. if it is an int it is the line number.
-// First we get the text from the line number or search for a match to the marker pattern. If we found we will search upward for the
+// First we get the text from the line number or search for a match to the marker pattern. If we found we will search upward (to index 0) for the
 // upper_bound_pattern, and when found, search for the lower_bound_pattern. The marker should be in the middle
 // Return the text within the upper and lower, but not including the lower bound. Also return the line number range
 func ExtractTextBlockContains(filename string, upper_bound_pattern, lower_bound_pattern []string, marker interface{}) (block string, start_line_no int, end_line_no int, datalines []string) {
@@ -968,7 +968,6 @@ func ExtractTextBlockContains(filename string, upper_bound_pattern, lower_bound_
 // start_line is the line to start searching; set to 0 to start from begining
 // start_line should be smaller than max_line
 // direction is the direction of the search -1 is upward; otherwise is down
-
 func SearchPatternListInStrings(datalines []string, pattern []string, start_line, max_line, direction int) (found_marker bool, start_line_no int, linestr string) {
 	marker_ptn := []*regexp.Regexp{}
 	for _, ptn := range pattern {
