@@ -1001,3 +1001,12 @@ datalines_Loop:
 	}
 	return
 }
+
+// Edit line in a set of lines using simple regex and replacement
+func LineInLines(datalines []string, search_pattern string, replace string) (output []string) {
+	search_pattern_ptn := regexp.MustCompile(search_pattern)
+	for i := 0; i < len(datalines); i++ {
+		datalines[i] = search_pattern_ptn.ReplaceAllString(datalines[i], replace)
+	}
+	return datalines
+}

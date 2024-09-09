@@ -87,14 +87,14 @@ func TestExtractBlockContains(t *testing.T) {
 	fmt.Printf("%s\n", u.JsonDump(o1, "  "))
 
 	fmt.Println("\n****** PTN *******")
-	o, _, _, _ = ExtractTextBlockContains("../tmp/tests.yaml", []string{`- [^\s]+:[ ]?[^\s]*`}, []string{`- [^\s]+:[ ]?[^\s]*`}, []string{`- name: "Get list of service names from container_deployment var"`})
+	o, _, _, _ = ExtractTextBlockContains("../tmp/tests.yaml", []string{`- [^\s]+:[ ]?[^\s]*`}, []string{`- [^\s]+:[ ]?[^\s]*`}, []string{`helm_chart_resource_fact: "{{ helm_chart_resource }}"`})
 	fmt.Printf("'%s'\n", o)
 	o1 = []map[string]interface{}{}
 	u.CheckErr(yaml.Unmarshal([]byte(o), &o1), "ERR")
 	fmt.Printf("%s\n", u.JsonDump(o1, "  "))
 
 	fmt.Println("\n****** PTN *******")
-	o, _, _, _ = ExtractTextBlockContains("../tmp/tests.yaml", []string{`- when: "build_enabled_docker or build_enabled_helm"`}, []string{`msg: "ssssss{{ fail_msg }}"`}, []string{`msg: "{{ fail_msg }}"`})
+	o, _, _, _ = ExtractTextBlockContains("../tmp/tests.yaml", []string{`- when: "build_enabled_docker or build_enabled_helm"`}, []string{`msg: "{{ fail_msg }}"`}, []string{`msg: "{{ fail_msg }}"`})
 	fmt.Printf("'%s'\n", o)
 	// o1 = []map[string]interface{}{}
 	// u.CheckErr(yaml.Unmarshal([]byte(o), &o1), "ERR")
@@ -104,4 +104,11 @@ func TestExtractBlockContains(t *testing.T) {
 
 func TestPickLinesInFile(t *testing.T) {
 	fmt.Println(strings.Join(PickLinesInFile("../tmp/tests.yaml", 70, 1), "\n"))
+}
+
+func TestLineInLines(t *testing.T) {
+	o, _, _, _ := ExtractTextBlockContains("../tmp/tests.yaml", []string{`- [^\s]+:[ ]?[^\s]*`}, []string{`- [^\s]+:[ ]?[^\s]*`}, []string{`helm_chart_resource_fact: "{{ helm_chart_resource }}"`})
+	fmt.Printf("'%s'\n", o)
+	r := LineInLines(strings.Split(o, "\n"), `- set_fact:`, `- ansible.builtin.set_fact: `)
+	fmt.Printf("'%s'\n", strings.Join(r, "\n"))
 }
