@@ -20,6 +20,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Take a slice and a function return new slice with the value is the result of the function called for each item
+func SliceMap[T, V any](ts []T, fn func(T) V) []V {
+	result := make([]V, len(ts))
+	for i, t := range ts {
+		result[i] = fn(t)
+	}
+	return result
+}
+
 func MapKeysToSlice(m map[string]int) []string {
 	keys := make([]string, 0, len(m)) // Preallocate slice with the map's size
 	for key := range m {
