@@ -21,10 +21,13 @@ import (
 )
 
 // Take a slice and a function return new slice with the value is the result of the function called for each item
-func SliceMap[T, V any](ts []T, fn func(T) V) []V {
-	result := make([]V, len(ts))
-	for i, t := range ts {
-		result[i] = fn(t)
+func SliceMap[T, V any](ts []T, fn func(T) *V) []V {
+	result := []V{}
+	for _, t := range ts {
+		_v := fn(t)
+		if _v != nil {
+			result = append(result, *_v)
+		}
 	}
 	return result
 }
