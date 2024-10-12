@@ -6,9 +6,9 @@ import (
 	"crypto/sha256"
 	b64 "encoding/base64"
 	"fmt"
+	"html/template"
 	"io"
 	"io/fs"
-	"text/template"
 
 	json "github.com/json-iterator/go"
 
@@ -24,7 +24,8 @@ import (
 	"github.com/nikolalohinski/gonja/v2/loaders"
 	"github.com/pkg/errors"
 	u "github.com/sunshine69/golang-tools/utils"
-
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"gopkg.in/yaml.v3"
 )
 
@@ -352,9 +353,50 @@ func TemplateString(srcString string, data map[string]interface{}) string {
 	return o
 }
 
+// Common usefull go template funcs
+var GoTemplateFuncMap = template.FuncMap{
+	// The name "inc" is what the function will be called in the template text.
+	"inc": func(i int) int {
+		return i + 1
+	},
+	"add": func(x, y int) int {
+		return x + y
+	},
+	"title": func(word string) string {
+		return cases.Title(language.English, cases.NoLower).String(word)
+	},
+	"time_fmt": func(timelayout string, timeticks int64) string {
+		return u.NsToTime(timeticks).Format(timelayout)
+	},
+	"unsafe_raw_html": func(html string) template.HTML {
+		return template.HTML(html)
+	},
+	"truncatechars": func(length int, in string) template.HTML {
+		return template.HTML(u.ChunkString(in, length)[0])
+	},
+	"cycle": func(idx int, vals ...string) template.HTML {
+		_idx := idx % len(vals)
+		return template.HTML(vals[_idx])
+	},
+	"replace": func(old, new, data string) template.HTML {
+		o := strings.ReplaceAll(data, old, new)
+		return template.HTML(o)
+	},
+	"contains": func(subStr, data string) bool {
+		return strings.Contains(data, subStr)
+	},
+	"int_range": func(start, end int) []int {
+		n := end - start
+		result := make([]int, n)
+		for i := 0; i < n; i++ {
+			result[i] = start + i
+		}
+		return result
+	},
+}
+
 func GoTemplateString(srcString string, data map[string]interface{}) string {
-	t1 := template.New("")
-	t1 = template.Must(t1.Parse(srcString))
+	t1 := template.Must(template.New("").Funcs(GoTemplateFuncMap).Parse(srcString))
 	var buff bytes.Buffer
 	u.CheckErr(t1.Execute(&buff, data), "GoTemplateString Execute")
 	return buff.String()
@@ -364,8 +406,9 @@ func GoTemplateFile(src, dest string, data map[string]interface{}, fileMode os.F
 	if fileMode == 0 {
 		fileMode = 0755
 	}
-	t1 := template.New("")
-	t1 = template.Must(t1.Parse(src))
+	srcByte, err := os.ReadFile(src)
+	u.CheckErr(err, "GoTemplateFile ReadFile")
+	t1 := template.Must(template.New("").Funcs(GoTemplateFuncMap).Parse(string(srcByte)))
 
 	destFile, err := os.Create(dest)
 	u.CheckErr(err, fmt.Sprintf("[ERROR] GoTemplateFile os.Create %s", dest))
