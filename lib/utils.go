@@ -32,7 +32,8 @@ func SliceMap[T, V any](ts []T, fn func(T) *V) []V {
 	return result
 }
 
-func MapKeysToSlice(m map[string]int) []string {
+// Similar to the python dict.keys()
+func MapKeysToSlice(m map[string]interface{}) []string {
 	keys := make([]string, 0, len(m)) // Preallocate slice with the map's size
 	for key := range m {
 		keys = append(keys, key)
@@ -40,12 +41,14 @@ func MapKeysToSlice(m map[string]int) []string {
 	return keys
 }
 
+// Validate a yaml file and load it into a map
 func IncludeVars(filename string) map[string]interface{} {
 	m := make(map[string]interface{})
 	ValidateYamlFile(filename, &m)
 	return m
 }
 
+// Read the first line of a file
 func ReadFirstLineOfFile(filepath string) string {
 	file, err := os.Open(filepath)
 	u.CheckErr(err, "[ERROR] readFirstLineOfFile")
@@ -88,10 +91,10 @@ func InterfaceToStringMap(in map[string]interface{}) map[string]string {
 	return o
 }
 
-func SliceToMap(slice []string) map[string]interface{} {
-	set := make(map[string]interface{})
+func SliceToMap(slice []string) map[string]struct{} {
+	set := make(map[string]struct{})
 	for _, element := range slice {
-		set[element] = ""
+		set[element] = struct{}{}
 	}
 	return set
 }
@@ -1012,6 +1015,41 @@ datalines_Loop:
 		}
 	}
 	return
+}
+
+// SplitTextByPattern splits a multiline text into sections based on a regex pattern.
+// If includeMatch is true, the matching lines are included in the result.
+// pattern should a multiline pattern like `(?m)^Header line.*`
+func SplitTextByPattern(text, pattern string, includeMatch bool) []string {
+	re := regexp.MustCompile(pattern)
+	sections := []string{}
+
+	switch includeMatch {
+	case true:
+		matches := re.FindAllStringIndex(text, -1)
+		start := 0
+		// Loop through each match, splitting the text and including the pattern line
+		for _, match := range matches {
+			if start < match[0] {
+				sections = append(sections, text[start:match[0]])
+			}
+			start = match[0]
+		}
+		sections = append(sections, text[start:]) // Capture the remaining part of the text
+	case false:
+		// Split the text based on the regex pattern
+		splitText := re.Split(text, -1)
+
+		// Remove any empty strings or extra newlines from the result
+
+		for _, part := range splitText {
+			part = strings.TrimSpace(part)
+			if part != "" {
+				sections = append(sections, part)
+			}
+		}
+	}
+	return sections
 }
 
 // Edit line in a set of lines using simple regex and replacement
