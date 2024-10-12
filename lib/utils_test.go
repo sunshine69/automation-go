@@ -3,7 +3,6 @@ package lib
 import (
 	"fmt"
 	"os"
-	"regexp"
 	"strings"
 	"testing"
 
@@ -18,40 +17,22 @@ func init() {
 }
 
 func TestAddhoc(t *testing.T) {
-	// varAnsible := ParseVarAnsibleNext(project_dir+"/../work/azure-devops/vars-ansible.yaml", project_dir)
-	// HelmChartValidation("/home/stevek/src/helm_playground-1_v1/", []string{
-	// 	"//home/stevek/src/helm_playground-1_v1/values.yaml",
-	// })
-	// tmplStr := `{{ "test".upper() }}`
-	// o := TemplateString(tmplStr, map[string]interface{}{})
-	// fmt.Printf("%s\n", o)
-	// str := "Let freedom ring from the mighty mountains of New York. Let freedom ring from the heightening Alleghenies of Pennsylvania. Let freedom ring from the snow-capped Rockies of Colorado. Let freedom ring from the curvaceous slopes of California."
-	// counter := 1
-	// repl := func(match string) string {
-	// 	old := counter
-	// 	counter++
-	// 	if old != 1 {
-	// 		return fmt.Sprintf("[%d] %s%d", old, match, old)
-	// 	}
-	// 	return fmt.Sprintf("[%d] %s", old, match)
-	// }
-	// re := regexp.MustCompile("Let freedom")
-	// str2 := re.ReplaceAllStringFunc(str, repl)
-	// fmt.Println(str2)
+	text := `Header 1
+	This is some content
+	for the first section.	
+	Header 2
+	This is some content
+	for the second section.	
 
-	// u.CheckErr(err, "")
-	// words, _ := loadDictionary("/tmp/words", 0)
+	Header 3
+	This is some content
+	for the third section.`
 
-	// words := strings.FieldsFunc(strings.ToLower("#A<V_$AvQ{Yj!Y"), func(r rune) bool {
-	// 	return !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9'))
-	// })
-	// fmt.Printf("%v\n", words)
+	sections := SplitTextByPattern(text, `(?m)Header.*`, false)
+	for idx, r := range sections {
+		fmt.Printf("Rows %d\n%s\n", idx+1, r)
+	}
 
-	fmt.Printf("Likely a password: %v\n", IsLikelyPasswordOrToken("VHuGgaJvV", "letter+word", "/tmp/words.txt", 0, 1))
-	// fmt.Println(changed)
-	ptn := regexp.MustCompile(`(?i)['"]?(password|passwd|token|api_key|secret)['"]?[=:\s][\s]*?['"]?([^'"\s]+)['"]?`)
-	matches := ptn.FindAllStringSubmatch(`PublicKeyToken=null</TypeInfo>`, -1)
-	fmt.Printf("%q\n", matches)
 	fmt.Println("Done test")
 }
 

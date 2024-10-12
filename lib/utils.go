@@ -1030,20 +1030,18 @@ func SplitTextByPattern(text, pattern string, includeMatch bool) []string {
 	case true:
 		matches := re.FindAllStringIndex(text, -1)
 		start := 0
-		// Loop through each match, splitting the text and including the pattern line
 		for _, match := range matches {
 			if start < match[0] {
-				sections = append(sections, text[start:match[0]])
+				_t := strings.TrimSpace(text[start:match[0]])
+				if _t != "" {
+					sections = append(sections, _t)
+				}
+				start = match[0]
 			}
-			start = match[0]
 		}
 		sections = append(sections, text[start:]) // Capture the remaining part of the text
 	case false:
-		// Split the text based on the regex pattern
 		splitText := re.Split(text, -1)
-
-		// Remove any empty strings or extra newlines from the result
-
 		for _, part := range splitText {
 			part = strings.TrimSpace(part)
 			if part != "" {
