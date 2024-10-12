@@ -21,6 +21,7 @@ import (
 )
 
 // Take a slice and a function return new slice with the value is the result of the function called for each item
+// Similar to list walk in python
 func SliceMap[T, V any](ts []T, fn func(T) *V) []V {
 	result := []V{}
 	for _, t := range ts {
@@ -91,15 +92,16 @@ func InterfaceToStringMap(in map[string]interface{}) map[string]string {
 	return o
 }
 
-func SliceToMap(slice []string) map[string]struct{} {
-	set := make(map[string]struct{})
+// SliceToMap convert a slice of any comparable into a map which can set the value later on
+func SliceToMap[T comparable](slice []T) map[T]interface{} {
+	set := make(map[T]interface{})
 	for _, element := range slice {
-		set[element] = struct{}{}
+		set[element] = nil
 	}
 	return set
 }
 
-func ItemExists(item string, set map[string]interface{}) bool {
+func ItemExists[T comparable](item T, set map[T]interface{}) bool {
 	_, exists := set[item]
 	return exists
 }
