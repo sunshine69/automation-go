@@ -371,18 +371,18 @@ var GoTemplateFuncMap = template.FuncMap{
 	"unsafe_raw_html": func(html string) template.HTML {
 		return template.HTML(html)
 	},
-	"truncatechars": func(length int, in string) template.HTML {
+	"truncatechars": func(in string, length int) template.HTML {
 		return template.HTML(u.ChunkString(in, length)[0])
 	},
 	"cycle": func(idx int, vals ...string) template.HTML {
 		_idx := idx % len(vals)
 		return template.HTML(vals[_idx])
 	},
-	"replace": func(old, new, data string) template.HTML {
+	"replace": func(data, old, new string) template.HTML {
 		o := strings.ReplaceAll(data, old, new)
 		return template.HTML(o)
 	},
-	"contains": func(subStr, data string) bool {
+	"contains": func(data, subStr string) bool {
 		return strings.Contains(data, subStr)
 	},
 	"int_range": func(start, end int) []int {
