@@ -961,7 +961,11 @@ func ExtractTextBlockContains(filename string, upper_bound_pattern, lower_bound_
 	if marker_line_no == 0 { // We are at the start already, take that as upper and ignore upper ptn
 		found_upper, start_line_no = true, marker_line_no
 	} else {
-		found_upper, start_line_no, _ = SearchPatternListInStrings(datalines, upper_bound_pattern, marker_line_no, all_lines_count, -1)
+		if len(upper_bound_pattern) > 0 {
+			found_upper, start_line_no, _ = SearchPatternListInStrings(datalines, upper_bound_pattern, marker_line_no, all_lines_count, -1)
+		} else {
+			found_upper, start_line_no = true, marker_line_no
+		}
 	}
 	if !found_upper {
 		// fmt.Fprintf(os.Stderr, "UPPER not found. Ptn: %v\n", upper_bound_pattern)
