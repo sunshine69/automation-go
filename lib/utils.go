@@ -3,6 +3,7 @@ package lib
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io/fs"
 	"math"
@@ -1059,4 +1060,26 @@ func LineInLines(datalines []string, search_pattern string, replace string) (out
 		datalines[i] = search_pattern_ptn.ReplaceAllString(datalines[i], replace)
 	}
 	return datalines
+}
+
+// Find a block text matching and replace content with replText. Return the old text block
+func BlockInFile(filename string, upper_bound_pattern, lower_bound_pattern []string, marker any, replText string, keepBoundaryLines bool, backup bool) (oldBlock string) {
+	block, start_line_no, end_line_no, datalines := ExtractTextBlockContains(filename, upper_bound_pattern, lower_bound_pattern, marker)
+	fstat, err := os.Stat(filename)
+	if errors.Is(err, fs.ErrNotExist) {
+		panic("[ERROR]BlockInFile File " + filename + " doesn't exist\n")
+	}
+	var upPartLines, downPartLines []string
+	if keepBoundaryLines {
+		upPartLines = datalines[0 : start_line_no+1]
+		downPartLines = datalines[end_line_no:]
+	} else {
+		upPartLines = datalines[0:start_line_no]
+		downPartLines = datalines[end_line_no+1:]
+	}
+	if backup {
+		os.WriteFile(filename+".bak", []byte(strings.Join(datalines, "\n")), fstat.Mode())
+	}
+	os.WriteFile(filename, []byte(strings.Join(upPartLines, "\n")+replText+strings.Join(downPartLines, "\n")), fstat.Mode())
+	return block
 }
