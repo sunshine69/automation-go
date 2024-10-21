@@ -9,6 +9,7 @@ import (
 	"html/template"
 	"io"
 	"io/fs"
+	"time"
 
 	json "github.com/json-iterator/go"
 
@@ -365,10 +366,19 @@ var GoTemplateFuncMap = template.FuncMap{
 	"title": func(word string) string {
 		return cases.Title(language.English, cases.NoLower).String(word)
 	},
+	"lower": func(word string) string {
+		return cases.Lower(language.English, cases.NoLower).String(word)
+	},
+	"upper": func(word string) string {
+		return cases.Upper(language.English, cases.NoLower).String(word)
+	},
 	"time_fmt": func(timelayout string, timeticks int64) string {
 		return u.NsToTime(timeticks).Format(timelayout)
 	},
-	"unsafe_raw_html": func(html string) template.HTML {
+	"now": func(timelayout string) string {
+		return time.Now().Format(timelayout)
+	},
+	"raw_html": func(html string) template.HTML {
 		return template.HTML(html)
 	},
 	"truncatechars": func(in string, length int) template.HTML {
