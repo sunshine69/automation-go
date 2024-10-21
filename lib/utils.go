@@ -1084,6 +1084,6 @@ func BlockInFile(filename string, upper_bound_pattern, lower_bound_pattern []str
 	if backup {
 		os.WriteFile(filename+".bak", []byte(strings.Join(datalines, "\n")), fstat.Mode())
 	}
-	os.WriteFile(filename, []byte(strings.Join(upPartLines, "\n")+replText+strings.Join(downPartLines, "\n")), fstat.Mode())
+	os.WriteFile(filename, []byte(strings.Join(upPartLines, "\n")+"\n"+replText+"\n"+strings.Join(downPartLines, "\n")), fstat.Mode())
 	return block
 }
