@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"unicode"
@@ -20,6 +21,54 @@ import (
 	"gopkg.in/ini.v1"
 	"gopkg.in/yaml.v3"
 )
+
+type StructInfo struct {
+	Name       string
+	FieldName  []string
+	FieldType  map[string]string
+	FieldValue map[string]any
+	TagCapture map[string][][]string
+}
+
+// Give it a struct and a tag pattern to capture the tag content - return a map of string which is the struct Field name, point to a map of
+// string which is the capture in the pattern
+func ReflectStruct(astruct any, tagPtn string) StructInfo {
+	if tagPtn == "" {
+		tagPtn = `db:"([^"]+)"`
+	}
+	o := StructInfo{}
+	tagExtractPtn := regexp.MustCompile(tagPtn)
+
+	rf := reflect.TypeOf(astruct)
+	o.Name = rf.Name()
+	if rf.Kind().String() != "struct" {
+		panic("I need a struct")
+	}
+	rValue := reflect.ValueOf(astruct)
+	o.FieldName = []string{}
+	o.FieldType = map[string]string{}
+	o.FieldValue = map[string]any{}
+	o.TagCapture = map[string][][]string{}
+	for i := 0; i < rf.NumField(); i++ {
+		f := rf.Field(i)
+		o.FieldName = append(o.FieldName, f.Name)
+		fieldValue := rValue.Field(i)
+		o.FieldType[f.Name] = fieldValue.Type().String()
+		o.TagCapture[f.Name] = [][]string{}
+		switch fieldValue.Type().String() {
+		case "string":
+			o.FieldValue[f.Name] = fieldValue.String()
+		case "int64":
+			o.FieldValue[f.Name] = fieldValue.Int()
+		default:
+			fmt.Printf("Unsupported field type " + fieldValue.Type().String())
+		}
+		if ext := tagExtractPtn.FindAllStringSubmatch(string(f.Tag), -1); ext != nil {
+			o.TagCapture[f.Name] = append(o.TagCapture[f.Name], ext...)
+		}
+	}
+	return o
+}
 
 // Take a slice and a function return new slice with the value is the result of the function called for each item
 // Similar to list walk in python
