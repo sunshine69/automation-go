@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"math"
 	"net/http"
@@ -149,6 +150,67 @@ func SliceToMap[T comparable](slice []T) map[T]interface{} {
 		set[element] = nil
 	}
 	return set
+}
+
+func AssertInt64ValueForMap(input map[string]interface{}) map[string]interface{} {
+	for k, v := range input {
+		if v, ok := v.(float64); ok {
+			input[k] = int64(v)
+		}
+	}
+	return input
+}
+
+// JsonToMap take a json string and decode it into a map[string]interface{}
+func JsonToMap(jsonStr string) map[string]interface{} {
+	result := make(map[string]interface{})
+	json.Unmarshal([]byte(jsonStr), &result)
+	return AssertInt64ValueForMap(result)
+}
+
+// Take a struct and convert into a map[string]any - the key of the map is the struct field name, and the value is the struct field value.
+// This is useful to pass it to the gop template to render the struct value
+func ConvertStruct2Map[T any](t T) ([]string, map[string]any) {
+	sInfo := ReflectStruct(t, "")
+	out := map[string]any{}
+	for _, f := range sInfo.FieldName {
+		out[f] = sInfo.FieldValue[f]
+	}
+	return sInfo.FieldName, out
+}
+
+func ParseJsonReqBodyToMap(r *http.Request) map[string]interface{} {
+	switch r.Method {
+	case "POST", "PUT", "DELETE":
+		jsonBytes := bytes.Buffer{}
+		if _, err := io.Copy(&jsonBytes, r.Body); err != nil {
+			fmt.Fprintf(os.Stderr, "[ERROR] ParseJSONToMap loading request body - %s\n", err.Error())
+			return nil
+		}
+		defer r.Body.Close()
+		return JsonToMap(string(jsonBytes.Bytes()))
+	default:
+		fmt.Fprintf(os.Stderr, "[ERROR] ParseJSONToMap Do not call me with this method - %s\n", r.Method)
+		return nil
+	}
+}
+
+// ParseJSON parses the raw JSON body from an HTTP request into the specified struct.
+func ParseJsonReqBodyToStruct[T any](r *http.Request) *T {
+	switch r.Method {
+	case "POST", "PUT", "DELETE":
+		decoder := json.NewDecoder(r.Body)
+		defer r.Body.Close()
+		var data T
+		if err := decoder.Decode(&data); err != nil {
+			fmt.Fprintf(os.Stderr, "[ERROR] parsing JSON - %s\n", err.Error())
+			return nil
+		}
+		return &data
+	default:
+		fmt.Fprintf(os.Stderr, "[ERROR] ParseJSON Do not call me with this method - %s\n", r.Method)
+		return nil
+	}
 }
 
 func ItemExists[T comparable](item T, set map[T]interface{}) bool {
