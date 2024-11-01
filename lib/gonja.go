@@ -372,7 +372,7 @@ var GoTemplateFuncMap = template.FuncMap{
 	"upper": func(word string) string {
 		return cases.Upper(language.English, cases.NoLower).String(word)
 	},
-	"time_fmt": func(timelayout string, timeticks int64) string {
+	"time_fmt": func(timeticks int64, timelayout string) string {
 		return u.NsToTime(timeticks).Format(timelayout)
 	},
 	"now": func(timelayout string) string {
@@ -402,6 +402,12 @@ var GoTemplateFuncMap = template.FuncMap{
 			result[i] = start + i
 		}
 		return result
+	},
+	"basename": func(file_path string) string {
+		return filepath.Base(file_path)
+	},
+	"dirname": func(file_path string) string {
+		return filepath.Dir(file_path)
 	},
 }
 
