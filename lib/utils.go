@@ -1135,6 +1135,41 @@ datalines_Loop:
 	return
 }
 
+// ExtractLineInLines will find a line match a pattern with capture (or not). The pattern is in between a start pattern and end pattern to narrow down
+// search range. Return the result of FindAllStringSubmatch func of the match line
+// This is simpler as it does not support multiple pattern as a marker like the other func eg ExtractTextBlockContains so input should be small
+// and pattern match should be unique. Use the other function to devide it into small range and then use this func.
+func ExtractLineInLines(blocklines []string, start, line, end string) [][]string {
+	p0, p1, p3 := regexp.MustCompile(start), regexp.MustCompile(line), regexp.MustCompile(end)
+	found_start, found, found_end := false, false, false
+	var _l string
+	for _, _l = range blocklines {
+		if !found_start {
+			found_start = p0.MatchString(_l)
+		}
+		if !found_end {
+			found_end = p3.MatchString(_l)
+		}
+		if !found_start {
+			continue
+		} else {
+			if !found_end {
+				found = p1.MatchString(_l)
+			} else {
+				break
+			}
+		}
+		if found {
+			break
+		}
+	}
+	if found {
+		return p1.FindAllStringSubmatch(_l, -1)
+	} else {
+		return nil
+	}
+}
+
 // SplitTextByPattern splits a multiline text into sections based on a regex pattern.
 // If includeMatch is true, the matching lines are included in the result.
 // pattern should a multiline pattern like `(?m)^Header line.*`
