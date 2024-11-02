@@ -1139,11 +1139,13 @@ datalines_Loop:
 // search range. Return the result of FindAllStringSubmatch func of the match line
 // This is simpler as it does not support multiple pattern as a marker like the other func eg ExtractTextBlockContains so input should be small
 // and pattern match should be unique. Use the other function to devide it into small range and then use this func.
+// start and line can be the same pattern. Same as line and end; it will return the match of start (or end) pattern
 func ExtractLineInLines(blocklines []string, start, line, end string) [][]string {
 	p0, p1, p3 := regexp.MustCompile(start), regexp.MustCompile(line), regexp.MustCompile(end)
 	found_start, found, found_end := false, false, false
-	var _l string
-	for _, _l = range blocklines {
+	var l string
+	length := len(blocklines)
+	for idx, _l := range blocklines {
 		if !found_start {
 			found_start = p0.MatchString(_l)
 		}
@@ -1156,15 +1158,18 @@ func ExtractLineInLines(blocklines []string, start, line, end string) [][]string
 			if !found_end {
 				found = p1.MatchString(_l)
 			} else {
-				break
+				if idx == length-1 { // last one - but still not found. try to match the line now see if we get match (that is line same as end)
+					found = p1.MatchString(_l)
+				}
 			}
 		}
 		if found {
+			l = _l
 			break
 		}
 	}
 	if found {
-		return p1.FindAllStringSubmatch(_l, -1)
+		return p1.FindAllStringSubmatch(l, -1)
 	} else {
 		return nil
 	}
