@@ -409,9 +409,10 @@ var GoTemplateFuncMap = template.FuncMap{
 	"dirname": func(file_path string) string {
 		return filepath.Dir(file_path)
 	},
+	"default": func(data any, defaultdata string)
 }
 
-func GoTemplateString(srcString string, data map[string]interface{}) string {
+func GoTemplateString(srcString string, data any) string {
 	t1 := template.Must(template.New("").Funcs(GoTemplateFuncMap).Parse(srcString))
 	var buff bytes.Buffer
 	u.CheckErr(t1.Execute(&buff, data), "GoTemplateString Execute")
