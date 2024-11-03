@@ -1049,6 +1049,7 @@ func ExtractTextBlock(filename string, start_pattern, end_pattern []string) (blo
 // First we get the text from the line number or search for a match to the marker pattern. If we found we will search upward (to index 0) for the
 // upper_bound_pattern, and when found, search for the lower_bound_pattern. The marker should be in the middle
 // Return the text within the upper and lower, but not including the lower bound. Also return the line number range
+// marker and lower is important; you can ignore upper_bound_pattern by using a empty []string{}
 func ExtractTextBlockContains(filename string, upper_bound_pattern, lower_bound_pattern []string, marker interface{}) (block string, start_line_no int, end_line_no int, datalines []string) {
 	datab, err := os.ReadFile(filename)
 	u.CheckErr(err, "ExtractTextBlock ReadFile")
@@ -1217,7 +1218,8 @@ func LineInLines(datalines []string, search_pattern string, replace string) (out
 	return datalines
 }
 
-// Find a block text matching and replace content with replText. Return the old text block
+// Find a block text matching and replace content with replText. Return the old text block. Use ExtractTextBlockContains under the hood to get the text block
+// see that func for help. Remember marker and lower is important, if not care about upper_bound_pattern pass a empty slice []string{}
 func BlockInFile(filename string, upper_bound_pattern, lower_bound_pattern []string, marker any, replText string, keepBoundaryLines bool, backup bool) (oldBlock string) {
 	block, start_line_no, end_line_no, datalines := ExtractTextBlockContains(filename, upper_bound_pattern, lower_bound_pattern, marker)
 	fstat, err := os.Stat(filename)
