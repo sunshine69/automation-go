@@ -409,7 +409,6 @@ var GoTemplateFuncMap = template.FuncMap{
 	"dirname": func(file_path string) string {
 		return filepath.Dir(file_path)
 	},
-	"default": func(data any, defaultdata string)
 }
 
 func GoTemplateString(srcString string, data any) string {
