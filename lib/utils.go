@@ -59,8 +59,10 @@ func ReflectStruct(astruct any, tagPtn string) StructInfo {
 		switch fieldValue.Type().String() {
 		case "string":
 			o.FieldValue[f.Name] = fieldValue.String()
-		case "int64":
+		case "int64", "int", "int32":
 			o.FieldValue[f.Name] = fieldValue.Int()
+		case "float64", "float32":
+			o.FieldValue[f.Name] = fieldValue.Float()
 		default:
 			fmt.Printf("Unsupported field type " + fieldValue.Type().String())
 		}
