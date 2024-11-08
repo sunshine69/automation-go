@@ -2,7 +2,6 @@ package lib
 
 import (
 	"fmt"
-	"html/template"
 	"os"
 	"strings"
 	"testing"
@@ -96,6 +95,8 @@ func TestLineInLines(t *testing.T) {
 }
 
 func TestJoinFunc(t *testing.T) {
-	tmpl := template.Must(template.New("").Funcs(template.FuncMap{"join": func(inlist []string, sep string) string { return strings.Join(inlist, sep) }}).Parse(`var2 - {{.var2}} this is output {{ join .var1 ","}} - `))
-	tmpl.Execute(os.Stdout, map[string]any{"var1": []string{"a", "b", "c"}, "var2": "Value var2"})
+	// tmpl := template.Must(template.New("").Funcs(template.FuncMap{"join": func(inlist []string, sep string) string { return strings.Join(inlist, sep) }}).Parse(`<?php  var2 - {{.var2}} this is output {{ join .var1 ","}} - ?>`))
+	// tmpl.Execute(os.Stdout, map[string]any{"var1": []string{"a", "b", "c"}, "var2": "Value var2"})
+	o := GoTemplateString(`<?php  var2 - {{.var2}} this is output {{ join .var1 ","}} - ?>`, map[string]any{"var1": []string{"a", "b", "c"}, "var2": "Value var2"})
+	println("[DEBUG]", o)
 }

@@ -354,7 +354,7 @@ func TemplateString(srcString string, data map[string]interface{}) string {
 	return o
 }
 
-// Common usefull go template funcs
+// Common usefull go html template funcs
 var GoTemplateFuncMap = template.FuncMap{
 	// The name "inc" is what the function will be called in the template text.
 	"inc": func(i int) int {
@@ -410,29 +410,6 @@ var GoTemplateFuncMap = template.FuncMap{
 	"dirname": func(file_path string) string {
 		return filepath.Dir(file_path)
 	},
-}
-
-func GoTemplateString(srcString string, data any) string {
-	t1 := template.Must(template.New("").Funcs(GoTemplateFuncMap).Parse(srcString))
-	var buff bytes.Buffer
-	u.CheckErr(t1.Execute(&buff, data), "GoTemplateString Execute")
-	return buff.String()
-}
-
-func GoTemplateFile(src, dest string, data map[string]interface{}, fileMode os.FileMode) {
-	if fileMode == 0 {
-		fileMode = 0755
-	}
-	srcByte, err := os.ReadFile(src)
-	u.CheckErr(err, "GoTemplateFile ReadFile")
-	t1 := template.Must(template.New("").Funcs(GoTemplateFuncMap).Parse(string(srcByte)))
-
-	destFile, err := os.Create(dest)
-	u.CheckErr(err, fmt.Sprintf("[ERROR] GoTemplateFile os.Create %s", dest))
-	u.CheckErr(destFile.Chmod(fileMode), fmt.Sprintf("[ERROR] GoTemplateFile can not chmod %d for file %s\n", fileMode, dest))
-	defer destFile.Close()
-	u.CheckErr(err, fmt.Sprintf("[ERROR] GoTemplateFile Can not create destination file %s\n", dest))
-	u.CheckErr(t1.Execute(destFile, data), "[ERROR] GoTemplateFile Can not template "+src+" => "+dest)
 }
 
 func CreateDirTree(srcDirpath, targetRoot string) error {

@@ -14,14 +14,98 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"text/template"
+	"time"
 	"unicode"
 
 	json "github.com/json-iterator/go"
 	u "github.com/sunshine69/golang-tools/utils"
 	"github.com/tidwall/gjson"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"gopkg.in/ini.v1"
 	"gopkg.in/yaml.v3"
 )
+
+// Common usefull go text template funcs
+var GoTextTemplateFuncMap = template.FuncMap{
+	// The name "inc" is what the function will be called in the template text.
+	"inc": func(i int) int {
+		return i + 1
+	},
+	"add": func(x, y int) int {
+		return x + y
+	},
+	"title": func(word string) string {
+		return cases.Title(language.English, cases.NoLower).String(word)
+	},
+	"lower": func(word string) string {
+		return cases.Lower(language.English, cases.NoLower).String(word)
+	},
+	"upper": func(word string) string {
+		return cases.Upper(language.English, cases.NoLower).String(word)
+	},
+	"time_fmt": func(timeticks int64, timelayout string) string {
+		return u.NsToTime(timeticks).Format(timelayout)
+	},
+	"now": func(timelayout string) string {
+		return time.Now().Format(timelayout)
+	},
+	"join": func(inlist []string, sep string) string { return strings.Join(inlist, sep) },
+	"truncatechars": func(in string, length int) string {
+		return string(u.ChunkString(in, length)[0])
+	},
+	"cycle": func(idx int, vals ...string) string {
+		_idx := idx % len(vals)
+		return string(vals[_idx])
+	},
+	"replace": func(data, old, new string) string {
+		o := strings.ReplaceAll(data, old, new)
+		return o
+	},
+	"contains": func(data, subStr string) bool {
+		return strings.Contains(data, subStr)
+	},
+	"int_range": func(start, end int) []int {
+		n := end - start
+		result := make([]int, n)
+		for i := 0; i < n; i++ {
+			result[i] = start + i
+		}
+		return result
+	},
+	"basename": func(file_path string) string {
+		return filepath.Base(file_path)
+	},
+	"dirname": func(file_path string) string {
+		return filepath.Dir(file_path)
+	},
+}
+
+// This func use text/template to avoid un-expected html escaping.
+func GoTemplateString(srcString string, data any) string {
+	t1 := template.Must(template.New("").Funcs(GoTextTemplateFuncMap).Parse(srcString))
+	var buff bytes.Buffer
+	u.CheckErr(t1.Execute(&buff, data), "GoTemplateString Execute")
+	return buff.String()
+}
+
+// This func use text/template to avoid un-expected html escaping.
+func GoTemplateFile(src, dest string, data map[string]interface{}, fileMode os.FileMode) {
+	if fileMode == 0 {
+		fileMode = 0755
+	}
+	srcByte, err := os.ReadFile(src)
+	u.CheckErr(err, "GoTemplateFile ReadFile")
+	t1 := template.Must(template.New("").Funcs(GoTextTemplateFuncMap).Parse(string(srcByte)))
+
+	destFile, err := os.Create(dest)
+	u.CheckErr(err, fmt.Sprintf("[ERROR] GoTemplateFile os.Create %s", dest))
+	u.CheckErr(destFile.Chmod(fileMode), fmt.Sprintf("[ERROR] GoTemplateFile can not chmod %d for file %s\n", fileMode, dest))
+	defer destFile.Close()
+	u.CheckErr(err, fmt.Sprintf("[ERROR] GoTemplateFile Can not create destination file %s\n", dest))
+	u.CheckErr(t1.Execute(destFile, data), "[ERROR] GoTemplateFile Can not template "+src+" => "+dest)
+}
 
 type StructInfo struct {
 	Name       string
