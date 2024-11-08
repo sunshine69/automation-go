@@ -2,6 +2,7 @@ package lib
 
 import (
 	"fmt"
+	"html/template"
 	"os"
 	"strings"
 	"testing"
@@ -19,10 +20,10 @@ func init() {
 func TestAddhoc(t *testing.T) {
 	text := `Header 1
 	This is some content
-	for the first section.	
+	for the first section.
 	Header 2
 	This is some content
-	for the second section.	
+	for the second section.
 
 	Header 3
 	This is some content
@@ -92,4 +93,9 @@ func TestLineInLines(t *testing.T) {
 	fmt.Printf("'%s'\n", o)
 	r := LineInLines(strings.Split(o, "\n"), `- set_fact:`, `- ansible.builtin.set_fact: `)
 	fmt.Printf("'%s'\n", strings.Join(r, "\n"))
+}
+
+func TestJoinFunc(t *testing.T) {
+	tmpl := template.Must(template.New("").Funcs(template.FuncMap{"join": func(inlist []string, sep string) string { return strings.Join(inlist, sep) }}).Parse(`var2 - {{.var2}} this is output {{ join .var1 ","}} - `))
+	tmpl.Execute(os.Stdout, map[string]any{"var1": []string{"a", "b", "c"}, "var2": "Value var2"})
 }

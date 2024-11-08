@@ -381,6 +381,7 @@ var GoTemplateFuncMap = template.FuncMap{
 	"raw_html": func(html string) template.HTML {
 		return template.HTML(html)
 	},
+	"join": func(inlist []string, sep string) string { return strings.Join(inlist, sep) },
 	"truncatechars": func(in string, length int) template.HTML {
 		return template.HTML(u.ChunkString(in, length)[0])
 	},
