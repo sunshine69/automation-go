@@ -100,3 +100,15 @@ func TestJoinFunc(t *testing.T) {
 	o := GoTemplateString(`<?php  var2 - {{.var2}} this is output {{ join .var1 ","}} - ?>`, map[string]any{"var1": []string{"a", "b", "c"}, "var2": "Value var2"})
 	println("[DEBUG]", o)
 }
+
+func BenchmarkGoTemplateString(b *testing.B) { // go template is about 6 times faster than the gonja version
+	for n := 0; n < b.N; n++ {
+		GoTemplateString(`<?php  var2 - {{.var2}} this is output {{ join .var1 ","}} - ?>`, map[string]any{"var1": []string{"a", "b", "c"}, "var2": "Value var2"})
+	}
+}
+
+func BenchmarkTemplateString(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		TemplateString(`<?php  var2 - {{var2}} this is output {{ var1 |join(",")}} - ?>`, map[string]any{"var1": []string{"a", "b", "c"}, "var2": "Value var2"})
+	}
+}
