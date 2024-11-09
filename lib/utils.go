@@ -27,6 +27,14 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Must wraps two values pair with seocnd one is an error, check if error is nil then return the first, otherwise panic with error message
+func Must[T any](res T, err error) T {
+	if err != nil {
+		panic(err.Error())
+	}
+	return res
+}
+
 // Common usefull go text template funcs
 var GoTextTemplateFuncMap = template.FuncMap{
 	// The name "inc" is what the function will be called in the template text.
@@ -95,15 +103,12 @@ func GoTemplateFile(src, dest string, data map[string]interface{}, fileMode os.F
 	if fileMode == 0 {
 		fileMode = 0755
 	}
-	srcByte, err := os.ReadFile(src)
-	u.CheckErr(err, "GoTemplateFile ReadFile")
+	srcByte := Must(os.ReadFile(src))
 	t1 := template.Must(template.New("").Funcs(GoTextTemplateFuncMap).Parse(string(srcByte)))
 
-	destFile, err := os.Create(dest)
-	u.CheckErr(err, fmt.Sprintf("[ERROR] GoTemplateFile os.Create %s", dest))
+	destFile := Must(os.Create(dest))
 	u.CheckErr(destFile.Chmod(fileMode), fmt.Sprintf("[ERROR] GoTemplateFile can not chmod %d for file %s\n", fileMode, dest))
 	defer destFile.Close()
-	u.CheckErr(err, fmt.Sprintf("[ERROR] GoTemplateFile Can not create destination file %s\n", dest))
 	u.CheckErr(t1.Execute(destFile, data), "[ERROR] GoTemplateFile Can not template "+src+" => "+dest)
 }
 
@@ -188,12 +193,9 @@ func IncludeVars(filename string) map[string]interface{} {
 
 // Read the first line of a file
 func ReadFirstLineOfFile(filepath string) string {
-	file, err := os.Open(filepath)
-	u.CheckErr(err, "[ERROR] readFirstLineOfFile")
+	file := Must(os.Open(filepath))
 	defer file.Close()
-
 	scanner := bufio.NewScanner(file)
-
 	if scanner.Scan() {
 		// Check for errors during scanning
 		u.CheckErr(scanner.Err(), "[ERROR] readFirstLineOfFile error scanning file")
@@ -368,25 +370,20 @@ func HelmChartValidation(chartPath string, valuesFile []string) bool {
 		if info.IsDir() {
 			return nil
 		}
-		fcontentb, err := os.ReadFile(path)
-		u.CheckErr(err, "HelmChartValidation ReadFile")
-
+		fcontentb := Must(os.ReadFile(path))
 		findResIf := valuesInIfStatementPtn.FindAllSubmatch(fcontentb, -1)
 		tempListExcludeMap := map[string]struct{}{}
 		for _, res := range findResIf {
 			tempListExcludeMap[string(res[1])] = struct{}{}
 		}
-
 		findResDefaultFunc := valuesInDefaultFuncPtn.FindAllSubmatch(fcontentb, -1)
 		for _, res := range findResDefaultFunc {
 			tempListExcludeMap[string(res[1])] = struct{}{}
 		}
-
 		findResDefaultFilter := valuesInDefaultFilterPtn.FindAllSubmatch(fcontentb, -1)
 		for _, res := range findResDefaultFilter {
 			tempListExcludeMap[string(res[1])] = struct{}{}
 		}
-
 		findRes := valuesPtn.FindAllSubmatch(fcontentb, -1)
 		tempList := []string{}
 		for _, res := range findRes {
@@ -395,7 +392,6 @@ func HelmChartValidation(chartPath string, valuesFile []string) bool {
 				tempList = append(tempList, _v)
 			}
 		}
-
 		helmTemplateFileVarList[info.Name()] = tempList
 		return nil
 	})
@@ -430,13 +426,12 @@ func MaskCredentialByte(inputbytes []byte) string {
 
 // Validate yaml files. Optionally return the unmarshalled object if you pass yamlobj not nil
 func ValidateYamlFile(yaml_file string, yamlobj *map[string]interface{}) map[string]interface{} {
-	data, err := os.ReadFile(yaml_file)
-	u.CheckErr(err, "ValidateYamlFile ReadFile")
+	data := Must(os.ReadFile(yaml_file))
 	if yamlobj == nil {
 		t := map[string]interface{}{}
 		yamlobj = &t
 	}
-	err = yaml.Unmarshal(data, &yamlobj)
+	err := yaml.Unmarshal(data, &yamlobj)
 	if err1 := u.CheckErrNonFatal(err, "ValidateYamlFile Unmarshal"); err1 != nil {
 		fmt.Printf("Yaml content has error:\n%s\n", MaskCredentialByte(data))
 		panic(err1.Error())
@@ -517,19 +512,17 @@ func ReplacePattern(input []byte, pattern string, repl string, count int) ([]byt
 
 // Do regex search and replace in a file
 func SearchReplaceFile(filename, ptn, repl string, count int, backup bool) int {
-	finfo, err := os.Stat(filename)
-	u.CheckErr(err, "SearchReplaceFile Stat")
+	finfo := Must(os.Stat(filename))
 	fmode := finfo.Mode()
 	if !(fmode.IsRegular()) {
 		panic("CopyFile: non-regular destination file")
 	}
-	data, err := os.ReadFile(filename)
-	u.CheckErr(err, "SearchReplaceFile ReadFile")
+	data := Must(os.ReadFile(filename))
 	if backup {
 		os.WriteFile(filename+".bak", data, fmode)
 	}
 	dataout, count := ReplacePattern(data, ptn, repl, count)
-	os.WriteFile(filename, dataout, fmode)
+	u.CheckErr(os.WriteFile(filename, dataout, fmode), "SearchReplaceFile WriteFile")
 	return count
 }
 
@@ -917,10 +910,9 @@ func IsLikelyPasswordOrToken(value, check_mode, words_file_path string, word_len
 	hasWord := false
 	detectHasWord := func(word_dict *map[string]struct{}) (bool, *map[string]struct{}) {
 		if word_dict == nil {
-			_word_dict, err := loadDictionary(words_file_path, word_len)
+			_word_dict := Must(loadDictionary(words_file_path, word_len))
 			// cache word_dict
 			word_dict = &_word_dict
-			u.CheckErr(err, "IsLikelyPasswordOrToken loadDictionary")
 		}
 		if ContainsDictionaryWord(value, *word_dict) {
 			return true, word_dict
@@ -1009,15 +1001,12 @@ func ContainsDictionaryWord(s string, dictionary map[string]struct{}) bool {
 	words := strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
 		return !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9'))
 	})
-
 	words = append(words, CamelCaseToWords(s)...)
-
 	for _, word := range words {
 		if _, exists := dictionary[word]; exists {
 			return true
 		}
 	}
-
 	return false
 }
 
@@ -1088,8 +1077,8 @@ func CamelCaseToWords(s string) []string {
 
 // Pick some lines from a line number.
 func PickLinesInFile(filename string, line_no, count int) (lines []string) {
-	datab, err := os.ReadFile(filename)
-	u.CheckErr(err, "PickLinesInFile ReadFile")
+	datab := Must(os.ReadFile(filename))
+
 	datalines := strings.Split(string(datab), "\n")
 	max_lines := len(datalines)
 	if count == 0 {
@@ -1109,8 +1098,7 @@ func PickLinesInFile(filename string, line_no, count int) (lines []string) {
 // ExtractTextBlock extract a text from two set regex patterns. The text started with the line matched start_pattern
 // and when hit the match for end_pattern it will stop not including_endlines
 func ExtractTextBlock(filename string, start_pattern, end_pattern []string) (block string, start_line_no int, end_line_no int, datalines []string) {
-	datab, err := os.ReadFile(filename)
-	u.CheckErr(err, "ExtractTextBlock ReadFile")
+	datab := Must(os.ReadFile(filename))
 	datalines = strings.Split(string(datab), "\n")
 
 	found_start, found_end := false, false
@@ -1137,8 +1125,7 @@ func ExtractTextBlock(filename string, start_pattern, end_pattern []string) (blo
 // Return the text within the upper and lower, but not including the lower bound. Also return the line number range
 // marker and lower is important; you can ignore upper_bound_pattern by using a empty []string{}
 func ExtractTextBlockContains(filename string, upper_bound_pattern, lower_bound_pattern []string, marker interface{}) (block string, start_line_no int, end_line_no int, datalines []string) {
-	datab, err := os.ReadFile(filename)
-	u.CheckErr(err, "ExtractTextBlock ReadFile")
+	datab := Must(os.ReadFile(filename))
 	datalines = strings.Split(string(datab), "\n")
 	all_lines_count := len(datalines)
 	marker_line_no := 0

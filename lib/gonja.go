@@ -199,8 +199,7 @@ var filterFuncB64Decode exec.FilterFunction = func(e *exec.Evaluator, in *exec.V
 		return exec.AsValue(errors.Wrap(p, "Wrong signature for 'to_yaml'"))
 	}
 	// wrap is unsupported in golang, try to implement it later on
-	o, err := b64.StdEncoding.DecodeString(in.String())
-	u.CheckErr(err, "b64.StdEncoding.DecodeString of "+in.String())
+	o := Must(b64.StdEncoding.DecodeString(in.String()))
 	return exec.AsValue(string(o))
 }
 
@@ -334,24 +333,18 @@ func TemplateFile(src, dest string, data map[string]interface{}, fileMode os.Fil
 		fileMode = 0755
 	}
 
-	tmpl, err := templateFromFile(src)
-	u.CheckErr(err, fmt.Sprintf("[ERROR] failed to create gonja context from src file %s\n", src))
+	tmpl := Must(templateFromFile(src))
 	execContext := exec.NewContext(data)
-	destFile, err := os.Create(dest)
-	u.CheckErr(err, fmt.Sprintf("[ERROR] os.Create %s", dest))
+	destFile := Must(os.Create(dest))
 	u.CheckErr(destFile.Chmod(fileMode), fmt.Sprintf("[ERROR] can not chmod %d for file %s\n", fileMode, dest))
 	defer destFile.Close()
-	u.CheckErr(err, fmt.Sprintf("[ERROR] Can not create destination file %s\n", dest))
 	u.CheckErr(tmpl.Execute(destFile, execContext), "[ERROR] Can not template "+src+" => "+dest)
 }
 
 func TemplateString(srcString string, data map[string]interface{}) string {
-	tmpl, err := templateFromStringWithConfig(srcString, &CustomConfig)
-	u.CheckErr(err, "[ERROR] TemplateString templateFromStringWithConfig")
+	tmpl := Must(templateFromStringWithConfig(srcString, &CustomConfig))
 	execContext := exec.NewContext(data)
-	o, err := tmpl.ExecuteToString(execContext)
-	u.CheckErr(err, "[ERROR] TemplateString ExecuteToString")
-	return o
+	return Must(tmpl.ExecuteToString(execContext))
 }
 
 // Common usefull go html template funcs
