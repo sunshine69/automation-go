@@ -112,3 +112,10 @@ func BenchmarkTemplateString(b *testing.B) {
 		TemplateString(`<?php  var2 - {{var2}} this is output {{ var1 |join(",")}} - ?>`, map[string]any{"var1": []string{"a", "b", "c"}, "var2": "Value var2"})
 	}
 }
+
+func TestLinesInBlock(t *testing.T) {
+	_, start, end, blocklines := ExtractTextBlockContains("/home/stevek/tmp/tmp.txt", []string{`5.2 Inclusions provided`}, []string{`Part 2 Standard Terms`}, []string{`6.3 Ending on`})
+	block1 := blocklines[start:end]
+	start_block_lines := ExtractLineInLines(block1, `6.3 Ending on`, `([\d]+\/[\d]+\/[\d]+)`, `Fixed term agreements only`)
+	println(u.JsonDump(start_block_lines, ""))
+}

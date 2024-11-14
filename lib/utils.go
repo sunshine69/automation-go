@@ -1218,27 +1218,22 @@ func ExtractLineInLines(blocklines []string, start, line, end string) [][]string
 	p0, p1, p3 := regexp.MustCompile(start), regexp.MustCompile(line), regexp.MustCompile(end)
 	found_start, found, found_end := false, false, false
 	var l string
-	length := len(blocklines)
-	for idx, _l := range blocklines {
+	// length := len(blocklines)
+	for _, _l := range blocklines {
 		if !found_start {
 			found_start = p0.MatchString(_l)
+			continue
 		}
 		if !found_end {
 			found_end = p3.MatchString(_l)
 		}
-		if !found_start {
-			continue
-		} else {
-			if !found_end {
-				found = p1.MatchString(_l)
-			} else {
-				if idx == length-1 { // last one - but still not found. try to match the line now see if we get match (that is line same as end)
-					found = p1.MatchString(_l)
-				}
+		if found_start && !found {
+			found = p1.MatchString(_l)
+			if found {
+				l = _l
 			}
 		}
-		if found {
-			l = _l
+		if found_end {
 			break
 		}
 	}
