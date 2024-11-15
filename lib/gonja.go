@@ -6,10 +6,8 @@ import (
 	"crypto/sha256"
 	b64 "encoding/base64"
 	"fmt"
-	"html/template"
 	"io"
 	"io/fs"
-	"time"
 
 	json "github.com/json-iterator/go"
 
@@ -25,8 +23,6 @@ import (
 	"github.com/nikolalohinski/gonja/v2/loaders"
 	"github.com/pkg/errors"
 	u "github.com/sunshine69/golang-tools/utils"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 	"gopkg.in/yaml.v3"
 )
 
@@ -199,7 +195,7 @@ var filterFuncB64Decode exec.FilterFunction = func(e *exec.Evaluator, in *exec.V
 		return exec.AsValue(errors.Wrap(p, "Wrong signature for 'to_yaml'"))
 	}
 	// wrap is unsupported in golang, try to implement it later on
-	o := Must(b64.StdEncoding.DecodeString(in.String()))
+	o := u.Must(b64.StdEncoding.DecodeString(in.String()))
 	return exec.AsValue(string(o))
 }
 
@@ -333,98 +329,18 @@ func TemplateFile(src, dest string, data map[string]interface{}, fileMode os.Fil
 		fileMode = 0755
 	}
 
-	tmpl := Must(templateFromFile(src))
+	tmpl := u.Must(templateFromFile(src))
 	execContext := exec.NewContext(data)
-	destFile := Must(os.Create(dest))
+	destFile := u.Must(os.Create(dest))
 	u.CheckErr(destFile.Chmod(fileMode), fmt.Sprintf("[ERROR] can not chmod %d for file %s\n", fileMode, dest))
 	defer destFile.Close()
 	u.CheckErr(tmpl.Execute(destFile, execContext), "[ERROR] Can not template "+src+" => "+dest)
 }
 
 func TemplateString(srcString string, data map[string]interface{}) string {
-	tmpl := Must(templateFromStringWithConfig(srcString, &CustomConfig))
+	tmpl := u.Must(templateFromStringWithConfig(srcString, &CustomConfig))
 	execContext := exec.NewContext(data)
-	return Must(tmpl.ExecuteToString(execContext))
-}
-
-// Common usefull go html template funcs
-var GoTemplateFuncMap = template.FuncMap{
-	// The name "inc" is what the function will be called in the template text.
-	"inc": func(i int) int {
-		return i + 1
-	},
-	"add": func(x, y int) int {
-		return x + y
-	},
-	"title": func(word string) string {
-		return cases.Title(language.English, cases.NoLower).String(word)
-	},
-	"lower": func(word string) string {
-		return cases.Lower(language.English, cases.NoLower).String(word)
-	},
-	"upper": func(word string) string {
-		return cases.Upper(language.English, cases.NoLower).String(word)
-	},
-	"time_fmt": func(timeticks int64, timelayout string) string {
-		return u.NsToTime(timeticks).Format(timelayout)
-	},
-	"now": func(timelayout string) string {
-		return time.Now().Format(timelayout)
-	},
-	"raw_html": func(html string) template.HTML {
-		return template.HTML(html)
-	},
-	"join": func(inlist []string, sep string) string { return strings.Join(inlist, sep) },
-	"truncatechars": func(in string, length int) template.HTML {
-		return template.HTML(u.ChunkString(in, length)[0])
-	},
-	"cycle": func(idx int, vals ...string) template.HTML {
-		_idx := idx % len(vals)
-		return template.HTML(vals[_idx])
-	},
-	"replace": func(data, old, new string) template.HTML {
-		o := strings.ReplaceAll(data, old, new)
-		return template.HTML(o)
-	},
-	"contains": func(data, subStr string) bool {
-		return strings.Contains(data, subStr)
-	},
-	"int_range": func(start, end int) []int {
-		n := end - start
-		result := make([]int, n)
-		for i := 0; i < n; i++ {
-			result[i] = start + i
-		}
-		return result
-	},
-	"basename": func(file_path string) string {
-		return filepath.Base(file_path)
-	},
-	"dirname": func(file_path string) string {
-		return filepath.Dir(file_path)
-	},
-}
-
-func CreateDirTree(srcDirpath, targetRoot string) error {
-	// Path should be absolute path. They should not overlap to avoid recursive loop
-	if isExist, err := u.FileExists(srcDirpath); !isExist || err != nil {
-		panic(fmt.Sprintf("[ERROR] src '%s' does not exist\n", srcDirpath))
-	}
-	os.Chdir(srcDirpath)
-	filepath.WalkDir(".", func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			fmt.Printf("prevent panic by handling failure accessing a path %q: %v\n", srcDirpath, err)
-			return err
-		}
-
-		if d.IsDir() {
-			fmt.Printf("Going to create path %s\n", path)
-			u.CheckErr(os.MkdirAll(filepath.Join(targetRoot, path), 0755), "ERROR MkdirAll")
-		}
-
-		return nil
-	})
-	return nil
+	return u.Must(tmpl.ExecuteToString(execContext))
 }
 
 func TemplateDirTree(srcDirpath, targetRoot string, tmplData map[string]interface{}) error {
