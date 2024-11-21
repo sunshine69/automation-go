@@ -331,7 +331,7 @@ func main() {
 			total_files_scanned++
 			if fpath != *load_profile_path && filename_regexp.MatchString(fname) && ((excludePtn == nil) || (excludePtn != nil && !excludePtn.MatchString(fname))) && ((defaultExcludePtn == nil) || (defaultExcludePtn != nil && !defaultExcludePtn.MatchString(fname))) {
 				if *skipBinary {
-					isbin, err := ag.IsBinaryFileSimple(fpath)
+					isbin, err := u.IsBinaryFileSimple(fpath)
 					if (err == nil) && isbin {
 						fmt.Fprintf(os.Stderr, "SKIP BIN %s\n", fpath)
 						return nil

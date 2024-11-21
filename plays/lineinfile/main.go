@@ -8,7 +8,6 @@ import (
 	"regexp"
 
 	"github.com/spf13/pflag"
-	lib "github.com/sunshine69/automation-go/lib"
 	u "github.com/sunshine69/golang-tools/utils"
 )
 
@@ -45,7 +44,7 @@ func main() {
 		*line = ""
 	}
 
-	opt := lib.LineInfileOpt{
+	opt := u.LineInfileOpt{
 		Insertafter:   *inserfater,
 		Insertbefore:  *insertbefore,
 		Line:          *line,
@@ -82,21 +81,21 @@ func main() {
 
 		if !info.IsDir() && filename_regexp.MatchString(fname) && ((excludePtn == nil) || (excludePtn != nil && !excludePtn.MatchString(fname))) && ((defaultExcludePtn == nil) || (defaultExcludePtn != nil && !defaultExcludePtn.MatchString(fname))) {
 			if *skipBinary {
-				isbin, err := lib.IsBinaryFileSimple(path)
+				isbin, err := u.IsBinaryFileSimple(path)
 				if (err == nil) && isbin {
 					return nil
 				}
 			}
 			switch *cmd_mode {
 			case "lineinfile":
-				err, changed := lib.LineInFile(path, &opt)
+				err, changed := u.LineInFile(path, &opt)
 				u.CheckErrNonFatal(err, "main lineinfile")
 				output[path] = append(output[path], []interface{}{err, changed})
 			case "search_replace":
 				if *regexptn == "" {
 					panic("option regexp (r) is required")
 				}
-				count := lib.SearchReplaceFile(path, *regexptn, *line, -1, *backup)
+				count := u.SearchReplaceFile(path, *regexptn, *line, -1, *backup)
 				output[path] = append(output[path], []interface{}{nil, count})
 			default:
 				panic("Unknown command " + *cmd_mode)
