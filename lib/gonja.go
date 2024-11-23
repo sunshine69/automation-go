@@ -1,12 +1,10 @@
 package lib
 
 import (
-	"bufio"
 	"bytes"
 	"crypto/sha256"
 	b64 "encoding/base64"
 	"fmt"
-	"io"
 	"io/fs"
 
 	json "github.com/json-iterator/go"
@@ -223,12 +221,7 @@ func CustomEnvironment() *exec.Environment {
 }
 
 func inspectTemplateFile(inputFilePath string) (needProcess bool, tempfilePath string, customConfig *config.Config) {
-	file, err := os.Open(inputFilePath)
-	if err != nil {
-		fmt.Println("Error opening file:", err)
-		return
-	}
-	defer file.Close()
+	firstLine, newSrc, matchedPrefix, err := u.ReadFirstLineWithPrefix(inputFilePath, []string{`#jinja2:`})
 
 	returnConfig := config.Config{
 		BlockStartString:    "{%",
@@ -242,20 +235,12 @@ func inspectTemplateFile(inputFilePath string) (needProcess bool, tempfilePath s
 		TrimBlocks:          true,
 		LeftStripBlocks:     true,
 	}
-
-	reader := bufio.NewReader(file)
-
-	firstLine, err := reader.ReadString('\n')
-	if err != nil {
-		fmt.Println("[WARN] reading first line. Possibly File has only one line", err)
-		return false, "", &returnConfig
-	}
 	// #jinja2:variable_start_string:'{$', variable_end_string:'$}', trim_blocks:True, lstrip_blocks:True
-	if !strings.HasPrefix(firstLine, "#jinja2:") {
+	if err != nil {
 		return false, "", &returnConfig
 	}
 
-	for _, _token := range strings.Split(strings.TrimPrefix(firstLine, "#jinja2:"), ",") {
+	for _, _token := range strings.Split(strings.TrimPrefix(firstLine, matchedPrefix), ",") {
 		_token0 := strings.TrimSpace(_token)
 		_data := strings.Split(_token0, ":")
 		switch _data[0] {
@@ -269,22 +254,7 @@ func inspectTemplateFile(inputFilePath string) (needProcess bool, tempfilePath s
 			returnConfig.LeftStripBlocks = _data[1] == "True"
 		}
 	}
-	// Create a temporary file for the rest of the content
-	tempFile, err := os.CreateTemp("", "restContent_*.txt")
-	if err != nil {
-		fmt.Println("Error creating temporary file:", err)
-		return
-	}
-	defer tempFile.Close()
-
-	// Copy the rest of the content from the reader to the temporary file
-	_, err = io.Copy(tempFile, reader)
-	if err != nil {
-		fmt.Println("Error copying the rest of the content to the temporary file:", err)
-		return
-	}
-
-	return true, tempFile.Name(), &returnConfig
+	return true, newSrc, &returnConfig
 }
 
 func templateFromBytesWithConfig(source []byte, config *config.Config) (*exec.Template, error) {
