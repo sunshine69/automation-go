@@ -20,6 +20,8 @@ func BenchmarkTemplateString(b *testing.B) {
 }
 
 func TestJinja2(t *testing.T) {
-	TemplateFile("../tmp/test.j2", "../tmp/test.txt", map[string]interface{}{"lines": []string{"line1", "line2", "line3"}}, 0o777)
-	u.GoTemplateFile("../tmp/test.go.tmpl", "../tmp/test.go.txt", map[string]interface{}{"lines": []string{"line1", "line2", "line3"}}, 0o777)
+	TemplateFile("../tmp/test.j2", "../tmp/test.txt", map[string]interface{}{"header": "Header", "lines": []string{"line1", "line2", "line3"}}, 0o777)
+	u.GoTemplateFile("../tmp/test.go.tmpl", "../tmp/test.go.txt", map[string]interface{}{"header": "Header", "lines": []string{"line1", "line2", "line3"}}, 0o777)
+	TemplateFile("../tmp/test1.j2", "../tmp/test1.txt", map[string]interface{}{"header": "Header", "lines": []string{"line1", "line2", "line3"}}, 0o777)
+	u.GoTemplateFile("../tmp/test1.go.tmpl", "../tmp/test1.go.txt", map[string]interface{}{"header": "Header", "lines": []string{"line1", "line2", "line3"}}, 0o777)
 }

@@ -278,7 +278,7 @@ func templateFromStringWithConfig(source string, config *config.Config) (*exec.T
 
 func templateFromFile(filepath string) (*exec.Template, error) {
 	needToProcess, tempFile, parsedCfg := inspectTemplateFile(filepath)
-
+	defer os.RemoveAll(tempFile)
 	if !needToProcess {
 		loader, err := loaders.NewFileSystemLoader(path.Dir(filepath))
 		if err != nil {

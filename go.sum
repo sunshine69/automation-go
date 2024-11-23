@@ -78,6 +78,8 @@ github.com/sunshine69/golang-tools/utils v0.0.0-20241115093136-79fdea441f78 h1:4
 github.com/sunshine69/golang-tools/utils v0.0.0-20241115093136-79fdea441f78/go.mod h1:0pr3NNl1V98RwLlmcTZXewZT7qqjChN5HQSYTdWw/UY=
 github.com/sunshine69/golang-tools/utils v0.0.0-20241123014103-6907259771b4 h1:m6m1dNGrJU6prEofZPvV/kvfGCmtm+/QzZi2g49nTLs=
 github.com/sunshine69/golang-tools/utils v0.0.0-20241123014103-6907259771b4/go.mod h1:eAo1v9VyXiQE0o05ZZv19recmYfmueSbvDkcy4YO2qE=
+github.com/sunshine69/golang-tools/utils v0.0.0-20241123021205-cd97dc709185 h1:K22ZsHQORfPLV3j1+8+QPPwGwTpC8o7ldCJUTjPaB/k=
+github.com/sunshine69/golang-tools/utils v0.0.0-20241123021205-cd97dc709185/go.mod h1:eAo1v9VyXiQE0o05ZZv19recmYfmueSbvDkcy4YO2qE=
 github.com/tidwall/gjson v1.18.0 h1:FIDeeyB800efLX89e5a8Y0BNH+LOngJyGrIWxG2FKQY=
 github.com/tidwall/gjson v1.18.0/go.mod h1:/wbyibRr2FHMks5tjHJ5F8dMZh3AcwJEMf5vlfC0lxk=
 github.com/tidwall/match v1.1.1 h1:+Ho715JplO36QYgwN9PGYNhgZvoUSc9X2c80KVTi+GA=
