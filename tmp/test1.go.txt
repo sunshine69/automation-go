@@ -1,5 +1,7 @@
+namespace: "{{ namespace }}"
 This has config line
 Header
 line1
 line2
 line3
+here is var2 DEfault

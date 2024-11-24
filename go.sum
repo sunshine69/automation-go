@@ -36,6 +36,8 @@ github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd h1:TRLaZ9cD/w
 github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
 github.com/modern-go/reflect2 v1.0.2 h1:xBagoLtFs94CBntxluKeaWgTMpvLxC4ur3nMaC9Gz0M=
 github.com/modern-go/reflect2 v1.0.2/go.mod h1:yWuevngMOJpCy52FWWMvUC8ws7m/LJsjYzDa0/r8luk=
+github.com/nikolalohinski/gonja/v2 v2.0.0-20241123160403-8d56e4ec3aef h1:LoqqMalc9uFREiqXsWD3XObn/53JG2U0nKUYV40iKGQ=
+github.com/nikolalohinski/gonja/v2 v2.0.0-20241123160403-8d56e4ec3aef/go.mod h1:1Wcc/5huTu6y36e0sOFR1XQoFlylw3c3H3L5WOz0RDg=
 github.com/nikolalohinski/gonja/v2 v2.3.1 h1:UGyLa6NDNq6dCGkFY33sziUssjTdh95xrYslxZdqNVU=
 github.com/nikolalohinski/gonja/v2 v2.3.1/go.mod h1:1Wcc/5huTu6y36e0sOFR1XQoFlylw3c3H3L5WOz0RDg=
 github.com/onsi/ginkgo/v2 v2.11.0 h1:WgqUCUt/lT6yXoQ8Wef0fsNn5cAuMK7+KT9UFRz2tcU=
@@ -80,6 +82,8 @@ github.com/sunshine69/golang-tools/utils v0.0.0-20241123014103-6907259771b4 h1:m
 github.com/sunshine69/golang-tools/utils v0.0.0-20241123014103-6907259771b4/go.mod h1:eAo1v9VyXiQE0o05ZZv19recmYfmueSbvDkcy4YO2qE=
 github.com/sunshine69/golang-tools/utils v0.0.0-20241123021205-cd97dc709185 h1:K22ZsHQORfPLV3j1+8+QPPwGwTpC8o7ldCJUTjPaB/k=
 github.com/sunshine69/golang-tools/utils v0.0.0-20241123021205-cd97dc709185/go.mod h1:eAo1v9VyXiQE0o05ZZv19recmYfmueSbvDkcy4YO2qE=
+github.com/sunshine69/golang-tools/utils v0.0.0-20241123063837-ffdd43fa1a29 h1:9T1hlMUPurapQ8a5eCbFUVzqPrcs/xfn3TMMLs5j2mQ=
+github.com/sunshine69/golang-tools/utils v0.0.0-20241123063837-ffdd43fa1a29/go.mod h1:eAo1v9VyXiQE0o05ZZv19recmYfmueSbvDkcy4YO2qE=
 github.com/tidwall/gjson v1.18.0 h1:FIDeeyB800efLX89e5a8Y0BNH+LOngJyGrIWxG2FKQY=
 github.com/tidwall/gjson v1.18.0/go.mod h1:/wbyibRr2FHMks5tjHJ5F8dMZh3AcwJEMf5vlfC0lxk=
 github.com/tidwall/match v1.1.1 h1:+Ho715JplO36QYgwN9PGYNhgZvoUSc9X2c80KVTi+GA=

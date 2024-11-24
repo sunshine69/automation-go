@@ -6,10 +6,10 @@ toolchain go1.23.2
 
 require (
 	github.com/json-iterator/go v1.1.12
-	github.com/nikolalohinski/gonja/v2 v2.3.1
+	github.com/nikolalohinski/gonja/v2 v2.0.0-20241123160403-8d56e4ec3aef
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/viper v1.19.0
-	github.com/sunshine69/golang-tools/utils v0.0.0-20241123021205-cd97dc709185
+	github.com/sunshine69/golang-tools/utils v0.0.0-20241123063837-ffdd43fa1a29
 	gopkg.in/ini.v1 v1.67.0
 	gopkg.in/yaml.v3 v3.0.1
 )
