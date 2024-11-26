@@ -42,6 +42,8 @@ github.com/nikolalohinski/gonja/v2 v2.0.0-20241123160403-8d56e4ec3aef h1:LoqqMal
 github.com/nikolalohinski/gonja/v2 v2.0.0-20241123160403-8d56e4ec3aef/go.mod h1:1Wcc/5huTu6y36e0sOFR1XQoFlylw3c3H3L5WOz0RDg=
 github.com/nikolalohinski/gonja/v2 v2.0.0-20241125081644-b03bd7c44cb1 h1:3LBrxrfUSq/F8xcKbDCG0BZtDrTlqDAh2MCzzG3beaA=
 github.com/nikolalohinski/gonja/v2 v2.0.0-20241125081644-b03bd7c44cb1/go.mod h1:PoJPclLS0oVm5z0UlWaeu8lNTacFylRTws5QE7Wx2Qw=
+github.com/nikolalohinski/gonja/v2 v2.0.0-20241125082307-7b5815ba1a17 h1:mdHfp8p++99EnkkmBBBT3Vc2uATm9iJ3IPRTlRWdyhk=
+github.com/nikolalohinski/gonja/v2 v2.0.0-20241125082307-7b5815ba1a17/go.mod h1:jdkZjeCJPM2aAD/Hx0+LHcIvUN4BcaTpoPcrS/Cjb6Q=
 github.com/nikolalohinski/gonja/v2 v2.3.1 h1:UGyLa6NDNq6dCGkFY33sziUssjTdh95xrYslxZdqNVU=
 github.com/nikolalohinski/gonja/v2 v2.3.1/go.mod h1:1Wcc/5huTu6y36e0sOFR1XQoFlylw3c3H3L5WOz0RDg=
 github.com/onsi/ginkgo/v2 v2.11.0 h1:WgqUCUt/lT6yXoQ8Wef0fsNn5cAuMK7+KT9UFRz2tcU=
