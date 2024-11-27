@@ -92,6 +92,10 @@ github.com/sunshine69/golang-tools/utils v0.0.0-20241123021205-cd97dc709185 h1:K
 github.com/sunshine69/golang-tools/utils v0.0.0-20241123021205-cd97dc709185/go.mod h1:eAo1v9VyXiQE0o05ZZv19recmYfmueSbvDkcy4YO2qE=
 github.com/sunshine69/golang-tools/utils v0.0.0-20241123063837-ffdd43fa1a29 h1:9T1hlMUPurapQ8a5eCbFUVzqPrcs/xfn3TMMLs5j2mQ=
 github.com/sunshine69/golang-tools/utils v0.0.0-20241123063837-ffdd43fa1a29/go.mod h1:eAo1v9VyXiQE0o05ZZv19recmYfmueSbvDkcy4YO2qE=
+github.com/sunshine69/golang-tools/utils v0.0.0-20241127010710-c5b583031663 h1:9HdDtCxPdaWsHYrvEjgdv6Kp1RIto4I6v4aIZSUmyVo=
+github.com/sunshine69/golang-tools/utils v0.0.0-20241127010710-c5b583031663/go.mod h1:YzjwsPyXeFPUq22EkTjAE8DokVlwMoL009ZoGhk4TRU=
+github.com/sunshine69/golang-tools/utils v0.0.0-20241127011309-a580b98822e0 h1:yGtrPRtONTO1Ym1YCXwvbP+CqLH0wjnB5LMI876n45c=
+github.com/sunshine69/golang-tools/utils v0.0.0-20241127011309-a580b98822e0/go.mod h1:YzjwsPyXeFPUq22EkTjAE8DokVlwMoL009ZoGhk4TRU=
 github.com/tidwall/gjson v1.18.0 h1:FIDeeyB800efLX89e5a8Y0BNH+LOngJyGrIWxG2FKQY=
 github.com/tidwall/gjson v1.18.0/go.mod h1:/wbyibRr2FHMks5tjHJ5F8dMZh3AcwJEMf5vlfC0lxk=
 github.com/tidwall/match v1.1.1 h1:+Ho715JplO36QYgwN9PGYNhgZvoUSc9X2c80KVTi+GA=

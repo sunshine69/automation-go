@@ -221,6 +221,7 @@ func CustomEnvironment() *exec.Environment {
 }
 
 func inspectTemplateFile(inputFilePath string) (needProcess bool, tempfilePath string, customConfig *config.Config) {
+	println("[DEBUG] inspectTemplateFile ", inputFilePath)
 	firstLine, newSrc, matchedPrefix, err := u.ReadFirstLineWithPrefix(inputFilePath, []string{`#jinja2:`})
 
 	returnConfig := config.Config{
@@ -277,6 +278,7 @@ func templateFromStringWithConfig(source string, config *config.Config) (*exec.T
 }
 
 func templateFromFile(filepath string) (*exec.Template, error) {
+	println("[DEBUG] templateFromFile", filepath)
 	needToProcess, tempFile, parsedCfg := inspectTemplateFile(filepath)
 	defer os.RemoveAll(tempFile)
 	if !needToProcess {
@@ -298,7 +300,7 @@ func TemplateFile(src, dest string, data map[string]interface{}, fileMode os.Fil
 	if fileMode == 0 {
 		fileMode = 0755
 	}
-
+	println("[DEBUG] ", src, "Dest: ", dest)
 	tmpl := u.Must(templateFromFile(src))
 	execContext := exec.NewContext(data)
 	destFile := u.Must(os.Create(dest))
@@ -324,7 +326,7 @@ func TemplateDirTree(srcDirpath, targetRoot string, tmplData map[string]interfac
 			fmt.Printf("prevent panic by handling failure accessing a path %q: %v\n", srcDirpath, err)
 			return err
 		}
-
+		println("[DEBUG] ", u.JsonDump(info, ""))
 		if !info.IsDir() {
 			srcFile, destFile := filepath.Join(srcDirpath, path), filepath.Join(targetRoot, path)
 			fmt.Printf("Going to template file %s => %s\n", srcFile, destFile)
