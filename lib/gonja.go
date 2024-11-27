@@ -274,33 +274,35 @@ func templateFromStringWithConfig(source string, config *config.Config) (*exec.T
 	return templateFromBytesWithConfig([]byte(source), config)
 }
 
-func templateFromFile(filepath string) (*exec.Template, error) {
+func templateFromFile(filepath string) (*exec.Template, string, error) {
 	needToProcess, tempFile, parsedCfg := inspectTemplateFile(filepath)
-	if tempFile != "" {
-		defer os.RemoveAll(tempFile)
-	} else {
-		tempFile = filepath
-	}
 	if !needToProcess {
 		loader, err := loaders.NewFileSystemLoader(path.Dir(filepath))
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
-		return exec.NewTemplate(path.Base(filepath), parsedCfg, loader, CustomEnvironment())
+		t, err := exec.NewTemplate(path.Base(filepath), parsedCfg, loader, CustomEnvironment())
+		return t, "", err
 	}
 
 	loader, err := loaders.NewFileSystemLoader(path.Dir(tempFile))
 	if err != nil {
-		return nil, err
+		os.RemoveAll(tempFile)
+		return nil, "", err
 	}
-	return exec.NewTemplate(path.Base(tempFile), parsedCfg, loader, CustomEnvironment())
+	t, err := exec.NewTemplate(path.Base(tempFile), parsedCfg, loader, CustomEnvironment())
+	return t, tempFile, err
 }
 
 func TemplateFile(src, dest string, data map[string]interface{}, fileMode os.FileMode) {
 	if fileMode == 0 {
 		fileMode = 0755
 	}
-	tmpl := u.Must(templateFromFile(src))
+	tmpl, tempFile, err := templateFromFile(src)
+	u.CheckErr(err, "")
+	if tempFile != "" {
+		defer os.RemoveAll(tempFile)
+	}
 	execContext := exec.NewContext(data)
 	destFile := u.Must(os.Create(dest))
 	u.CheckErr(destFile.Chmod(fileMode), fmt.Sprintf("[ERROR] can not chmod %d for file %s\n", fileMode, dest))
