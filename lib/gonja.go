@@ -91,7 +91,6 @@ var filterFuncRegexSearch exec.FilterFunction = func(e *exec.Evaluator, in *exec
 
 	out := ptn.FindStringSubmatch(input)
 	if len(out) == 1 { // return a match
-		fmt.Printf("DEBUG Matched 1 input '%s' - Ptn: '%s' Out: %v\n", in.String(), params.Args[0].String(), out[0])
 		return exec.AsValue(out[0])
 	} // If there is capture then return a list of captures (submatch). Ignoring all args
 	if len(out) > 1 {
@@ -221,7 +220,6 @@ func CustomEnvironment() *exec.Environment {
 }
 
 func inspectTemplateFile(inputFilePath string) (needProcess bool, tempfilePath string, customConfig *config.Config) {
-	println("[DEBUG] inspectTemplateFile ", inputFilePath)
 	firstLine, newSrc, matchedPrefix, err := u.ReadFirstLineWithPrefix(inputFilePath, []string{`#jinja2:`})
 
 	returnConfig := config.Config{
@@ -237,10 +235,9 @@ func inspectTemplateFile(inputFilePath string) (needProcess bool, tempfilePath s
 		LeftStripBlocks:     true,
 	}
 	// #jinja2:variable_start_string:'{$', variable_end_string:'$}', trim_blocks:True, lstrip_blocks:True
-	if err != nil {
+	if err != nil || newSrc == "" {
 		return false, "", &returnConfig
 	}
-
 	for _, _token := range strings.Split(strings.TrimPrefix(firstLine, matchedPrefix), ",") {
 		_token0 := strings.TrimSpace(_token)
 		_data := strings.Split(_token0, ":")
@@ -278,9 +275,12 @@ func templateFromStringWithConfig(source string, config *config.Config) (*exec.T
 }
 
 func templateFromFile(filepath string) (*exec.Template, error) {
-	println("[DEBUG] templateFromFile", filepath)
 	needToProcess, tempFile, parsedCfg := inspectTemplateFile(filepath)
-	defer os.RemoveAll(tempFile)
+	if tempFile != "" {
+		defer os.RemoveAll(tempFile)
+	} else {
+		tempFile = filepath
+	}
 	if !needToProcess {
 		loader, err := loaders.NewFileSystemLoader(path.Dir(filepath))
 		if err != nil {
@@ -300,7 +300,6 @@ func TemplateFile(src, dest string, data map[string]interface{}, fileMode os.Fil
 	if fileMode == 0 {
 		fileMode = 0755
 	}
-	println("[DEBUG] ", src, "Dest: ", dest)
 	tmpl := u.Must(templateFromFile(src))
 	execContext := exec.NewContext(data)
 	destFile := u.Must(os.Create(dest))
@@ -326,7 +325,6 @@ func TemplateDirTree(srcDirpath, targetRoot string, tmplData map[string]interfac
 			fmt.Printf("prevent panic by handling failure accessing a path %q: %v\n", srcDirpath, err)
 			return err
 		}
-		println("[DEBUG] ", u.JsonDump(info, ""))
 		if !info.IsDir() {
 			srcFile, destFile := filepath.Join(srcDirpath, path), filepath.Join(targetRoot, path)
 			fmt.Printf("Going to template file %s => %s\n", srcFile, destFile)

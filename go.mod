@@ -9,7 +9,7 @@ require (
 	github.com/nikolalohinski/gonja/v2 v2.0.0-20241125082307-7b5815ba1a17
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/viper v1.19.0
-	github.com/sunshine69/golang-tools/utils v0.0.0-20241127011309-a580b98822e0
+	github.com/sunshine69/golang-tools/utils v0.0.0-20241127013837-7ebd7c72868a
 	gopkg.in/ini.v1 v1.67.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -42,6 +42,5 @@ require (
 	golang.org/x/crypto v0.29.0 // indirect
 	golang.org/x/net v0.31.0 // indirect
 	golang.org/x/sys v0.27.0 // indirect
-	golang.org/x/text v0.20.0
-	gopkg.in/yaml.v2 v2.4.0 // indirect
+	golang.org/x/text v0.20.0 // indirect
 )
