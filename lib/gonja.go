@@ -314,8 +314,10 @@ func TemplateString(srcString string, data map[string]interface{}) string {
 	return u.Must(tmpl.ExecuteToString(execContext))
 }
 
+// TemplateDirTree read all templates files in the src directory and template to the target directory keeping the directory
+// structure the same as source.
+// Src and Target Path should be absolute path. They should not overlap to avoid recursive loop
 func TemplateDirTree(srcDirpath, targetRoot string, tmplData map[string]interface{}) error {
-	// Path should be absolute path. They should not overlap to avoid recursive loop
 	if isExist, err := u.FileExists(srcDirpath); !isExist || err != nil {
 		panic("File " + srcDirpath + " does not exist\n")
 	}
@@ -328,9 +330,12 @@ func TemplateDirTree(srcDirpath, targetRoot string, tmplData map[string]interfac
 		if !info.IsDir() {
 			srcFile, destFile := filepath.Join(srcDirpath, path), filepath.Join(targetRoot, path)
 			fmt.Printf("Going to template file %s => %s\n", srcFile, destFile)
+			destDir := filepath.Dir(destFile)
+			u.CheckErr(os.MkdirAll(destDir, 0o777), "TemplateDirTree")
 			TemplateFile(srcFile, destFile, tmplData, 0644)
+		} else {
+			u.CheckErr(os.MkdirAll(filepath.Join(targetRoot, path), 0755), "[ERROR] MkdirAll")
 		}
-
 		return nil
 	})
 	return nil
