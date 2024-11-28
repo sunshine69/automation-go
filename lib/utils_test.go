@@ -30,15 +30,15 @@ This is has config line {{ newvar }} and {$ newvar $}`
 
 	u.GoTemplateFile("../tmp/test.go.tmpl", "../tmp/test.go.txt", map[string]interface{}{"header": "Header", "lines": []string{"line1", "line2", "line3"}}, 0o777)
 	u.GoTemplateFile("../tmp/test1.go.tmpl", "../tmp/test1.go.txt", map[string]interface{}{"header": "Header", "lines": []string{"line1", "line2", "line3"}}, 0o777)
-	data := IncludeVars("/home/sitsxk5/src/Sonic.Commercial.Ordering/azure-devops/vars-ansible.yaml")
-	u.GoTemplateFile("/home/sitsxk5/tmp/all.yaml", "/home/sitsxk5/tmp/test.yaml",
-		data, 0644)
-
+	// data := IncludeVars("/home/sitsxk5/src/Sonic.Commercial.Ordering/azure-devops/vars-ansible.yaml")
+	// u.GoTemplateFile("/home/sitsxk5/tmp/all.yaml", "/home/sitsxk5/tmp/test.yaml",
+	// 	data, 0644)
+	data := map[string]any{"packages": []string{"p1", "p2", "p3"}}
 	o := TemplateString(`#jinja2:variable_start_string:'{{', variable_end_string:'}}', trim_blocks:True, lstrip_blocks:True
 		[
 			{% for app in packages %}
 			"{{ app }}_config-pkg",
-			"{{ app }}"{% if not loop.last %}, {% endif %}
+			"{{ app }}"{% if not loop.last %},{% endif %}
 			{% endfor %}
 			]`, data)
 
