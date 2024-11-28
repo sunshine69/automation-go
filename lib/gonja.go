@@ -220,39 +220,63 @@ func CustomEnvironment() *exec.Environment {
 }
 
 func inspectTemplateFile(inputFilePath string) (needProcess bool, tempfilePath string, customConfig *config.Config) {
-	firstLine, newSrc, matchedPrefix, err := u.ReadFirstLineWithPrefix(inputFilePath, []string{`#jinja2:`})
-
-	returnConfig := config.Config{
-		BlockStartString:    "{%",
-		BlockEndString:      "%}",
-		VariableStartString: "{{",
-		VariableEndString:   "}}",
-		CommentStartString:  "{#",
-		CommentEndString:    "#}",
-		AutoEscape:          false,
-		StrictUndefined:     false,
-		TrimBlocks:          true,
-		LeftStripBlocks:     true,
-	}
-	// #jinja2:variable_start_string:'{$', variable_end_string:'$}', trim_blocks:True, lstrip_blocks:True
+	prefix := u.Getenv("JINJA2_CONFIG_LINE_PREFIX", `#jinja2:`)
+	firstLine, newSrc, _, err := u.ReadFirstLineWithPrefix(inputFilePath, []string{prefix})
 	if err != nil || newSrc == "" {
-		return false, "", &returnConfig
+		return false, "", config.New()
 	}
-	for _, _token := range strings.Split(strings.TrimPrefix(firstLine, matchedPrefix), ",") {
+	foundConfig, config := parseJinja2Config(firstLine, prefix)
+	if !foundConfig {
+		newSrc = ""
+		needProcess = false
+	} else {
+		needProcess = true
+	}
+	return needProcess, newSrc, config
+}
+
+func inspectTemplateString(text string) (needProcess bool, remainText string, customConfig *config.Config) {
+	splitFirstLineFunc := func(text string) (string, string) {
+		// Find the index of the first newline character
+		if idx := strings.IndexByte(text, '\n'); idx != -1 {
+			return text[:idx], text[idx+1:] // Return the first line and the rest of the text
+		}
+		return text, "" // If no newline, return the whole text as the first line, remainder is empty
+	}
+	firstLine, newSrc := splitFirstLineFunc(text)
+	if newSrc == "" {
+		return false, "", config.New()
+	}
+	prefix := u.Getenv("JINJA2_CONFIG_LINE_PREFIX", `#jinja2:`)
+	foundConfig, config := parseJinja2Config(firstLine, prefix)
+	if !foundConfig {
+		newSrc = ""
+		needProcess = false
+	}
+	return needProcess, newSrc, config
+}
+
+func parseJinja2Config(firstLine, prefix string) (foundConfig bool, jinja2config *config.Config) {
+	returnConfig, foundConfig := config.New(), false
+	for _, _token := range strings.Split(strings.TrimPrefix(firstLine, prefix), ",") {
 		_token0 := strings.TrimSpace(_token)
 		_data := strings.Split(_token0, ":")
 		switch _data[0] {
 		case "variable_start_string":
+			foundConfig = true
 			returnConfig.VariableStartString = strings.Trim(strings.Trim(_data[1], `'`), `"`)
 		case "variable_end_string":
+			foundConfig = true
 			returnConfig.VariableEndString = strings.Trim(strings.Trim(_data[1], `'`), `"`)
 		case "trim_blocks":
+			foundConfig = true
 			returnConfig.TrimBlocks = _data[1] == "True"
 		case "lstrip_blocks":
+			foundConfig = true
 			returnConfig.LeftStripBlocks = _data[1] == "True"
 		}
 	}
-	return true, newSrc, &returnConfig
+	return foundConfig, returnConfig
 }
 
 func templateFromBytesWithConfig(source []byte, config *config.Config) (*exec.Template, error) {
@@ -270,7 +294,7 @@ func templateFromBytesWithConfig(source []byte, config *config.Config) (*exec.Te
 	return exec.NewTemplate(rootID, config, shiftedLoader, CustomEnvironment())
 }
 
-func templateFromStringWithConfig(source string, config *config.Config) (*exec.Template, error) {
+func TemplateFromStringWithConfig(source string, config *config.Config) (*exec.Template, error) {
 	return templateFromBytesWithConfig([]byte(source), config)
 }
 
@@ -311,7 +335,11 @@ func TemplateFile(src, dest string, data map[string]interface{}, fileMode os.Fil
 }
 
 func TemplateString(srcString string, data map[string]interface{}) string {
-	tmpl := u.Must(templateFromStringWithConfig(srcString, &CustomConfig))
+	_, newSrc, CustomConfig := inspectTemplateString(srcString)
+	if newSrc == "" {
+		newSrc = srcString
+	}
+	tmpl := u.Must(TemplateFromStringWithConfig(newSrc, CustomConfig))
 	execContext := exec.NewContext(data)
 	return u.Must(tmpl.ExecuteToString(execContext))
 }

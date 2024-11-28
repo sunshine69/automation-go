@@ -21,10 +21,26 @@ func BenchmarkTemplateString(b *testing.B) {
 
 func TestJinja2(t *testing.T) {
 	TemplateFile("../tmp/test.j2", "../tmp/test.txt", map[string]interface{}{"header": "Header", "lines": []string{"line1", "line2", "line3"}}, 0o777)
-	u.GoTemplateFile("../tmp/test.go.tmpl", "../tmp/test.go.txt", map[string]interface{}{"header": "Header", "lines": []string{"line1", "line2", "line3"}}, 0o777)
 	TemplateFile("../tmp/test1.j2", "../tmp/test1.txt", map[string]interface{}{"header": "Header", "lines": []string{"line1", "line2", "line3"}}, 0o777)
+	dataStr := `This is simple {{ newvar }}`
+	println(TemplateString(dataStr, map[string]any{"newvar": "New value of new var"}))
+	dataStr = `#jinja2:variable_start_string:'{$', variable_end_string:'$}', trim_blocks:True, lstrip_blocks:True
+This is has config line {{ newvar }} and {$ newvar $}`
+	println(TemplateString(dataStr, map[string]any{"newvar": "New value of new var"}))
+
+	u.GoTemplateFile("../tmp/test.go.tmpl", "../tmp/test.go.txt", map[string]interface{}{"header": "Header", "lines": []string{"line1", "line2", "line3"}}, 0o777)
 	u.GoTemplateFile("../tmp/test1.go.tmpl", "../tmp/test1.go.txt", map[string]interface{}{"header": "Header", "lines": []string{"line1", "line2", "line3"}}, 0o777)
-	data := IncludeVars("/home/sitsxk5/src/Sonic.TCM.Web/azure-devops/vars-ansible.yaml")
+	data := IncludeVars("/home/sitsxk5/src/Sonic.Commercial.Ordering/azure-devops/vars-ansible.yaml")
 	u.GoTemplateFile("/home/sitsxk5/tmp/all.yaml", "/home/sitsxk5/tmp/test.yaml",
 		data, 0644)
+
+	o := TemplateString(`[
+		{% for app in packages -%}
+		{% if projectType == 'config-pkg' -%}
+		"{{ app }}_config-pkg",
+		{% endif -%}
+		"{{ app }}"{%- if not loop.last %}, {% endif -%}
+		{% endfor -%}
+		]`, data)
+	println(o)
 }
