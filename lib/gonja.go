@@ -235,15 +235,16 @@ func inspectTemplateFile(inputFilePath string) (needProcess bool, tempfilePath s
 	return needProcess, newSrc, config
 }
 
-func inspectTemplateString(text string) (needProcess bool, remainText string, customConfig *config.Config) {
-	splitFirstLineFunc := func(text string) (string, string) {
-		// Find the index of the first newline character
-		if idx := strings.IndexByte(text, '\n'); idx != -1 {
-			return text[:idx], text[idx+1:] // Return the first line and the rest of the text
-		}
-		return text, "" // If no newline, return the whole text as the first line, remainder is empty
+func SplitFirstLine(text string) (string, string) {
+	// Find the index of the first newline character
+	if idx := strings.IndexByte(text, '\n'); idx != -1 {
+		return text[:idx], text[idx+1:] // Return the first line and the rest of the text
 	}
-	firstLine, newSrc := splitFirstLineFunc(text)
+	return text, "" // If no newline, return the whole text as the first line, remainder is empty
+}
+
+func inspectTemplateString(text string) (needProcess bool, remainText string, customConfig *config.Config) {
+	firstLine, newSrc := SplitFirstLine(text)
 	if newSrc == "" {
 		return false, "", config.New()
 	}
