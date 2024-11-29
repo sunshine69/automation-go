@@ -2,6 +2,7 @@ package lib
 
 import (
 	"os"
+	"regexp"
 	"testing"
 
 	u "github.com/sunshine69/golang-tools/utils"
@@ -30,12 +31,11 @@ This is has config line {{ newvar }} and {$ newvar $}`
 
 	u.GoTemplateFile("../tmp/test.go.tmpl", "../tmp/test.go.txt", map[string]interface{}{"header": "Header", "lines": []string{"line1", "line2", "line3"}}, 0o777)
 	u.GoTemplateFile("../tmp/test1.go.tmpl", "../tmp/test1.go.txt", map[string]interface{}{"header": "Header", "lines": []string{"line1", "line2", "line3"}}, 0o777)
-	// data := IncludeVars("/home/sitsxk5/src/Sonic.Commercial.Ordering/azure-devops/vars-ansible.yaml")
+	data := IncludeVars("/home/sitsxk5/src/Sonic.Commercial.Ordering/azure-devops/vars-ansible.yaml")
 	// u.GoTemplateFile("/home/sitsxk5/tmp/all.yaml", "/home/sitsxk5/tmp/test.yaml",
 	// 	data, 0644)
-	data := map[string]any{"packages": []string{"p1", "p2", "p3"}}
-	o := TemplateString(`#jinja2:variable_start_string:'{{', variable_end_string:'}}', trim_blocks:True, lstrip_blocks:True
-		[
+	// data := map[string]any{"packages": []string{"p1", "p2", "p3"}}
+	o := TemplateString(`[
 			{% for app in packages %}
 			"{{ app }}_config-pkg",
 			"{{ app }}"{% if not loop.last %},{% endif %}
@@ -44,7 +44,8 @@ This is has config line {{ newvar }} and {$ newvar $}`
 
 	println(o)
 
-	o = u.GoTemplateString(`[
+	o = u.GoTemplateString(`#gotmpl:variable_start_string:'{$', variable_end_string:'$}'
+	[
 			{{ range $idx, $app := .packages -}}
 			"{{ $app }}_config-pkg",
 			"{{ $app }}"{{ if ne $idx (add (len $.packages) -1) }},{{ end }}
@@ -52,4 +53,19 @@ This is has config line {{ newvar }} and {$ newvar $}`
 			]`, data)
 
 	println(o)
+}
+
+func TestAdhoc(t *testing.T) {
+	// u.ExtractTextBlock("/home/sitsxk5/src/Sonic.TCM.Web/pages/171/edit_form.php")
+	filename := "/home/sitsxk5/src/Sonic.TCM.Web/pages/171/edit_form.php"
+	ptn := regexp.MustCompile(`(?m)\<\?php echo (\$[a-zA-Z0-9]+); \?\>`)
+	datab, err := os.ReadFile(filename)
+	u.CheckErr(err, "")
+	newdata := ptn.ReplaceAllString(string(datab), `<?php echo htmlspecialchars($1);`)
+	u.CheckErr(os.WriteFile(filename, []byte(newdata), 0o777), "Write faile")
+
+	lines := u.PickLinesInFile(filename, 64, 65)
+	for _, l := range lines {
+		println(l)
+	}
 }
