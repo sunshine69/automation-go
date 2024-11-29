@@ -2,5 +2,5 @@
 This has config line
 {$ header $}
 {% for l in lines -%}
-{$ l $}
+{$ l $}{% if not loop.last %},{% endif %}
 {% endfor -%}

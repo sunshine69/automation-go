@@ -35,9 +35,10 @@ This is has config line {{ newvar }} and {$ newvar $}`
 	// u.GoTemplateFile("/home/sitsxk5/tmp/all.yaml", "/home/sitsxk5/tmp/test.yaml",
 	// 	data, 0644)
 	// data := map[string]any{"packages": []string{"p1", "p2", "p3"}}
-	o := TemplateString(`[
+	o := TemplateString(`#jinja2:variable_start_string:'{$', variable_end_string:'$}', trim_blocks:True, lstrip_blocks:True
+	[
 			{% for app in packages %}
-			"{{ app }}_config-pkg",
+			"{$ app $}_config-pkg",
 			"{{ app }}"{% if not loop.last %},{% endif %}
 			{% endfor %}
 			]`, data)
