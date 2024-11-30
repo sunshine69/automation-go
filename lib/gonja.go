@@ -311,7 +311,20 @@ func templateFromFile(filepath string) (*exec.Template, string, error) {
 	return t, tempFile, err
 }
 
+// Template a file using template string and convert windows new line to unix. This is
+// work around the gonja2 windows new line problem
 func TemplateFile(src, dest string, data map[string]interface{}, fileMode os.FileMode) {
+	if fileMode == 0 {
+		fileMode = 0o777
+	}
+	if contentb, err := os.ReadFile(src); err == nil {
+		content := strings.ReplaceAll(string(contentb), "\r\n", "\n")
+		u.CheckErr(os.WriteFile(dest, []byte(TemplateString(content, data)), fileMode), "TemplateFile")
+	}
+}
+
+// One day if the upstream lib fixed we can restore this func
+func TemplateFileOld(src, dest string, data map[string]interface{}, fileMode os.FileMode) {
 	if fileMode == 0 {
 		fileMode = 0755
 	}
