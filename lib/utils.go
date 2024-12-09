@@ -191,14 +191,11 @@ func ValidateYamlDir(yaml_dir string, yamlobj *map[string]interface{}) bool {
 // Link to download https://github.com/dwyl/english-words/blob/master/words.txt
 // These rules to reduce the false positive detection as people might put there as an example of password rather then real password,
 // we only want to spot out real password.
-func IsLikelyPasswordOrToken(value, check_mode, words_file_path string, word_len int, entropy_threshold float64) bool {
+func IsLikelyPasswordOrToken[W string | map[string]struct{}](value, check_mode string, words_source W, word_len int, entropy_threshold float64) bool {
 	// Check length
 	if len(value) < 6 || len(value) > 64 {
 		// fmt.Printf("[WARN] Skipping %s as len is not > 8 and < 64\n", value)
 		return false
-	}
-	if words_file_path == "" {
-		words_file_path = "words.txt"
 	}
 	if word_len == 0 {
 		word_len = 4
@@ -223,19 +220,24 @@ func IsLikelyPasswordOrToken(value, check_mode, words_file_path string, word_len
 	if entropy := calculateEntropy(value); entropy <= entropy_threshold {
 		return false
 	}
-
-	var word_dict *map[string]struct{} = nil
 	hasWord := false
-	detectHasWord := func(word_dict *map[string]struct{}) (bool, *map[string]struct{}) {
-		if word_dict == nil {
-			_word_dict := u.Must(loadDictionary(words_file_path, word_len))
-			// cache word_dict
-			word_dict = &_word_dict
+	var word_dict map[string]struct{} = nil
+
+	detectHasWord := func(word_dict map[string]struct{}) bool {
+		anywords_source := any(words_source)
+		if words_file_path, ok := anywords_source.(string); ok {
+			if words_file_path == "" {
+				words_file_path = "words.txt"
+			}
+			if word_dict == nil {
+				word_dict = u.Must(LoadWordDictionary(words_file_path, word_len))
+			}
+		} else if _word_dict, ok := anywords_source.(map[string]struct{}); ok {
+			word_dict = _word_dict
+		} else {
+			panic("word_source is nil and we need it\n")
 		}
-		if ContainsDictionaryWord(value, *word_dict) {
-			return true, word_dict
-		}
-		return false, word_dict
+		return ContainsDictionaryWord(value, word_dict)
 	}
 
 	switch check_mode {
@@ -248,25 +250,24 @@ func IsLikelyPasswordOrToken(value, check_mode, words_file_path string, word_len
 	case "letter+digit":
 		return hasUpper && hasLower && hasDigit
 	case "letter+word":
-		hasWord, _ = detectHasWord(word_dict)
+		hasWord = detectHasWord(word_dict)
 		if hasWord {
 			return false
 		}
 		return hasUpper && hasLower
 	case "letter+digit+word":
-		hasWord, _ = detectHasWord(word_dict)
+		hasWord = detectHasWord(word_dict)
 		if hasWord {
 			return false
 		}
 		return hasUpper && hasLower && hasDigit
 	default:
-		hasWord, _ = detectHasWord(word_dict)
+		hasWord = detectHasWord(word_dict)
 		if hasWord {
 			return false
 		}
 		return hasUpper && hasLower && hasDigit && hasSpecial
 	}
-
 }
 
 func calculateEntropy(s string) float64 {
@@ -288,7 +289,7 @@ func calculateEntropy(s string) float64 {
 }
 
 // Load dictionary words from a file and return a map for faster lookups
-func loadDictionary(filename string, word_len int) (map[string]struct{}, error) {
+func LoadWordDictionary(filename string, word_len int) (map[string]struct{}, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, err
