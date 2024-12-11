@@ -72,3 +72,11 @@ func TestAdhoc(t *testing.T) {
 		println(l)
 	}
 }
+
+func TestPasswordDetect(t *testing.T) {
+	p := "1q2w3e"
+
+	if IsLikelyPasswordOrToken(p, "letter+word", "/home/sitsxk5/tmp/words.txt", 0, 0) {
+		println("Is password!!!")
+	}
+}
