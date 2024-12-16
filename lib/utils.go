@@ -28,21 +28,28 @@ func IniGetVal(inifilepath, section, option string) string {
 	cfg, err := ini.Load(inifilepath)
 	if err != nil {
 		fmt.Println("Error loading INI file:", err)
-		os.Exit(1)
+		return ""
 	}
 	// Get an option value from a section
 	return cfg.Section(section).Key(option).String()
 }
 
-func IniSetVal(inifilepath, section, option, value string) {
+func IniSetVal(inifilepath, section, option, value string) error {
 	cfg, err := ini.Load(inifilepath)
 	if err != nil {
-		fmt.Println("Error loading INI file:", err)
-		os.Exit(1)
+		if strings.Contains(err.Error(), "no such file or directory") {
+			if err1 := u.CheckErrNonFatal(u.FileTouch(inifilepath), "Create file"); err1 != nil {
+				return err1
+			}
+			IniSetVal(inifilepath, section, option, value)
+			return nil
+		}
+		return err
 	}
 	// Get an option value from a section
 	cfg.Section(section).Key(option).SetValue(value)
 	cfg.SaveToIndent(inifilepath, "  ")
+	return nil
 }
 
 // Given a key as string, may have dot like objecta.field_a.b. and a map[string]interface{}

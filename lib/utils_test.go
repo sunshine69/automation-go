@@ -3,6 +3,7 @@ package lib
 import (
 	"os"
 	"regexp"
+	"strconv"
 	"testing"
 
 	u "github.com/sunshine69/golang-tools/utils"
@@ -75,8 +76,30 @@ func TestAdhoc(t *testing.T) {
 
 func TestPasswordDetect(t *testing.T) {
 	p := "1q2w3e"
+	if !u.Exists("/tmp/words.txt") {
+		u.Curl("GET", "https://devops-tools.au.int.sonichealthcare/smb/get?path=Downloads/words.txt", "", "/tmp/words.txt", []string{})
+	}
 
-	if IsLikelyPasswordOrToken(p, "letter+word", "/home/sitsxk5/tmp/words.txt", 0, 0) {
+	token := os.Getenv("TFS_TOKEN")
+	o := u.Must(u.Curl("GET", `https://:`+token+`@tfs.sonichealth.com.au/SonicHealth/DevOps/_apis/git/pullrequests?searchCriteria.status=completed&\$top=2&api-version=6.0`, "", "", []string{}))
+
+	u.Curl("GET", "https://devops-tools.au.int.sonichealthcare/smb/get?path=stevek/gotools.tgz", "", "", []string{})
+
+	myob := u.JsonToMap(o)
+
+	// println(u.JsonDump(myob, ""))
+	values := myob["value"].([]any)
+	_ = u.Must(strconv.ParseInt("qwee12222344", 10, 64))
+
+	for _, i := range values {
+		x := i.(map[string]any)
+		println(u.JsonDump(x, ""))
+	}
+	if IsLikelyPasswordOrToken(p, "letter+word", "/tmp/words.txt", 0, 0) {
 		println("Is password!!!")
 	}
+}
+
+func TestIniHandling(t *testing.T) {
+	IniSetVal("test.ini", "global", "tfs_token", "aaaaaa")
 }
