@@ -27,3 +27,4 @@ tmp/**
 words.txt
 *-linux-amd64
 *-windows-amd64
+*.ini 
