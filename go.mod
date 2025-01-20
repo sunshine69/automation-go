@@ -4,9 +4,11 @@ go 1.22.0
 
 toolchain go1.23.2
 
+replace github.com/nikolalohinski/gonja/v2 => github.com/sunshine69/gonja/v2 v2.3.2
+
 require (
 	github.com/json-iterator/go v1.1.12
-	github.com/nikolalohinski/gonja/v2 v2.3.1
+	github.com/nikolalohinski/gonja/v2 v2.3.3
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/viper v1.19.0
 	github.com/sunshine69/golang-tools/utils v0.0.0-20250120051846-e562b3baaa05
