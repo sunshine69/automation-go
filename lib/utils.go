@@ -224,7 +224,7 @@ func IsLikelyPasswordOrToken[W string | map[string]struct{}](value, check_mode s
 	if entropy_threshold == 0 {
 		entropy_threshold = 2.5
 	}
-	if entropy := calculateEntropy(value); entropy <= entropy_threshold {
+	if entropy := CalculateEntropy(value); entropy <= entropy_threshold {
 		return false
 	}
 	hasWord := false
@@ -277,22 +277,24 @@ func IsLikelyPasswordOrToken[W string | map[string]struct{}](value, check_mode s
 	}
 }
 
-func calculateEntropy(s string) float64 {
-	// Count the frequency of each character
-	frequency := make(map[rune]int)
-	for _, char := range s {
-		frequency[char]++
+// CalculateEntropy calculates the Shannon entropy in bits.
+func CalculateEntropy(password string) float64 {
+	freqMap := make(map[rune]int)
+	charCount := 0.0
+
+	for _, char := range password {
+		freqMap[char]++
+		charCount++
 	}
 
-	// Calculate the entropy
-	var entropy float64
-	length := float64(len(s))
-	for _, count := range frequency {
-		p := float64(count) / length
-		entropy -= p * math.Log2(p)
+	entropy := 0.0
+	for _, freq := range freqMap {
+		if freq > 0 {
+			probability := float64(freq) / charCount
+			entropy -= probability * math.Log2(probability)
+		}
 	}
-
-	return entropy
+	return entropy // ✅ Entropy is -Σ(p log p)
 }
 
 // Load dictionary words from a file and return a map for faster lookups
