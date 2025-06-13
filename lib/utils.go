@@ -337,3 +337,86 @@ func ContainsDictionaryWord(s string, dictionary map[string]struct{}) bool {
 	}
 	return false
 }
+
+// Password strength
+type PasswordStrength string
+
+const (
+	WeakPassword         PasswordStrength = "weak"
+	MediumPassword       PasswordStrength = "medium"
+	StrongPassword       PasswordStrength = "strong"
+	VeryStrongPassword   PasswordStrength = "very strong"
+	QuantumReadyPassword PasswordStrength = "quantum ready password"
+)
+
+// Optimized character type checks for improved efficiency
+func hasOnlyOneTypeOfCharacters(password string) bool {
+	hasLower := false
+	hasUpper := false
+	hasDigit := false
+	hasSymbol := false
+	for _, char := range password {
+		if unicode.IsLower(char) {
+			hasLower = true
+		} else if unicode.IsUpper(char) {
+			hasUpper = true
+		} else if unicode.IsDigit(char) {
+			hasDigit = true
+		} else if unicode.IsSymbol(char) {
+			hasSymbol = true
+		}
+	}
+	return (hasLower && !hasUpper && !hasDigit && !hasSymbol) ||
+		(hasUpper && !hasLower && !hasDigit && !hasSymbol) ||
+		(hasDigit && !hasLower && !hasUpper && !hasSymbol) ||
+		(hasSymbol && !hasLower && !hasUpper && !hasDigit)
+}
+
+func hasMixedCharacterTypes(password string) bool {
+	hasLowerAndUpper := false
+	hasNumbersAndSymbols := false
+
+	for _, char := range password {
+		if unicode.IsLower(char) || unicode.IsUpper(char) {
+			hasLowerAndUpper = true
+		} else if unicode.IsDigit(char) || unicode.IsSymbol(char) {
+			hasNumbersAndSymbols = true
+		}
+	}
+
+	return hasLowerAndUpper && hasNumbersAndSymbols
+}
+
+// Optimized password strength check
+func CheckPasswordStrength(password string) (PasswordStrength, float64, error) {
+	if len(password) < 8 {
+		return WeakPassword, 0, fmt.Errorf("password is too short")
+	}
+
+	if hasOnlyOneTypeOfCharacters(password) {
+		return WeakPassword, 0, nil
+	}
+
+	if !hasMixedCharacterTypes(password) {
+		return MediumPassword, 0, fmt.Errorf("password should contain both letters and numbers or symbols")
+	}
+
+	entropy := CalculateEntropy(password)
+	if entropy < 4 {
+		return MediumPassword, entropy, nil
+	}
+
+	if entropy >= 4 && entropy <= 5 && len(password) >= 12 {
+		return StrongPassword, entropy, nil
+	}
+
+	if entropy > 5 && len(password) > 35 {
+		return QuantumReadyPassword, entropy, nil
+	}
+
+	if entropy > 5 && len(password) > 14 {
+		return VeryStrongPassword, entropy, nil
+	}
+
+	return StrongPassword, entropy, nil
+}

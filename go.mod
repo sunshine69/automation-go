@@ -5,6 +5,7 @@ go 1.22.0
 toolchain go1.23.2
 
 replace github.com/nikolalohinski/gonja/v2 => github.com/sunshine69/gonja/v2 v2.3.2
+replace github.com/sunshine69/automation-go/lib => ./lib
 
 require (
 	github.com/json-iterator/go v1.1.12
