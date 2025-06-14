@@ -17,10 +17,10 @@ func main() {
 	insertafter := optFlag.StringP("insertafter", "a", "", "insertafter. In blockinfile it is a json list of regex string used as upperBound")
 	insertbefore := optFlag.StringP("insertbefore", "b", "", "insertbefore. In blockinfile it is a json list of regex string used as lowerBound")
 	line := optFlag.StringP("line", "l", "", "Line(s) to insert. Can contains regex capture if your regex option has it - like $1, $2 etc..")
-	// filename := pflag.StringP("file", "f", "", "Filename or path")
 	regexptn := optFlag.StringP("regexp", "r", "", "regexp to match for mode regex_search, Can contains group capture. In blockinfile mode it is a json list of regex string used as the marker")
 	search_string := optFlag.StringP("search_string", "s", "", "search string. This is used in non regex mode")
 	backup := optFlag.Bool("backup", true, "backup")
+	erroIfNoChanged := optFlag.Bool("errorifnochange", true, "Exit with error status if no changed detected")
 	cmd_mode := optFlag.StringP("cmd", "c", "lineinfile", `Command; choices:
 lineinfile - insert or make sure the line exist matching the search_string if set or insert new one
 search_replace - insert or make sure the line exist matching the regex pattern
@@ -42,11 +42,11 @@ print           - Print only print lines of matches but do nothing`)
 	debug := optFlag.Bool("debug", false, "Enable debugging")
 
 	if len(os.Args) < 2 {
-		panic("missing file argument. Run with option -h for help")
+		panic(`{"error": "missing file argument. Run with option -h for help"}`)
 	}
 	file_path := os.Args[1]
 	optFlag.Usage = func() {
-		fmt.Printf("Usage: %s [filename/path] [opt]\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage: %s [filename/path] [opt]\n", os.Args[0])
 		optFlag.PrintDefaults()
 	}
 	optFlag.Parse(os.Args[1:])
@@ -69,7 +69,7 @@ print           - Print only print lines of matches but do nothing`)
 		Backup:        *backup,
 	}
 	if *debug {
-		fmt.Printf("cmd: %s\nOpt: %s\n", *cmd_mode, u.JsonDump(opt, "  "))
+		fmt.Fprintf(os.Stderr, "cmd: %s\nOpt: %s\n", *cmd_mode, u.JsonDump(opt, "  "))
 	}
 
 	filename_regexp := regexp.MustCompile(*filename_ptn)
@@ -82,10 +82,11 @@ print           - Print only print lines of matches but do nothing`)
 		defaultExcludePtn = nil
 	}
 	output := map[string][]interface{}{}
+	isthereChange := false
 
 	err := filepath.Walk(file_path, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
-			fmt.Println(err.Error())
+			fmt.Fprintln(os.Stderr, err.Error())
 			return nil
 		}
 		fname := info.Name()
@@ -105,13 +106,19 @@ print           - Print only print lines of matches but do nothing`)
 			case "lineinfile":
 				err, changed := u.LineInFile(path, &opt)
 				u.CheckErrNonFatal(err, "main lineinfile")
-				output[path] = append(output[path], []interface{}{err, changed})
+				output[path] = []interface{}{changed, err}
+				if !isthereChange && changed {
+					isthereChange = true
+				}
 			case "search_replace":
 				if *regexptn == "" {
-					panic("option regexp (r) is required")
+					panic(`{"error": "option regexp (r) is required"}`)
 				}
 				count := u.SearchReplaceFile(path, *regexptn, *line, -1, *backup)
-				output[path] = append(output[path], []interface{}{nil, count})
+				output[path] = []interface{}{count, nil}
+				if !isthereChange && count > 0 {
+					isthereChange = true
+				}
 			case "blockinfile":
 				// In this mode we will take these option - insertafter, insertbefore and regexp as upperBound, lowerBound and marker to call the function. They should be a json list of regex string if defined or empty
 				// Example tp replace the anisble vault in bash shell
@@ -124,17 +131,26 @@ print           - Print only print lines of matches but do nothing`)
 				u.CheckErr(json.Unmarshal([]byte(*insertafter), &upperBound), "Unmarshal upperBound "+*insertafter)
 				u.CheckErr(json.Unmarshal([]byte(*insertbefore), &lowerBound), "Unmarshal lowerBound "+*insertbefore)
 				u.CheckErr(json.Unmarshal([]byte(*regexptn), &marker), "Unmarshal marker "+*regexptn)
-
-				fmt.Println(u.BlockInFile(path, upperBound, lowerBound, marker, *line, *state == "keepboundary", false))
-
+				oldblock := u.BlockInFile(path, upperBound, lowerBound, marker, *line, *state == "keepboundary", false)
+				fmt.Fprintln(os.Stderr, oldblock)
+				if oldblock != "" {
+					output[path] = []interface{}{1, nil}
+					if !isthereChange {
+						isthereChange = true
+					}
+				}
 			default:
-				panic("Unknown command " + *cmd_mode)
+				fmt.Fprintln(os.Stderr)
+				panic(`{"error": "Unknown command "` + *cmd_mode + `"}`)
 			}
 		}
 		return nil
 	})
-	u.CheckErrNonFatal(err, "main 107")
+	u.CheckErrNonFatal(err, "main")
 	if *state != "print" {
-		fmt.Printf("output: %s\n", u.JsonDump(output, "  "))
+		fmt.Printf("%s\n", u.JsonDump(output, "  "))
+		if *erroIfNoChanged && !isthereChange {
+			os.Exit(1)
+		}
 	}
 }
