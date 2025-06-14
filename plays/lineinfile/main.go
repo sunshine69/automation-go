@@ -28,9 +28,11 @@ blockinfile - make sure the block lines exists in file`)
 	state := optFlag.String("state", "present", `state; choices:
 present         - line present.
 absent          - remove line
-includeboundary - same as present used in blockinfile; the block itself contain the upper and lower boundary.
-In blockinfile mode this is the default. If you do not want set state=keepboundary
-keepboundary    - See above
+keepboundary    - same as present used in blockinfile; the block itself does not contain the upper and lower
+boundary. In other word, do not touch the upper and lower marker, just replace text block in between.
+This is the default mode
+If you do not want set state=includeboundary
+includeboundary    - The inverse - that is the block of text we replace include upper and lower string marker.
 print           - Print only print lines of matches but do nothing`)
 	grep := optFlag.StringP("grep", "g", "", "Simulate grep cmd. It will set state to print and take -r for pattern to grep")
 	filename_ptn := optFlag.StringP("fptn", "f", ".*", "Filename regex pattern")
@@ -116,7 +118,7 @@ print           - Print only print lines of matches but do nothing`)
 				// export e="$(ansible-vault encrypt_string 1|grep -v 'vault')"
 				// lineinfile tmp/input.yaml -c blockinfile -a '[]' -r '["key2: !vault |"]' -b '["^[^\\s]+.*"]' --line "$e" --state 'keepboundary'
 				if *state == "present" {
-					*state = "includeboundary"
+					*state = "keepboundary"
 				}
 				upperBound, lowerBound, marker := []string{}, []string{}, []string{}
 				u.CheckErr(json.Unmarshal([]byte(*insertafter), &upperBound), "Unmarshal upperBound "+*insertafter)
