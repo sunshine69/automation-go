@@ -20,11 +20,19 @@ func main() {
 	regexptn := optFlag.StringP("regexp", "r", "", "regexp to match for mode regex_search, Can contains group capture. In blockinfile mode it is a json list of regex string used as the marker")
 	search_string := optFlag.StringP("search_string", "s", "", "search string. This is used in non regex mode")
 	backup := optFlag.Bool("backup", true, "backup")
-	erroIfNoChanged := optFlag.Bool("errorifnochange", true, "Exit with error status if no changed detected")
+	erroIfNoChanged := optFlag.Bool("errorifnochange", false, "Exit with error status if no changed detected")
 	cmd_mode := optFlag.StringP("cmd", "c", "lineinfile", `Command; choices:
 lineinfile - insert or make sure the line exist matching the search_string if set or insert new one
 search_replace - insert or make sure the line exist matching the regex pattern
-blockinfile - make sure the block lines exists in file`)
+blockinfile - make sure the block lines exists in file
+  In this mode we will take these option - insertafter, insertbefore and regexp as upperBound, lowerBound and marker to call the function. They should be a json list of regex string if defined or empty
+  Example to replace the ansible vault in bash shell
+    export e="$(ansible-vault encrypt_string 'somepassword' | grep -v 'vault')"
+    lineinfile tmp/input.yaml -c blockinfile -r '["ANSIBLE_VAULT"]' -a '["key2\\: \\!vault \\|"]' -b '["^[^\\s]+.*"]' --line "$e"
+	It will replace the vault data only, keeping the like 'key2: !vault |' intact
+	To be reliable for success you should pass -a, -b, -r properly and ensure they matches so the program can
+	detect block boundary correctly.
+`)
 	state := optFlag.String("state", "present", `state; choices:
 present         - line present.
 absent          - remove line
@@ -48,6 +56,7 @@ print           - Print only print lines of matches but do nothing`)
 	optFlag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: %s [filename/path] [opt]\n", os.Args[0])
 		optFlag.PrintDefaults()
+		os.Exit(0)
 	}
 	optFlag.Parse(os.Args[1:])
 
@@ -120,10 +129,6 @@ print           - Print only print lines of matches but do nothing`)
 					isthereChange = true
 				}
 			case "blockinfile":
-				// In this mode we will take these option - insertafter, insertbefore and regexp as upperBound, lowerBound and marker to call the function. They should be a json list of regex string if defined or empty
-				// Example tp replace the anisble vault in bash shell
-				// export e="$(ansible-vault encrypt_string 1|grep -v 'vault')"
-				// lineinfile tmp/input.yaml -c blockinfile -a '[]' -r '["key2: !vault |"]' -b '["^[^\\s]+.*"]' --line "$e" --state 'keepboundary'
 				if *state == "present" {
 					*state = "keepboundary"
 				}
