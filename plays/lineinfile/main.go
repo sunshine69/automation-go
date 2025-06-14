@@ -14,7 +14,7 @@ import (
 
 func main() {
 	optFlag := pflag.NewFlagSet("opt", pflag.ExitOnError)
-	inserfater := optFlag.StringP("insertafter", "a", "", "insertafter. In blockinfile it is a json list of regex string used as upperBound")
+	insertafter := optFlag.StringP("insertafter", "a", "", "insertafter. In blockinfile it is a json list of regex string used as upperBound")
 	insertbefore := optFlag.StringP("insertbefore", "b", "", "insertbefore. In blockinfile it is a json list of regex string used as lowerBound")
 	line := optFlag.StringP("line", "l", "", "Line(s) to insert. Can contains regex capture if your regex option has it - like $1, $2 etc..")
 	// filename := pflag.StringP("file", "f", "", "Filename or path")
@@ -58,7 +58,7 @@ print           - Print only print lines of matches but do nothing`)
 	}
 
 	opt := u.LineInfileOpt{
-		Insertafter:   *inserfater,
+		Insertafter:   *insertafter,
 		Insertbefore:  *insertbefore,
 		Line:          *line,
 		Regexp:        *regexptn,
@@ -112,15 +112,18 @@ print           - Print only print lines of matches but do nothing`)
 				output[path] = append(output[path], []interface{}{nil, count})
 			case "blockinfile":
 				// In this mode we will take these option - insertafter, insertbefore and regexp as upperBound, lowerBound and marker to call the function. They should be a json list of regex string if defined or empty
-				if *state == "present" || *state != "keepboundary" {
+				// Example tp replace the anisble vault in bash shell
+				// export e="$(ansible-vault encrypt_string 1|grep -v 'vault')"
+				// lineinfile tmp/input.yaml -c blockinfile -a '[]' -r '["key2: !vault |"]' -b '["^[^\\s]+.*"]' --line "$e" --state 'keepboundary'
+				if *state == "present" {
 					*state = "includeboundary"
 				}
 				upperBound, lowerBound, marker := []string{}, []string{}, []string{}
-				u.CheckErr(json.Unmarshal([]byte(*inserfater), &upperBound), "Unmarshal upperBound")
-				u.CheckErr(json.Unmarshal([]byte(*insertbefore), &lowerBound), "Unmarshal lowerBound")
-				u.CheckErr(json.Unmarshal([]byte(*regexptn), &marker), "Unmarshal marker")
+				u.CheckErr(json.Unmarshal([]byte(*insertafter), &upperBound), "Unmarshal upperBound "+*insertafter)
+				u.CheckErr(json.Unmarshal([]byte(*insertbefore), &lowerBound), "Unmarshal lowerBound "+*insertbefore)
+				u.CheckErr(json.Unmarshal([]byte(*regexptn), &marker), "Unmarshal marker "+*regexptn)
 
-				u.BlockInFile(path, upperBound, lowerBound, marker, *line, *state == "keepboundary", false)
+				fmt.Println(u.BlockInFile(path, upperBound, lowerBound, marker, *line, *state == "keepboundary", false))
 
 			default:
 				panic("Unknown command " + *cmd_mode)
