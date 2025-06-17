@@ -60,8 +60,8 @@ This is has config line {{ newvar }} and {$ newvar $}`
 }
 
 func TestAdhoc(t *testing.T) {
-	// u.ExtractTextBlock("/home/sitsxk5/src/Sonic.TCM.Web/pages/171/edit_form.php")
-	filename := "/home/sitsxk5/src/Sonic.TCM.Web/pages/171/edit_form.php"
+	// u.ExtractTextBlock("/home/sitsxk5/src")
+	filename := "/home/sitsxk5/src/"
 	ptn := regexp.MustCompile(`(?m)\<\?php echo (\$[a-zA-Z0-9]+); \?\>`)
 	datab, err := os.ReadFile(filename)
 	u.CheckErr(err, "")

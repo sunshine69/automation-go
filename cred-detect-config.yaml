@@ -13,4 +13,4 @@ profile: cred-detect-profile.jso
 regexp: []
 save-config: cred-detect-config.yaml
 skipbinary: true
-words-list-url: https://devops-tools.au.int.sonichealthcare/smb/get?path=Downloads/words.txt
+words-list-url: ""
