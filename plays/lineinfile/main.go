@@ -28,9 +28,9 @@ blockinfile - make sure the block lines exists in file
   In this mode we will take these option - insertafter, insertbefore and regexp as upperBound, lowerBound and marker to call the function. They should be a json list of regex string if defined or empty
   Example to replace the ansible vault in bash shell
     export e="$(ansible-vault encrypt_string 'somepassword' | grep -v 'vault')"
-    lineinfile tmp/input.yaml -c blockinfile -r '["ANSIBLE_VAULT"]' -a '["key2\\: \\!vault \\|"]' -b '["^[^\\s]+.*"]' --line "$e"
+    lineinfile tmp/input.yaml -c blockinfile -a '["^key2\\: \\!vault \\|$"]' -r '["^[\\s]+\\$ANSIBLE_VAULT.*$"]' -b '["^[\\s]*([^\\d]*|\\n|EOF)$"]' --line "$e"
 	It will replace the vault data only, keeping the like 'key2: !vault |' intact
-	To be reliable for success you should pass -a, -b, -r properly and ensure they matches so the program can
+	To be reliable for success you should pass -a, -b, -r properly and ensure they matches uniquely so the program can
 	detect block boundary correctly.
 `)
 	state := optFlag.String("state", "present", `state; choices:
