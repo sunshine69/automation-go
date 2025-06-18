@@ -9,7 +9,7 @@ fptn: .*
 group-index-a: []
 group-index-b: []
 path-exclude: ""
-profile: cred-detect-profile.jso
+profile: ""
 regexp: []
 save-config: cred-detect-config.yaml
 skipbinary: true

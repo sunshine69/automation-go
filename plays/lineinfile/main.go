@@ -22,7 +22,7 @@ func main() {
 	backup := optFlag.Bool("backup", true, "backup")
 	erroIfNoChanged := optFlag.Bool("errorifnochange", false, "Exit with error status if no changed detected")
 	cmd_mode := optFlag.StringP("cmd", "c", "lineinfile", `Command; choices:
-lineinfile - insert or make sure the line exist matching the search_string if set or insert new one
+lineinfile - insert or make sure the line exist matching the search_string if set or insert new one. This is default.
 search_replace - insert or make sure the line exist matching the regex pattern
 blockinfile - make sure the block lines exists in file
   In this mode we will take these option - insertafter, insertbefore and regexp as upperBound, lowerBound and marker to call the function. They should be a json list of regex string if defined or empty
@@ -45,7 +45,7 @@ print           - Print only print lines of matches but do nothing`)
 	grep := optFlag.StringP("grep", "g", "", "Simulate grep cmd. It will set state to print and take -r for pattern to grep")
 	filename_ptn := optFlag.StringP("fptn", "f", ".*", "Filename regex pattern")
 	exclude := optFlag.StringP("exclude", "e", "", "Exclude file name pattern")
-	defaultExclude := optFlag.StringP("defaultexclude", "d", `^(\.git|.*\.zip|.*\.gz|.*\.xz|.*\.bz2|.*\.zstd|.*\.7z|.*\.dll|.*\.iso|.*\.bin|.*\.tar|.*\.exe)$`, "Default exclude pattern. Set it to empty string if you need to")
+	defaultExclude := optFlag.StringP("defaultexclude", "d", `^(\.git|.*\.zip|.*\.gz|.*\.xz|.*\.bz2|.*\.zst|.*\.7z|.*\.dll|.*\.iso|.*\.bin|.*\.tar|.*\.exe)$`, "Default exclude pattern. Set it to empty string if you need to")
 	skipBinary := optFlag.BoolP("skipbinary", "y", false, "Skip binary file")
 	debug := optFlag.Bool("debug", false, "Enable debugging")
 
