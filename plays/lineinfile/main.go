@@ -12,6 +12,17 @@ import (
 	u "github.com/sunshine69/golang-tools/utils"
 )
 
+var (
+	// Build cmd so we have the version into the binary - eg in fish shell
+	// env CGO_ENABLED=0 go build -trimpath -ldflags="-X main.version=v1.0.1+"(date +'%Y%m%d')" -X main.buildTime="(date +'%Y-%m-%d_%H:%M:%S')" -extldflags=-static -w -s" --tags "osusergo,netgo" -o lineinfile-linux-amd64 plays/lineinfile/main.go
+	version   string // Will hold the version number
+	buildTime string // Will hold the build time
+)
+
+func printVersionBuildInfo() {
+	fmt.Printf("Version: %s\nBuild time: %s\n", version, buildTime)
+}
+
 func main() {
 	optFlag := pflag.NewFlagSet("opt", pflag.ExitOnError)
 	insertafter := optFlag.StringP("insertafter", "a", "", "insertafter. In blockinfile it is a json list of regex string used as upperBound")
@@ -59,6 +70,11 @@ print           - Print only print lines of matches but do nothing`)
 		os.Exit(0)
 	}
 	optFlag.Parse(os.Args[1:])
+
+	if file_path == "version" {
+		printVersionBuildInfo()
+		os.Exit(0)
+	}
 
 	if *grep != "" {
 		*state = "print"
