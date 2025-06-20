@@ -34,9 +34,22 @@ func main() {
 	erroIfNoChanged := optFlag.Bool("errorifnochange", false, "Exit with error status if no changed detected")
 	cmd_mode := optFlag.StringP("cmd", "c", "lineinfile", `Command; choices:
 lineinfile - insert or make sure the line exist matching the search_string if set or insert new one. This is default.
+  - The simplest way to mimic sed is using option -r 'regex-string' -l 'new line content' - it will search the regex ptn and replace with 'new line content'. regex-string can have group capture and in the line content you can expand capture using $N where N is the capture group number. Be sure only run once as using capture like this is likely not idempotant as re-run it will keep adding text to the capture output
+
+  - If you want to search raw string instead then use option -s instead of -r. it just replace the line contains the search string with new line. This is idempotant. If search string is not found line will be inserted based on the option -a (intertafter) or -b (insertbefore). If all not found or not supplied it will be inserted to the end of file.
+
+  - note that you need to provide -r OR -s even it may not match it will add the line. Without -r or -s it wont do anything
+
+  - note that this is single line editing. To perform search and replace for the whole file use the next command below
+
+  - With the state=absent option -l is ignored. Only -s or -r to search for string or regex - it will remove all lines matched.
+
 search_replace - insert or make sure the line exist matching the regex pattern
+  - note that it is multiline search thus regex anchor ^ and $ wont match. Pattern can have capture group and value of group is expanded in the line using $N where N is the group number.
+
 blockinfile - make sure the block lines exists in file
   In this mode we will take these option - insertafter, insertbefore and regexp as upperBound, lowerBound and marker to call the function. They should be a json list of regex string if defined or empty
+
   Example to replace the ansible vault in bash shell
     export e="$(ansible-vault encrypt_string 'somepassword' | grep -v 'vault')"
     lineinfile tmp/input.yaml -c blockinfile -a '["^key2\\: \\!vault \\|$"]' -r '["^[\\s]+\\$ANSIBLE_VAULT.*$"]' -b '["^[\\s]*([^\\d]*|\\n|EOF)$"]' --line "$e"
@@ -47,10 +60,12 @@ blockinfile - make sure the block lines exists in file
 	state := optFlag.String("state", "present", `state; choices:
 present         - line present.
 absent          - remove line
+
 keepboundary    - same as present used in blockinfile; the block itself does not contain the upper and lower
 boundary. In other word, do not touch the upper and lower marker, just replace text block in between.
 This is the default mode
 If you do not want set state=includeboundary
+
 includeboundary    - The inverse - that is the block of text we replace include upper and lower string marker.
 print           - Print only print lines of matches but do nothing`)
 	grep := optFlag.StringP("grep", "g", "", "Simulate grep cmd. It will set state to print and take -r for pattern to grep")
