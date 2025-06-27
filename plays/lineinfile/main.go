@@ -31,7 +31,7 @@ func main() {
 	line := optFlag.StringP("line", "l", "", "Line(s) to insert. Can contains regex capture if your regex option has it - like $1, $2 etc..")
 	regexptn := optFlag.StringP("regexp", "r", "", "regexp to match for mode regex_search, Can contains group capture. In blockinfile mode it is a json list of regex string used as the marker")
 	search_string := optFlag.StringP("search_string", "s", "", "search string. This is used in non regex mode")
-	backup := optFlag.Bool("backup", true, "backup")
+	backup := optFlag.Bool("backup", false, "backup")
 	erroIfNoChanged := optFlag.Bool("errorifnochange", false, "Exit with error status if no changed detected")
 	cmd_mode := optFlag.StringP("cmd", "c", "lineinfile", `Command; choices:
 lineinfile - insert or make sure the line exist matching the search_string if set or insert new one. This is default.
@@ -60,8 +60,7 @@ blockinfile - make sure the block lines exists in file
 	EOF is special string to allow return when reaching end of file and regarded as a match lower bound.
 
 	It will replace the vault data only, keeping the like 'key2: !vault |' intact
-	To be reliable for success you should pass -a, -b, -r properly and ensure they matches uniquely so the program can
-	detect block boundary correctly.
+	To be reliable for success you should pass -a, -b, -r properly and ensure they matches uniquely so the program can detect block boundary correctly.
 `)
 	state := optFlag.String("state", "present", `state; choices:
 present      - line | block present.
@@ -83,8 +82,8 @@ extract         - Only in blockinfile; it extract the text and return it the con
 	defaultExclude := optFlag.StringP("defaultexclude", "d", `^(\.git|.*\.zip|.*\.gz|.*\.xz|.*\.bz2|.*\.zst|.*\.7z|.*\.dll|.*\.iso|.*\.bin|.*\.tar|.*\.exe)$`, "Default exclude pattern. Set it to empty string if you need to")
 	skipBinary := optFlag.BoolP("skipbinary", "y", false, "Skip binary file")
 	debug := optFlag.Bool("debug", false, "Enable debugging")
-	expected_change_count := optFlag.Int("expected", -1, `Expected change count. Apply to blockinfile command.
-Default is -1 means do not care. Otherwise the program expect exactly the number of change provided by this option.
+	expected_change_count := optFlag.Int("expected", -1, `Expected change count per 1 file. Apply to blockinfile command.
+Default is -1 means do not care. Otherwise the program will panic if the number of change > expected_change_count.
 It will automatically turn on backup`)
 
 	if len(os.Args) < 2 {
@@ -136,7 +135,7 @@ It will automatically turn on backup`)
 		defaultExcludePtn = nil
 	}
 	output := map[string][]interface{}{}
-	isthereChange, changed_count := false, 0
+	isthereChange := false
 
 	err := filepath.Walk(file_path, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
@@ -200,6 +199,10 @@ It will automatically turn on backup`)
 				}
 				oldblock, start, end, start_line := "", 0, 0, 0
 				output[path] = []any{}
+				changed_count := 0
+				if *backup {
+					u.CheckErr(u.Copy(path, path+".bak"), "Backup "+path)
+				}
 				for {
 					oldblock, start, end = u.BlockInFile(path, upperBound, lowerBound, marker, *line, *state == "keepboundary", false, start_line)
 					if oldblock == "" {
@@ -211,6 +214,9 @@ It will automatically turn on backup`)
 					}
 					start_line = end
 					changed_count++
+					if *expected_change_count > 0 && changed_count > *expected_change_count {
+						panic(fmt.Sprintf("[ERROR] File '%s' | changed_count %d not match with expected_change_count %d\n", path, changed_count, *expected_change_count))
+					}
 				}
 			default:
 				fmt.Fprintln(os.Stderr)
@@ -224,10 +230,6 @@ It will automatically turn on backup`)
 		fmt.Println(u.JsonDump(output, ""))
 		if *erroIfNoChanged && !isthereChange {
 			fmt.Fprintf(os.Stderr, "[ERROR] expected changed but no changed\n")
-			os.Exit(1)
-		}
-		if *expected_change_count > 0 && changed_count != *expected_change_count {
-			fmt.Fprintf(os.Stderr, "[ERROR] expected %d changed_count not match the actual %d changed\n", *expected_change_count, changed_count)
 			os.Exit(1)
 		}
 	}
