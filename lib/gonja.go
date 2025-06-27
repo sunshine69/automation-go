@@ -350,8 +350,7 @@ func TemplateString(srcString string, data map[string]interface{}) string {
 	return u.Must(tmpl.ExecuteToString(execContext))
 }
 
-// TemplateDirTree read all templates files in the src directory and template to the target directory keeping the directory
-// structure the same as source.
+// TemplateDirTree read all templates files in the src directory and template to the target directory keeping the directory structure the same as source.
 // Src and Target Path should be absolute path. They should not overlap to avoid recursive loop
 func TemplateDirTree(srcDirpath, targetRoot string, tmplData map[string]interface{}) error {
 	if isExist, err := u.FileExists(srcDirpath); !isExist || err != nil {

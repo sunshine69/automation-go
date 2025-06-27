@@ -8,8 +8,9 @@
             "name": "Test Current File",
             "type": "go",
             "request": "launch",
-            "mode": "test",
+            "mode": "debug",
             "program": "${fileDirname}",
+            "args": [ "../../tmp/input.yaml", "-c", "blockinfile", "-r" , "[\"ANSIBLE_VAULT\"]", "-a",  "[\"key2: !vault |\"]", "-b", "[\"^[^\\\\s]+.*\"]", "--line", "\"newcontent-here\nline2\"", "--state" ,"extract" ],
             "showLog": true
         }
     ]

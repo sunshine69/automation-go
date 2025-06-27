@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/spf13/pflag"
 	u "github.com/sunshine69/golang-tools/utils"
@@ -58,16 +59,19 @@ blockinfile - make sure the block lines exists in file
 	detect block boundary correctly.
 `)
 	state := optFlag.String("state", "present", `state; choices:
-present         - line present.
-absent          - remove line
+present      - line | block present.
+absent       - remove line
 
-keepboundary    - same as present used in blockinfile; the block itself does not contain the upper and lower
+keepboundary - same as present used in blockinfile; the block itself does not contain the upper and lower
 boundary. In other word, do not touch the upper and lower marker, just replace text block in between.
 This is the default mode
 If you do not want set state=includeboundary
 
-includeboundary    - The inverse - that is the block of text we replace include upper and lower string marker.
-print           - Print only print lines of matches but do nothing`)
+includeboundary - The inverse - that is the block of text we replace include upper and lower string marker.
+print           - Print only print lines of matches but do nothing
+
+extract         - Only in blockinfile; it extract the text and return it the content, start line and end line. Run it and see the json it returns for further processing`)
+
 	grep := optFlag.StringP("grep", "g", "", "Simulate grep cmd. It will set state to print and take -r for pattern to grep")
 	filename_ptn := optFlag.StringP("fptn", "f", ".*", "Filename regex pattern")
 	exclude := optFlag.StringP("exclude", "e", "", "Exclude file name pattern")
@@ -163,17 +167,39 @@ print           - Print only print lines of matches but do nothing`)
 				if *state == "present" {
 					*state = "keepboundary"
 				}
+
 				upperBound, lowerBound, marker := []string{}, []string{}, []string{}
 				u.CheckErr(json.Unmarshal([]byte(*insertafter), &upperBound), "Unmarshal upperBound "+*insertafter)
 				u.CheckErr(json.Unmarshal([]byte(*insertbefore), &lowerBound), "Unmarshal lowerBound "+*insertbefore)
 				u.CheckErr(json.Unmarshal([]byte(*regexptn), &marker), "Unmarshal marker "+*regexptn)
-				oldblock := u.BlockInFile(path, upperBound, lowerBound, marker, *line, *state == "keepboundary", false)
-				fmt.Fprintln(os.Stderr, oldblock)
-				if oldblock != "" {
-					output[path] = []interface{}{1, nil}
+
+				if *state == "extract" {
+					block, start_no, end_no, start_line := "", 0, 0, 0
+					output[path] = []any{}
+					for {
+						block, start_no, end_no, _ = u.ExtractTextBlockContains(path, upperBound, lowerBound, marker, start_line)
+						if block == "" {
+							break
+						}
+						resLines := strings.Split(block, "\n")
+						content_no_boundary := strings.Join(resLines[len(upperBound):(len(resLines)-len(lowerBound))+1], "\n")
+						output[path] = append(output[path], map[string]any{"content": block, "content_no_boundary": content_no_boundary, "start_line_no": start_no, "end_line_no": end_no})
+						start_line = end_no
+					}
+					return nil
+				}
+				oldblock, start, end, start_line := "", 0, 0, 0
+				output[path] = []any{}
+				for {
+					oldblock, start, end = u.BlockInFile(path, upperBound, lowerBound, marker, *line, *state == "keepboundary", false, start_line)
+					if oldblock == "" {
+						break
+					}
+					output[path] = append(output[path], map[string]any{"changed": true, "start_line_no": start, "end_line_no": end})
 					if !isthereChange {
 						isthereChange = true
 					}
+					start_line = end
 				}
 			default:
 				fmt.Fprintln(os.Stderr)
@@ -184,7 +210,7 @@ print           - Print only print lines of matches but do nothing`)
 	})
 	u.CheckErrNonFatal(err, "main")
 	if *state != "print" {
-		fmt.Printf("%s\n", u.JsonDump(output, "  "))
+		fmt.Println(u.JsonDump(output, ""))
 		if *erroIfNoChanged && !isthereChange {
 			os.Exit(1)
 		}

@@ -28,3 +28,4 @@ words.txt
 *-linux-amd64
 *-windows-amd64
 *.ini 
+lineinfile-*-x86_64
