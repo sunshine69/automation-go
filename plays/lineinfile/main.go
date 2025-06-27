@@ -49,11 +49,16 @@ search_replace - insert or make sure the line exist matching the regex pattern
   - note that it is multiline search thus regex anchor ^ and $ wont match. Pattern can have capture group and value of group is expanded in the line using $N where N is the group number.
 
 blockinfile - make sure the block lines exists in file
+
   In this mode we will take these option - insertafter, insertbefore and regexp as upperBound, lowerBound and marker to call the function. They should be a json list of regex string if defined or empty
 
   Example to replace the ansible vault in bash shell
     export e="$(ansible-vault encrypt_string 'somepassword' | grep -v 'vault')"
-    lineinfile tmp/input.yaml -c blockinfile -a '["^key2\\: \\!vault \\|$"]' -r '["^[\\s]+\\$ANSIBLE_VAULT.*$"]' -b '["^[\\s]*([^\\d]*|\\n|EOF)$"]' --line "$e"
+
+	lineinfile tmp/input.yaml -c blockinfile -a '["^key2\\: \\!vault \\|$"]' -r '["^[\\s]+\\$ANSIBLE_VAULT.*$"]' -b '["^[\\s]*([^\\d]*|\\n|EOF)$"]' --line "$e"
+
+	EOF is special string to allow return when reaching end of file and regarded as a match lower bound.
+
 	It will replace the vault data only, keeping the like 'key2: !vault |' intact
 	To be reliable for success you should pass -a, -b, -r properly and ensure they matches uniquely so the program can
 	detect block boundary correctly.
@@ -78,6 +83,9 @@ extract         - Only in blockinfile; it extract the text and return it the con
 	defaultExclude := optFlag.StringP("defaultexclude", "d", `^(\.git|.*\.zip|.*\.gz|.*\.xz|.*\.bz2|.*\.zst|.*\.7z|.*\.dll|.*\.iso|.*\.bin|.*\.tar|.*\.exe)$`, "Default exclude pattern. Set it to empty string if you need to")
 	skipBinary := optFlag.BoolP("skipbinary", "y", false, "Skip binary file")
 	debug := optFlag.Bool("debug", false, "Enable debugging")
+	expected_change_count := optFlag.Int("expected", -1, `Expected change count. Apply to blockinfile command.
+Default is -1 means do not care. Otherwise the program expect exactly the number of change provided by this option.
+It will automatically turn on backup`)
 
 	if len(os.Args) < 2 {
 		panic(`{"error": "missing file argument. Run with option -h for help"}`)
@@ -94,7 +102,9 @@ extract         - Only in blockinfile; it extract the text and return it the con
 		printVersionBuildInfo()
 		os.Exit(0)
 	}
-
+	if *expected_change_count == -1 {
+		*backup = true
+	}
 	if *grep != "" {
 		*state = "print"
 		*regexptn = *grep
@@ -126,7 +136,7 @@ extract         - Only in blockinfile; it extract the text and return it the con
 		defaultExcludePtn = nil
 	}
 	output := map[string][]interface{}{}
-	isthereChange := false
+	isthereChange, changed_count := false, 0
 
 	err := filepath.Walk(file_path, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
@@ -200,6 +210,7 @@ extract         - Only in blockinfile; it extract the text and return it the con
 						isthereChange = true
 					}
 					start_line = end
+					changed_count++
 				}
 			default:
 				fmt.Fprintln(os.Stderr)
@@ -212,6 +223,11 @@ extract         - Only in blockinfile; it extract the text and return it the con
 	if *state != "print" {
 		fmt.Println(u.JsonDump(output, ""))
 		if *erroIfNoChanged && !isthereChange {
+			fmt.Fprintf(os.Stderr, "[ERROR] expected changed but no changed\n")
+			os.Exit(1)
+		}
+		if *expected_change_count > 0 && changed_count != *expected_change_count {
+			fmt.Fprintf(os.Stderr, "[ERROR] expected %d changed_count not match the actual %d changed\n", *expected_change_count, changed_count)
 			os.Exit(1)
 		}
 	}

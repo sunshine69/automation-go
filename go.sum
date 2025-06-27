@@ -66,6 +66,8 @@ github.com/subosito/gotenv v1.6.0 h1:9NlTDc1FTs4qu0DDq7AEtTPNw6SVm7uBMsUCUjABIf8
 github.com/subosito/gotenv v1.6.0/go.mod h1:Dk4QP5c2W3ibzajGcXpNraDfq2IrhjMIvMSWPKKo0FU=
 github.com/sunshine69/golang-tools/utils v0.0.0-20250627093719-6f99579bdc87 h1:mLqzv7kJfs81iR4nlOaC76LvN5huPKfycITVJNtC4MU=
 github.com/sunshine69/golang-tools/utils v0.0.0-20250627093719-6f99579bdc87/go.mod h1:vqCvBRKek0wPW1e8uOElToZKNyNGu99/PBqnhO8ZMIY=
+github.com/sunshine69/golang-tools/utils v0.0.0-20250627110554-3ae4c3832ca4 h1:e1Wj3uq7g0bRSFnxPhgkgAaTCi9IFv38SZIFHjCzFEc=
+github.com/sunshine69/golang-tools/utils v0.0.0-20250627110554-3ae4c3832ca4/go.mod h1:cCwUmCj10GxYw+fczTHgLf7zxllLHLRWWZaBJgioCNU=
 github.com/sunshine69/gonja/v2 v2.3.2 h1:RxyHtT3RHDbFdDJWgH5UWoQ5JHB7kZPpsQjidSl2yfk=
 github.com/sunshine69/gonja/v2 v2.3.2/go.mod h1:1Wcc/5huTu6y36e0sOFR1XQoFlylw3c3H3L5WOz0RDg=
 github.com/tidwall/gjson v1.18.0 h1:FIDeeyB800efLX89e5a8Y0BNH+LOngJyGrIWxG2FKQY=
