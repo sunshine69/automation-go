@@ -3,10 +3,14 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+
 	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
+
+	// regexp "github.com/wasilibs/go-re2"
+
 	"regexp"
 	"strings"
 	"sync"
@@ -17,19 +21,27 @@ import (
 	u "github.com/sunshine69/golang-tools/utils"
 )
 
-// var Credential_patterns = []string{
-// 	`(?i)['"]?password['"]?\s*[=:]\s*['"]?([^'"\s]+)['"]?`, // Matches "password [=:] value"
-// 	`(?i)['"]?token['"]?\s*[=:]\s*['"]?([^'"\s]+)['"]?`,    // Matches "token [=:] value"
-// 	`(?i)['"]?api_key['"]?\s*[=:]\s*['"]?([^'"\s]+)['"]?`,  // Matches "api_key [=:] value"
-// 	`(?i)['"]?secret['"]?\s*[=:]\s*['"]?([^'"\s]+)['"]?`,   // Matches "secret [=:] value"
-// }
-
+//	var Credential_patterns = []string{
+//		`(?i)['"]?password['"]?\s*[=:]\s*['"]?([^'"\s]+)['"]?`, // Matches "password [=:] value"
+//		`(?i)['"]?token['"]?\s*[=:]\s*['"]?([^'"\s]+)['"]?`,    // Matches "token [=:] value"
+//		`(?i)['"]?api_key['"]?\s*[=:]\s*['"]?([^'"\s]+)['"]?`,  // Matches "api_key [=:] value"
+//		`(?i)['"]?secret['"]?\s*[=:]\s*['"]?([^'"\s]+)['"]?`,   // Matches "secret [=:] value"
+//	}
+//
+// https://github.com/l4yton/RegHex?tab=readme-ov-file#artifactory-api-token
+// https://github.com/neospl0it/regexscan/blob/main/regexscan.sh
 var (
 	Credential_patterns = []string{
-		`(?i)['"]?(password|passwd|token|api_key|secret)['"]?[=:\s][\s]*?['"]?([^'"\s]+)['"]?`,
+		`(?i)(['"])?(password|passwd|token|api_key|secret|access_key|admin_pass|algolia_admin_key|algolia_api_key|alias_pass|aos_key|api_key_sid|apikey|apiSecret|app_debug|app_id|app_key|appkey|appkeysecret|application_key|appsecret|appspot|aws_access|aws_access_key_id|aws_key|aws_secret|aws_secret_key|aws_token|AWSSecretKey|b2_app_key|bintray_apikey|bintray_gpg_password|bintray_key|bintraykey|bluemix_api_key|bluemix_pass|browserstack_access_key|bucket_password|bucketeer_aws_access_key_id|bucketeer_aws_secret_access_key|built_branch_deploy_key|bx_password|cache_s3_secret_key|cattle_access_key|cattle_secret_key|certificate_password|ci_deploy_password|client_secret|client_zpk_secret_key|clojars_password|cloud_api_key|cloud_watch_aws_access_key|cloudant_password|cloudflare_api_key|cloudflare_auth_key|cloudinary_api_secret|cloudinary_name|codecov_token|connectionstring|consumer_key|consumer_secret|credentials|cypress_record_key|database_password|database_schema_test|datadog_api_key|datadog_app_key|db_password|db_server|db_username|dbpasswd|dbpassword|deploy_password|digitalocean_ssh_key_body|digitalocean_ssh_key_ids|docker_hub_password|docker_key|docker_pass|docker_passwd|docker_password|dockerhub_password|dockerhubpassword|droplet_travis_password|dynamoaccesskeyid|dynamosecretaccesskey|elastica_host|elastica_port|elasticsearch_password|encryption_key|encryption_password|env.heroku_api_key|env.sonatype_password|eureka.awssecretkey)['"]?[=:\s\|][\s]*?['"]?([^'"\s]+)['"]?`,
+		// `(?i)((access_key|access_token|admin_pass|admin_user|algolia_admin_key|algolia_api_key|alias_pass|alicloud_access_key|amazon_secret_access_key|amazonaws|ansible_vault_password|aos_key|api_key|api_key_secret|api_key_sid|api_secret|api.googlemaps AIza|apidocs|apikey|apiSecret|app_debug|app_id|app_key|app_log_level|app_secret|appkey|appkeysecret|application_key|appsecret|appspot|auth_token|authorizationToken|authsecret|aws_access|aws_access_key_id|aws_bucket|aws_key|aws_secret|aws_secret_key|aws_token|AWSSecretKey|b2_app_key|bashrc password|bintray_apikey|bintray_gpg_password|bintray_key|bintraykey|bluemix_api_key|bluemix_pass|browserstack_access_key|bucket_password|bucketeer_aws_access_key_id|bucketeer_aws_secret_access_key|built_branch_deploy_key|bx_password|cache_driver|cache_s3_secret_key|cattle_access_key|cattle_secret_key|certificate_password|ci_deploy_password|client_secret|client_zpk_secret_key|clojars_password|cloud_api_key|cloud_watch_aws_access_key|cloudant_password|cloudflare_api_key|cloudflare_auth_key|cloudinary_api_secret|cloudinary_name|codecov_token|config|conn.login|connectionstring|consumer_key|consumer_secret|credentials|cypress_record_key|database_password|database_schema_test|datadog_api_key|datadog_app_key|db_password|db_server|db_username|dbpasswd|dbpassword|dbuser|deploy_password|digitalocean_ssh_key_body|digitalocean_ssh_key_ids|docker_hub_password|docker_key|docker_pass|docker_passwd|docker_password|dockerhub_password|dockerhubpassword|dot-files|dotfiles|droplet_travis_password|dynamoaccesskeyid|dynamosecretaccesskey|elastica_host|elastica_port|elasticsearch_password|encryption_key|encryption_password|env.heroku_api_key|env.sonatype_password|eureka.awssecretkey)[a-z0-9_ .\-,]{0,25})(=|>|:=|\|\|:|<=|=>|:).{0,5}['"]([0-9a-zA-Z\-_=]{8,64})['"]`,
 	}
 	version   string // Will hold the version number
 	buildTime string // Will hold the build time
+	// In the regex above, which group index to refer the password part (which we call a) and the content of secret (b)
+	// This allows us to extract the data in the report when matching agains the regex. The default value matched with the default ptn
+	group_index [][]int = [][]int{{1, 2}}
+	// group_index [][]int = [][]int{{2, 3}}
+	WordDict map[string]struct{} = nil
 )
 
 // Output format of each line. A file may have many lines; each line may have more than 1 creds pair matches
@@ -56,9 +68,8 @@ func loadProfile(filename string) (output ProjectOutputFmt, err error) {
 }
 
 // cred_detect_ProcessFiles to process a batch of files to detect credential pattern and send result to output_chan
-func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileInfo, cred_ptn_compiled map[string]*regexp.Regexp, password_check_mode, words_file_path string, entropy_threshold float64, output_chan chan<- OutputFmt, log_chan chan<- string, debug bool) {
+func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileInfo, password_check_mode string, entropy_threshold float64, output_chan chan<- OutputFmt, log_chan chan<- string, debug bool) {
 	defer wg.Done()
-
 	load_profile_path := os.Getenv("LOAD_PROFILE_PATH")
 	previous_run_result := ProjectOutputFmt{}
 
@@ -69,7 +80,10 @@ func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileIn
 			os.Setenv("LOAD_PROFILE_PATH", "")
 		}
 	}
-
+	compiledPtn := map[string]*regexp.Regexp{}
+	for _, ptn := range Credential_patterns {
+		compiledPtn[ptn] = regexp.MustCompile(ptn)
+	}
 	for fpath, finfo := range fileBatch {
 		datab, err := os.ReadFile(fpath)
 		if err1 := u.CheckErrNonFatal(err, "ReadFile "+fpath); err1 != nil {
@@ -85,11 +99,13 @@ func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileIn
 			Line_no: []int{},
 			Matches: []string{},
 		}
+
 		for idx, data := range datalines {
-			for ptnStr, ptn := range cred_ptn_compiled {
-				matches := ptn.FindAllStringSubmatch(data, -1)
+			ptn_idx := 0
+			for ptn, ptnCom := range compiledPtn {
+				matches := ptnCom.FindAllStringSubmatch(data, -1)
 				if len(matches) > 0 {
-					o.Pattern = ptnStr
+					o.Pattern = ptn
 					o.Line_no = append(o.Line_no, idx)
 
 					var oldmatches map[string]OutputFmt
@@ -97,18 +113,21 @@ func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileIn
 						oldmatches = check_prev
 					}
 					for _, match := range matches {
+						// fmt.Printf("[DEBUG] %s\n", u.JsonDump(match, ""))
 						if debug {
-							log_chan <- fmt.Sprintf("%s:%d - %s: %s", fpath, idx, match[1], match[2])
+							log_chan <- fmt.Sprintf("%s:%d - %s: %s", fpath, idx, match[group_index[ptn_idx][0]], match[group_index[ptn_idx][1]])
 						}
 
-						if len(match) > 1 && ag.IsLikelyPasswordOrToken(match[2], password_check_mode, words_file_path, 4, entropy_threshold) {
-							o.Matches = append(o.Matches, match[1], match[2])
+						if len(match) > 1 && ag.IsLikelyPasswordOrToken(match[group_index[ptn_idx][1]], password_check_mode, WordDict, 4, entropy_threshold) {
+							o.Matches = append(o.Matches, match[group_index[ptn_idx][0]], match[group_index[ptn_idx][1]])
 						}
 					}
 					if len(o.Matches) > 0 {
 						match_Sig := o.Matches[0] + o.Matches[1]
 						if _, ok := oldmatches[match_Sig]; ok {
-							log_chan <- fmt.Sprintf("File: %s - matches %s exist in profile, skipping", fpath, match_Sig)
+							if debug {
+								log_chan <- fmt.Sprintf("File: %s - matches %s exist in profile, skipping", fpath, match_Sig)
+							}
 						} else {
 							if !debug { // Mask value
 								for idx, _ := range o.Matches {
@@ -121,6 +140,7 @@ func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileIn
 						}
 					}
 				}
+				ptn_idx++
 			}
 		}
 	}
@@ -133,8 +153,10 @@ func printVersionBuildInfo() {
 func main() {
 	optFlag := pflag.NewFlagSet("opt", pflag.ExitOnError)
 	// config_file := optFlag.String("project-config", "", "File Path to Exclude pattern")
-	cred_regexptn := optFlag.StringArrayP("regexp", "r", []string{}, "List pattern to detect credential values")
-	default_cred_regexptn := optFlag.StringArrayP("default-regexp", "p", Credential_patterns, "Default list of credencial pattern.")
+	batchSize := optFlag.Int("batch-size", 8, "Batch size - the number of files in a batch to process.")
+	cred_regexptn := optFlag.StringArrayP("regexp", "r", []string{}, "List pattern to detect credential values. The app has a default pattern already. This allows you to add your own pattern as well if required. If you add your own pattern it will use it as extra pattern, that is the default one built-in code still used. Remember to use option -a and -b to set the group index pair for your pattern. Example: if you add two more patterns, and the first one you have set the capture group for key pass is 1 and for value of credential is 3; the second pattern is 2 and 4 then you should pass option -a=1,2 -b=3,4")
+	pattern_group_index_ap := optFlag.IntSliceP("group-index-a", "a", []int{}, "Set the group index pair to capture. If you customize the regexp pattern then supply this to hint which group index is used for the first capture part (the leading string to identify what comes next is the credential). The order is map 1<->1 that is first regex map with first item in here. Value format is a coma separated string such as -a=1,2,3")
+	pattern_group_index_bp := optFlag.IntSliceP("group-index-b", "b", []int{}, "Similar to --group-index-a. Set the group index to capture the credential itself.")
 	filename_ptn := optFlag.StringP("fptn", "f", ".*", "Filename regex pattern")
 	exclude := optFlag.StringP("exclude", "e", "", "Exclude file name pattern")
 	path_exclude := optFlag.String("path-exclude", "", "File Path to Exclude pattern")
@@ -142,7 +164,7 @@ func main() {
 	defaultExclude := optFlag.StringP("defaultexclude", "d", `^(\.git|.*\.zip|.*\.gz|.*\.xz|.*\.bz2|.*\.zstd|.*\.7z|.*\.dll|.*\.iso|.*\.bin|.*\.tar|.*\.exe)$`, "Default exclude pattern. Set it to empty string if you need to")
 	skipBinary := optFlag.BoolP("skipbinary", "y", true, "Skip binary file")
 	password_check_mode := optFlag.String("check-mode", "letter+word", "Password check mode. List of allowed values: letter, digit, special, letter+digit, letter+digit+word, all. The default value (letter+digit+word) requires a file /tmp/words.txt; it will automatically download it if it does not exist. Link to download https://github.com/dwyl/english-words/blob/master/words.txt . It describes what it looks like a password for example if the value is 'letter' means any random ascii letter can be treated as password and will be reported. Same for others, eg, letter+digit+word means value has letter, digit and NOT looks like English word will be treated as password. Value 'all' is like letter+digit+special ")
-	words_list_url := optFlag.String("words-list-url", "https://raw.githubusercontent.com/dwyl/english-words/master/words.txt", "Word list url to download")
+	words_list_url := optFlag.String("words-list-url", "https://github.com/dwyl/english-words/blob/master/words.txt", "Word list url to download")
 
 	debug := optFlag.Bool("debug", false, "Enable debugging. Note that it will print password values unmasked. Do not run it on CI/CD")
 	save_config_file := optFlag.String("save-config", "cred-detect-config.yaml", "Path to save config from command flags to a yaml file")
@@ -161,7 +183,7 @@ func main() {
 
 		***** WORKFLOW *****
 		cd <project-to-scan-root-dir>
-		cred-detect . --debug <extra-opt> --profile="" --save-profile cred-detect-profile.json
+		cred-detect . --debug <extra-opt> --profile="" > cred-detect-profile.json
 		# extra-opt if u need, mostly depending on each project you may optimize the exclude option or even change the regex pattern etc
 		# examine the json file and see any false positive case; if they are, leave it in the profile. Fix up your code for real case.
 		# Re-run the above until all data in json file are false positive.
@@ -209,7 +231,6 @@ func main() {
 	}
 
 	*cred_regexptn = viper.GetStringSlice("regexp")
-	*default_cred_regexptn = viper.GetStringSlice("default-regexp")
 	*filename_ptn = viper.GetString("fptn")
 	*exclude = viper.GetString("exclude")
 	*path_exclude = viper.GetString("path-exclude")
@@ -224,7 +245,14 @@ func main() {
 	word_file_path := path.Join(user_home_dir, "cred-detect-word.txt")
 
 	if len(*cred_regexptn) > 0 {
-		*default_cred_regexptn = append(*default_cred_regexptn, *cred_regexptn...)
+		Credential_patterns = append(Credential_patterns, *cred_regexptn...)
+	}
+	if len(*pattern_group_index_ap) > 0 && len(*pattern_group_index_bp) > 0 && len(*pattern_group_index_ap) == len(*pattern_group_index_bp) {
+		for idx, v := range *pattern_group_index_ap {
+			_b := *pattern_group_index_bp
+			_tmp := []int{v, _b[idx]}
+			group_index = append(group_index, _tmp)
+		}
 	}
 
 	if strings.Contains(*password_check_mode, "word") {
@@ -232,25 +260,22 @@ func main() {
 			fmt.Println("Downloading words.txt")
 			u.Curl("GET", *words_list_url, "", word_file_path, []string{})
 		}
+		WordDict = u.Must(ag.LoadWordDictionary(word_file_path, 4))
 	}
 
 	os.Setenv("LOAD_PROFILE_PATH", *load_profile_path)
 
-	cred_ptn_compiled := map[string]*regexp.Regexp{}
-	for _, ptn := range *default_cred_regexptn {
-		cred_ptn_compiled[ptn] = regexp.MustCompile(ptn)
-	}
-
 	filename_regexp := regexp.MustCompile(*filename_ptn)
+
 	excludePtn := regexp.MustCompile(*exclude)
 	if *exclude == "" {
 		excludePtn = nil
 	}
+
 	defaultExcludePtn := regexp.MustCompile(*defaultExclude)
 	if *defaultExclude == "" {
 		defaultExcludePtn = nil
 	}
-
 	var path_exclude_ptn *regexp.Regexp = nil
 	if *path_exclude != "" {
 		path_exclude_ptn = regexp.MustCompile(*path_exclude)
@@ -264,9 +289,8 @@ func main() {
 	stat_chan := make(chan int)
 
 	total_files_scanned, total_files_process := 0, 0
-
 	// Setup the harvest worker
-	go func(output *ProjectOutputFmt, logs *[]string, output_chan <-chan OutputFmt, log_chan <-chan string, stat_chan <-chan int) {
+	harvestFunc := func(output *ProjectOutputFmt, logs *[]string, output_chan <-chan OutputFmt, log_chan <-chan string, stat_chan <-chan int) {
 		for {
 			select {
 			case msg, morelog := <-log_chan:
@@ -304,9 +328,10 @@ func main() {
 				break
 			}
 		}
-	}(&output, &logs, output_chan, log_chan, stat_chan)
-	// 10 is fastest
-	batchSize := 5
+	}
+	go harvestFunc(&output, &logs, output_chan, log_chan, stat_chan)
+	// go harvestFunc(&output2, &logs, output_chan, log_chan, stat_chan)
+	// 10 is fastest. Spawn more harvest does not help
 	filesBatch := map[string]fs.FileInfo{}
 
 	err1 := filepath.Walk(file_path, func(fpath string, info fs.FileInfo, err error) error {
@@ -316,13 +341,17 @@ func main() {
 		}
 		if path_exclude_ptn != nil {
 			if path_exclude_ptn.MatchString(fpath) {
-				fmt.Fprintf(os.Stderr, "SKIP PATH %s\n", fpath)
+				if *debug {
+					fmt.Fprintf(os.Stderr, "SKIP PATH %s\n", fpath)
+				}
 				return nil
 			}
 		}
 		fname := info.Name()
 		if info.IsDir() && ((excludePtn != nil && excludePtn.MatchString(fname)) || (defaultExcludePtn != nil && defaultExcludePtn.MatchString(fname))) {
-			fmt.Fprintf(os.Stderr, "SKIP DIR %s\n", fpath)
+			if *debug {
+				fmt.Fprintf(os.Stderr, "SKIP DIR %s\n", fpath)
+			}
 			return filepath.SkipDir
 		}
 		// Check if the file matches the pattern
@@ -333,7 +362,9 @@ func main() {
 				if *skipBinary {
 					isbin, err := u.IsBinaryFileSimple(fpath)
 					if (err == nil) && isbin {
-						fmt.Fprintf(os.Stderr, "SKIP BIN %s\n", fpath)
+						if *debug {
+							fmt.Fprintf(os.Stderr, "SKIP BIN %s\n", fpath)
+						}
 						return nil
 					}
 				}
@@ -342,14 +373,14 @@ func main() {
 				if !(fmode.IsRegular()) {
 					return nil
 				}
-				if len(filesBatch) < batchSize {
+				if len(filesBatch) < *batchSize {
 					if *debug {
 						fmt.Fprintf(os.Stderr, "Add file: %s\n", fpath)
 					}
 					filesBatch[fpath] = info
 				} else {
 					wg.Add(1)
-					go cred_detect_ProcessFiles(&wg, filesBatch, cred_ptn_compiled, *password_check_mode, word_file_path, 0, output_chan, log_chan, *debug)
+					go cred_detect_ProcessFiles(&wg, filesBatch, *password_check_mode, 0, output_chan, log_chan, *debug)
 					filesBatch = map[string]fs.FileInfo{fpath: info} // Need to add this one as the batch is full we miss add it.
 				}
 			}
@@ -359,7 +390,7 @@ func main() {
 
 	if len(filesBatch) > 0 { // Last batch
 		wg.Add(1)
-		go cred_detect_ProcessFiles(&wg, filesBatch, cred_ptn_compiled, *password_check_mode, word_file_path, 0, output_chan, log_chan, *debug)
+		go cred_detect_ProcessFiles(&wg, filesBatch, *password_check_mode, 0, output_chan, log_chan, *debug)
 	}
 
 	wg.Wait()
@@ -372,6 +403,7 @@ func main() {
 	if len(logs) > 0 {
 		fmt.Fprintln(os.Stderr, strings.Join(logs, "\n"))
 	}
+
 	if len(output) > 0 {
 		// fmt.Printf("%s\n", u.JsonDump(output, "     "))
 		je := json.NewEncoder(os.Stdout)

@@ -195,3 +195,10 @@ func BenchmarkCalculateEntropy(b *testing.B) {
 		})
 	}
 }
+
+func TestHelmChartValidation(t *testing.T) {
+	res := HelmChartValidation("/home/sitsxk5/src/Sonic.Dx.SDRS/Tanzu/Helm/sdrs-soap", []string{"/home/sitsxk5/src/Sonic.Dx.SDRS/ansible/templates/common_helm-values.yaml", "/home/sitsxk5/src/Sonic.Dx.SDRS/ansible/templates/sdrs-soap_helm-values.yaml"})
+	if !res {
+		t.Fail()
+	}
+}
