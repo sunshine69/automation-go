@@ -27,6 +27,8 @@ type Config struct {
 type UserConfig struct {
 	JWTSecret    string
 	AllowedPaths []string
+	Domain       string
+	Subject      string
 }
 
 // Global flags
@@ -64,7 +66,7 @@ t' -src go.mod
 	mainFlagSet.StringVar(&serverFlag, "server", "", "SMB server address (hostname:port) Reminder, default port for smb is 445")
 	mainFlagSet.StringVar(&loginUser, "login", "", "Login user to the smb share")
 	mainFlagSet.StringVar(&loginPass, "password", "", "Login password")
-	mainFlagSet.StringVar(&smbDomain, "domain", "example.com", "Domain")
+	mainFlagSet.StringVar(&smbDomain, "domain", "", "Domain")
 	mainFlagSet.BoolVar(&verboseFlag, "verbose", false, "Enable verbose output")
 
 	// Subcommands
@@ -72,6 +74,7 @@ t' -src go.mod
 	downloadCmd := flag.NewFlagSet("download", flag.ExitOnError)
 	mvCmd := flag.NewFlagSet("mv", flag.ExitOnError)
 	rmCmd := flag.NewFlagSet("rm", flag.ExitOnError)
+	lsCmd := flag.NewFlagSet("ls", flag.ExitOnError)
 
 	// Upload flags
 	var (
@@ -99,9 +102,10 @@ t' -src go.mod
 
 	// Remove flags
 	var (
-		rmPath string
+		rmPath, lsPath string
 	)
 	rmCmd.StringVar(&rmPath, "path", "", "File to remove on SMB share")
+	lsCmd.StringVar(&lsPath, "path", "", "File to remove on SMB share")
 
 	// Check if we have enough arguments
 	if len(os.Args) < 2 {
@@ -113,7 +117,7 @@ t' -src go.mod
 	mainArgs := []string{}
 	subCmdPos := 1
 	for i, arg := range os.Args[1:] {
-		if arg == "upload" || arg == "download" || arg == "mv" || arg == "rm" {
+		if arg == "upload" || arg == "download" || arg == "mv" || arg == "rm" || arg == "ls" {
 			subCmdPos = i + 1
 			break
 		}
@@ -145,6 +149,13 @@ t' -src go.mod
 	if !exists {
 		fmt.Fprintf(os.Stderr, "User %s not found in config\n", username)
 		os.Exit(1)
+	}
+
+	if smbDomain == "" {
+		if userConfig.Domain == "" {
+			panic("domain must be provided in commandline or configfile")
+		}
+		smbDomain = userConfig.Domain
 	}
 
 	if verboseFlag {
@@ -216,7 +227,21 @@ t' -src go.mod
 		}
 
 		err = removeFile(serverFlag, rmPath, verboseFlag)
+	case "ls":
+		lsCmd.Parse(os.Args[subCmdPos+1:])
+		if lsPath == "" {
+			fmt.Fprintln(os.Stderr, "Error: Path is required for ls command")
+			rmCmd.PrintDefaults()
+			os.Exit(1)
+		}
 
+		// Validate path against allowed paths
+		if !isPathAllowed(lsPath, userConfig.AllowedPaths) {
+			fmt.Fprintf(os.Stderr, "Access denied: Not allowed to ls %s\n", lsPath)
+			os.Exit(1)
+		}
+		files := u.Must(listFiles(serverFlag, lsPath))
+		println(u.JsonDump(files, ""))
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown subcommand: %s\n", os.Args[subCmdPos])
 		os.Exit(1)
@@ -640,4 +665,35 @@ func createDirectories(share *smb2.Share, dirPath string) error {
 	}
 
 	return nil
+}
+
+// listFiles list files from an SMB share using a glob file path patterm
+func listFiles(server, path string) (files []string, err1 error) {
+	// Connect to SMB
+	session, err := connectToSMB(server, loginUser, loginPass, smbDomain)
+	if err != nil {
+		return files, err
+	}
+	defer session.Logoff()
+
+	// Parse the path
+	shareName, filePath, err := parseSharePath(path)
+	if err != nil {
+		return files, err
+	}
+
+	// Open the share
+	share, err := session.Mount(shareName)
+	if err != nil {
+		return files, fmt.Errorf("failed to mount share %s: %v", shareName, err)
+	}
+	defer share.Umount()
+
+	// Remove the file
+	files, err = share.Glob(filePath)
+	if err != nil {
+		return files, fmt.Errorf("failed to remove file: %v", err)
+	}
+	files = u.SliceMap(files, func(s string) *string { s1 := strings.ReplaceAll(s, `\`, `/`); return &s1 })
+	return files, nil
 }
