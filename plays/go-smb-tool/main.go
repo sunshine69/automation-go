@@ -28,7 +28,6 @@ type UserConfig struct {
 	JWTSecret    string
 	AllowedPaths []string
 	Domain       string
-	Subject      string
 }
 
 // Global flags
@@ -50,6 +49,8 @@ func main() {
 	Example config.json:
 	{
     	"someuser_name": {
+			"Domain": "smb.domain",
+			"JWTSecret": "secret",
         	"AllowedPaths": ["/<sharename>/tmp/"]
     	}
 	}
@@ -62,6 +63,7 @@ t' -src go.mod
 	  - download - Download from the remote smb share to local file system or stdin
 	  - mv       - move/rename file from smb remote share
 	  - rm       - delete file from smb remote share
+	  - ls <path/glob-filename-pattern> - List files
 	`)
 	mainFlagSet.StringVar(&serverFlag, "server", "", "SMB server address (hostname:port) Reminder, default port for smb is 445")
 	mainFlagSet.StringVar(&loginUser, "login", "", "Login user to the smb share")
@@ -109,7 +111,7 @@ t' -src go.mod
 
 	// Check if we have enough arguments
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "Expected subcommand: upload, download, mv, or rm")
+		fmt.Fprintln(os.Stderr, "Expected subcommand: upload, download, mv, rm, ls")
 		os.Exit(1)
 	}
 
