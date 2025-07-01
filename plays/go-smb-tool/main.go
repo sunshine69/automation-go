@@ -243,7 +243,7 @@ t' -src go.mod
 			os.Exit(1)
 		}
 		files := u.Must(listFiles(serverFlag, lsPath))
-		println(u.JsonDump(files, ""))
+		fmt.Fprintf(os.Stdout, u.JsonDump(files, ""))
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown subcommand: %s\n", os.Args[subCmdPos])
 		os.Exit(1)
