@@ -243,7 +243,7 @@ t' -src go.mod
 			os.Exit(1)
 		}
 		files := u.Must(listFiles(serverFlag, lsPath))
-		fmt.Fprintf(os.Stdout, u.JsonDump(files, ""))
+		fmt.Fprintln(os.Stdout, u.JsonDump(files, ""))
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown subcommand: %s\n", os.Args[subCmdPos])
 		os.Exit(1)
@@ -493,7 +493,7 @@ func download(server, srcPath, destPath string, verbose bool) error {
 		defer file.Close()
 		destFile = file
 		if verbose {
-			fmt.Printf("Writing to file: %s\n", destPath)
+			fmt.Fprintf(os.Stderr, "Writing to file: %s\n", destPath)
 		}
 	}
 
@@ -505,7 +505,7 @@ func download(server, srcPath, destPath string, verbose bool) error {
 
 	if verbose {
 		if destPath != "-" {
-			fmt.Printf("Downloaded %d bytes from %s\n", bytesRead, srcPath)
+			fmt.Fprintf(os.Stderr, "Downloaded %d bytes from %s\n", bytesRead, srcPath)
 		} else {
 			fmt.Fprintf(os.Stderr, "Downloaded %d bytes from %s\n", bytesRead, srcPath)
 		}
@@ -560,7 +560,7 @@ func moveFile(server, srcPath, destPath string, verbose bool) error {
 		}
 
 		if verbose {
-			fmt.Printf("Moved %s to %s\n", srcPath, destPath)
+			fmt.Fprintf(os.Stderr, "Moved %s to %s\n", srcPath, destPath)
 		}
 	} else {
 		// Moving between different shares, we need to copy and delete
@@ -592,7 +592,7 @@ func moveFile(server, srcPath, destPath string, verbose bool) error {
 		}
 
 		if verbose {
-			fmt.Printf("Moved %s to %s\n", srcPath, destPath)
+			fmt.Fprintf(os.Stderr, "Moved %s to %s\n", srcPath, destPath)
 		}
 	}
 
@@ -628,7 +628,7 @@ func removeFile(server, path string, verbose bool) error {
 	}
 
 	if verbose {
-		fmt.Printf("Removed %s\n", path)
+		fmt.Fprintf(os.Stderr, "Removed %s\n", path)
 	}
 
 	return nil
