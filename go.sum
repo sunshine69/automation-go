@@ -105,6 +105,8 @@ github.com/sunshine69/golang-tools/utils v0.0.0-20251001045626-2ee557713608 h1:/
 github.com/sunshine69/golang-tools/utils v0.0.0-20251001045626-2ee557713608/go.mod h1:2Ab1pEzWWqlae5gFII7KDKLSponDJgG4VgjJitH60tw=
 github.com/sunshine69/golang-tools/utils v0.0.0-20251130022659-3a048bb14247 h1:Fd8SZIFYLmijN1mja5YNcalZ5x5/cgfX1QzETOUsmAY=
 github.com/sunshine69/golang-tools/utils v0.0.0-20251130022659-3a048bb14247/go.mod h1:K5AA2GdkEQsgOaP0cgFRrvbR4Kk2dJNxj8FGOTIMddQ=
+github.com/sunshine69/golang-tools/utils v0.0.0-20251202041847-e729b60796a0 h1:A54MYB0TvNLskNdaM/rDbuMc22CxLRWTOaxbIfswexQ=
+github.com/sunshine69/golang-tools/utils v0.0.0-20251202041847-e729b60796a0/go.mod h1:K5AA2GdkEQsgOaP0cgFRrvbR4Kk2dJNxj8FGOTIMddQ=
 github.com/sunshine69/gonja/v2 v2.3.2 h1:RxyHtT3RHDbFdDJWgH5UWoQ5JHB7kZPpsQjidSl2yfk=
 github.com/sunshine69/gonja/v2 v2.3.2/go.mod h1:1Wcc/5huTu6y36e0sOFR1XQoFlylw3c3H3L5WOz0RDg=
 github.com/tidwall/gjson v1.18.0 h1:FIDeeyB800efLX89e5a8Y0BNH+LOngJyGrIWxG2FKQY=
