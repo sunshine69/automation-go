@@ -61,7 +61,7 @@ This is has config line {{ newvar }} and {$ newvar $}`
 
 func TestAdhoc(t *testing.T) {
 	// u.ExtractTextBlock("/home/sitsxk5/src")
-	filename := "/home/sitsxk5/src/"
+	filename := "/home/stevek/src/"
 	ptn := regexp.MustCompile(`(?m)\<\?php echo (\$[a-zA-Z0-9]+); \?\>`)
 	datab, err := os.ReadFile(filename)
 	u.CheckErr(err, "")
@@ -75,9 +75,9 @@ func TestAdhoc(t *testing.T) {
 }
 
 func TestPasswordDetect(t *testing.T) {
-	p := "1qa2ws"
+	p := "1Password!"
 	if !u.Exists("/tmp/words.txt") {
-		u.Curl("GET", "https://github.com/dwyl/english-words/blob/master/words.txt", "", "/tmp/words.txt", []string{})
+		u.Curl("GET", "https://github.com/dwyl/english-words/blob/master/words.txt", "", "/tmp/words.txt", []string{}, nil)
 	}
 
 	if IsLikelyPasswordOrToken(p, "letter+word", "/tmp/words.txt", 0, 0) {
@@ -193,12 +193,5 @@ func BenchmarkCalculateEntropy(b *testing.B) {
 				CalculateEntropy(pwd)
 			}
 		})
-	}
-}
-
-func TestHelmChartValidation(t *testing.T) {
-	res := HelmChartValidation("/home/sitsxk5/src/Sonic.Dx.SDRS/Tanzu/Helm/sdrs-soap", []string{"/home/sitsxk5/src/Sonic.Dx.SDRS/ansible/templates/common_helm-values.yaml", "/home/sitsxk5/src/Sonic.Dx.SDRS/ansible/templates/sdrs-soap_helm-values.yaml"})
-	if !res {
-		t.Fail()
 	}
 }
