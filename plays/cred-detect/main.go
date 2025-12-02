@@ -202,6 +202,8 @@ func main() {
 
 		Also as the config file has already generated; you should have a look at the option in there to be sure the run is correct.
 
+		To add the command to scan before you commit using git commit hook do the following
+
 		Options below:
 
 		`, os.Args[0])
@@ -258,7 +260,7 @@ func main() {
 	if strings.Contains(*password_check_mode, "word") {
 		if res, _ := u.FileExists(word_file_path); !res {
 			fmt.Println("Downloading words.txt")
-			u.Curl("GET", *words_list_url, "", word_file_path, []string{})
+			u.Curl("GET", *words_list_url, "", word_file_path, []string{}, nil)
 		}
 		WordDict = u.Must(ag.LoadWordDictionary(word_file_path, 4))
 	}

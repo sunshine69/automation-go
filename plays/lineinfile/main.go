@@ -186,13 +186,14 @@ It will automatically turn on backup`)
 					block, start_no, end_no, start_line := "", 0, 0, 0
 					output[path] = []any{}
 					for {
-						block, start_no, end_no, _ = u.ExtractTextBlockContains(path, upperBound, lowerBound, marker, start_line)
+						matchedPattern := [][]string{}
+						block, start_no, end_no, _, matchedPattern = u.ExtractTextBlockContains(path, upperBound, lowerBound, marker, start_line)
 						if block == "" {
 							break
 						}
 						resLines := strings.Split(block, "\n")
 						content_no_boundary := strings.Join(resLines[len(upperBound):(len(resLines)-len(lowerBound))+1], "\n")
-						output[path] = append(output[path], map[string]any{"content": block, "content_no_boundary": content_no_boundary, "start_line_no": start_no, "end_line_no": end_no})
+						output[path] = append(output[path], map[string]any{"content": block, "content_no_boundary": content_no_boundary, "start_line_no": start_no, "end_line_no": end_no, "matched": matchedPattern})
 						start_line = end_no
 					}
 					return nil
@@ -204,7 +205,7 @@ It will automatically turn on backup`)
 					u.CheckErr(u.Copy(path, path+".bak"), "Backup "+path)
 				}
 				for {
-					oldblock, start, end = u.BlockInFile(path, upperBound, lowerBound, marker, *line, *state == "keepboundary", false, start_line)
+					oldblock, start, end, _ = u.BlockInFile(path, upperBound, lowerBound, marker, *line, *state == "keepboundary", false, start_line)
 					if oldblock == "" {
 						break
 					}
