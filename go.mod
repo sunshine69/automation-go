@@ -14,10 +14,10 @@ require (
 	github.com/json-iterator/go v1.1.12
 	github.com/klauspost/compress v1.18.2
 	github.com/mattn/go-isatty v0.0.20
-	github.com/nikolalohinski/gonja/v2 v2.4.2
+	github.com/nikolalohinski/gonja/v2 v2.5.1
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/viper v1.21.0
-	github.com/sunshine69/golang-tools/utils v0.0.0-20251218065334-c9b03118f829
+	github.com/sunshine69/golang-tools/utils v0.0.0-20251218224605-55f0b339d172
 	gopkg.in/ini.v1 v1.67.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -36,7 +36,7 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/exp v0.0.0-20251125195548-87e1e737ad39 // indirect
+	golang.org/x/exp v0.0.0-20251209150349-8475f28825e9 // indirect
 )
 
 require (

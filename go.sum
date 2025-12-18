@@ -111,6 +111,10 @@ github.com/sunshine69/golang-tools/utils v0.0.0-20251218063332-4a67114f62d5 h1:B
 github.com/sunshine69/golang-tools/utils v0.0.0-20251218063332-4a67114f62d5/go.mod h1:l3DlNI2sPKVqEM8BY03gtQuKvF77a1X6x+zIKD2OMCU=
 github.com/sunshine69/golang-tools/utils v0.0.0-20251218065334-c9b03118f829 h1:n/yidpTrQKw+pdVzS8Nyy23bWvMHlyO6fgijCCvonvg=
 github.com/sunshine69/golang-tools/utils v0.0.0-20251218065334-c9b03118f829/go.mod h1:l3DlNI2sPKVqEM8BY03gtQuKvF77a1X6x+zIKD2OMCU=
+github.com/sunshine69/golang-tools/utils v0.0.0-20251218085122-018cf53ae713 h1:++YkESBrnZA0ecdO4wbNpV9N9dBVBk4SFnPEJca+Taw=
+github.com/sunshine69/golang-tools/utils v0.0.0-20251218085122-018cf53ae713/go.mod h1:l3DlNI2sPKVqEM8BY03gtQuKvF77a1X6x+zIKD2OMCU=
+github.com/sunshine69/golang-tools/utils v0.0.0-20251218224605-55f0b339d172 h1:7yrE9Uu98QbY6ktWXo81YD3vjz1WdfIkk5DA1cWO+Ac=
+github.com/sunshine69/golang-tools/utils v0.0.0-20251218224605-55f0b339d172/go.mod h1:l3DlNI2sPKVqEM8BY03gtQuKvF77a1X6x+zIKD2OMCU=
 github.com/sunshine69/gonja/v2 v2.3.2 h1:RxyHtT3RHDbFdDJWgH5UWoQ5JHB7kZPpsQjidSl2yfk=
 github.com/sunshine69/gonja/v2 v2.3.2/go.mod h1:1Wcc/5huTu6y36e0sOFR1XQoFlylw3c3H3L5WOz0RDg=
 github.com/tidwall/gjson v1.18.0 h1:FIDeeyB800efLX89e5a8Y0BNH+LOngJyGrIWxG2FKQY=
@@ -144,6 +148,8 @@ golang.org/x/exp v0.0.0-20251017212417-90e834f514db h1:by6IehL4BH5k3e3SJmcoNbOob
 golang.org/x/exp v0.0.0-20251017212417-90e834f514db/go.mod h1:j/pmGrbnkbPtQfxEe5D0VQhZC6qKbfKifgD0oM7sR70=
 golang.org/x/exp v0.0.0-20251125195548-87e1e737ad39 h1:DHNhtq3sNNzrvduZZIiFyXWOL9IWaDPHqTnLJp+rCBY=
 golang.org/x/exp v0.0.0-20251125195548-87e1e737ad39/go.mod h1:46edojNIoXTNOhySWIWdix628clX9ODXwPsQuG6hsK0=
+golang.org/x/exp v0.0.0-20251209150349-8475f28825e9 h1:MDfG8Cvcqlt9XXrmEiD4epKn7VJHZO84hejP9Jmp0MM=
+golang.org/x/exp v0.0.0-20251209150349-8475f28825e9/go.mod h1:EPRbTFwzwjXj9NpYyyrvenVh9Y+GFeEvMNh7Xuz7xgU=
 golang.org/x/net v0.0.0-20190404232315-eb5bcb51f2a3/go.mod h1:t9HGtf8HONx5eT2rtn7q6eTqICYqUVnKs3thJo3Qplg=
 golang.org/x/net v0.41.0 h1:vBTly1HeNPEn3wtREYfy4GZ/NECgw2Cnl+nK6Nz3uvw=
 golang.org/x/net v0.41.0/go.mod h1:B/K4NNqkfmg07DQYrbwvSluqCJOOXwUjeb/5lOisjbA=

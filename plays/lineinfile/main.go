@@ -25,44 +25,6 @@ func printVersionBuildInfo() {
 	fmt.Printf("Version: %s\nBuild time: %s\n", version, buildTime)
 }
 
-// Simple when input is stdin - does what grep does
-func Grep(input string, pattern string, onlyMatch bool) error {
-	re, err := regexp.Compile(pattern)
-	if err != nil {
-		return err
-	}
-
-	lines := strings.Split(input, "\n")
-
-	for _, line := range lines {
-		// println("debug", line)
-		if onlyMatch {
-			// Find all matches with submatches
-			matches := re.FindAllStringSubmatch(line, -1)
-			for _, m := range matches {
-				// If capture groups exist, print captures only
-				if len(m) > 1 {
-					fmt.Println(strings.Join(m[1:], " "))
-				} else {
-					fmt.Println(m[0])
-				}
-			}
-		} else {
-			// Normal grep: print whole line if matched
-			if re.MatchString(line) {
-				// If capture exists, print capture(s) instead of full line
-				m := re.FindStringSubmatch(line)
-				if len(m) > 1 {
-					fmt.Println(strings.Join(m[1:], " "))
-				} else {
-					fmt.Println(line)
-				}
-			}
-		}
-	}
-	return nil
-}
-
 func main() {
 	optFlag := pflag.NewFlagSet("opt", pflag.ExitOnError)
 	insertafter := optFlag.StringP("insertafter", "a", "", "insertafter. In blockinfile it is a json list of regex string used as upperBound")
@@ -143,7 +105,8 @@ It will automatically turn on backup`)
 	case "-":
 		stdinContent := u.Must(io.ReadAll(os.Stdin))
 		*grep = u.Ternary(*grep == "", *regexptn, *grep)
-		u.CheckErr(Grep(string(stdinContent), *grep, true), "[ERROR] grep")
+		ls, _ := u.Grep(string(stdinContent), *grep, true, false)
+		fmt.Fprint(os.Stdout, strings.Join(ls, "\n"))
 		return
 	}
 
