@@ -122,7 +122,7 @@ It will automatically turn on backup`)
 		*backup = true
 	}
 
-	opt := u.LineInfileOpt{
+	opt := u.NewLineInfileOpt(&u.LineInfileOpt{
 		Insertafter:   *insertafter,
 		Insertbefore:  *insertbefore,
 		Line:          *line,
@@ -130,7 +130,7 @@ It will automatically turn on backup`)
 		Search_string: *search_string,
 		State:         *state,
 		Backup:        *backup,
-	}
+	})
 	if *debug {
 		fmt.Fprintf(os.Stderr, "cmd: %s\nOpt: %s\n", *cmd_mode, u.JsonDump(opt, "  "))
 	}
@@ -167,13 +167,13 @@ It will automatically turn on backup`)
 			}
 			switch *cmd_mode {
 			case "lineinfile":
-				err, changed := u.LineInFile(path, &opt)
+				err, changed := u.LineInFile(path, opt)
 				u.CheckErrNonFatal(err, "main lineinfile")
 				output[path] = []interface{}{changed, err}
 				if !isthereChange && changed {
 					isthereChange = true
 				}
-			case "search_replace":
+			case "search_replace", "replace":
 				if *regexptn == "" {
 					panic(`{"error": "option regexp (r) is required"}`)
 				}

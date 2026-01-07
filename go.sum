@@ -25,6 +25,8 @@ github.com/google/go-cmp v0.6.0/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeN
 github.com/google/gofuzz v1.0.0/go.mod h1:dBl0BpW6vV/+mYPU4Po3pmUjxk6FQPldtuIdl/M65Eg=
 github.com/google/pprof v0.0.0-20210407192527-94a9f03dee38 h1:yAJXTCF9TqKcTiHJAE8dj7HMvPfh66eeA2JYW7eFpSE=
 github.com/google/pprof v0.0.0-20210407192527-94a9f03dee38/go.mod h1:kpwsk12EmLew5upagYY7GY0pfYCcupk39gWOCRROcvE=
+github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
+github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/hirochachacha/go-smb2 v1.1.0 h1:b6hs9qKIql9eVXAiN0M2wSFY5xnhbHAQoCwRKbaRTZI=
 github.com/hirochachacha/go-smb2 v1.1.0/go.mod h1:8F1A4d5EZzrGu5R7PU163UcMRDJQl4FtcxjBfsY8TZE=
 github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnrnM=
@@ -77,6 +79,8 @@ github.com/sunshine69/golang-tools/utils v0.0.0-20251218224605-55f0b339d172 h1:7
 github.com/sunshine69/golang-tools/utils v0.0.0-20251218224605-55f0b339d172/go.mod h1:l3DlNI2sPKVqEM8BY03gtQuKvF77a1X6x+zIKD2OMCU=
 github.com/sunshine69/golang-tools/utils v0.0.0-20251222013635-c9e092d226d4 h1:zzay/mL8mKztfXFzUnWjNuVBjj/b4pbKWK1FBrI3gWE=
 github.com/sunshine69/golang-tools/utils v0.0.0-20251222013635-c9e092d226d4/go.mod h1:l3DlNI2sPKVqEM8BY03gtQuKvF77a1X6x+zIKD2OMCU=
+github.com/sunshine69/golang-tools/utils v0.0.0-20260106230959-0e18b02ba7ef h1:paeQyFN4kTWMjbIWvur+ENfFWktNM2cEKPbeU/0yPro=
+github.com/sunshine69/golang-tools/utils v0.0.0-20260106230959-0e18b02ba7ef/go.mod h1:duFf0fAvN25xq6eClt+FUN3bPdz49ZVddFP0MYwsY7I=
 github.com/sunshine69/gonja/v2 v2.3.2 h1:RxyHtT3RHDbFdDJWgH5UWoQ5JHB7kZPpsQjidSl2yfk=
 github.com/sunshine69/gonja/v2 v2.3.2/go.mod h1:1Wcc/5huTu6y36e0sOFR1XQoFlylw3c3H3L5WOz0RDg=
 github.com/tidwall/gjson v1.18.0 h1:FIDeeyB800efLX89e5a8Y0BNH+LOngJyGrIWxG2FKQY=
