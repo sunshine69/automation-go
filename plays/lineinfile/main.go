@@ -36,9 +36,14 @@ func main() {
 	erroIfNoChanged := optFlag.Bool("errorifnochange", false, "Exit with error status if no changed detected")
 	cmd_mode := optFlag.StringP("cmd", "c", "lineinfile", `Command; choices:
 lineinfile - insert or make sure the line exist matching the search_string if set or insert new one. This is default.
+
+If file does not exist it will be created.
+
   - The simplest way to mimic sed is using option -r 'regex-string' -l 'new line content' - it will search the regex ptn and replace with 'new line content'. regex-string can have group capture and in the line content you can expand capture using $N where N is the capture group number. Be sure only run once as using capture like this is likely not idempotant as re-run it will keep adding text to the capture output
 
-  - If you want to search raw string instead then use option -s instead of -r. it just replace the line contains the search string with new line. This is idempotant. If search string is not found line will be inserted based on the option -a (intertafter) or -b (insertbefore). If all not found or not supplied it will be inserted to the end of file.
+  The -r option wont add new line if teh regex not found. To add new line use option -s below. Thid is to make sure it is idempotant. You can add using -s first and then use -r to modify it if needed. Remember this tool can be run multiple times to lines stream editing of a file.
+
+  - If you want to search raw string instead then use option -s instead of -r. it just replace the line contains the search string with new line. This is idempotant. If search string is not found line will be inserted based on the option -a (intertafter) or -b (insertbefore). If all not found or not supplied it will be inserted to the end of file. EOF and BOF is for end of file or begin of file respectively that can be used for option -a or -b.
 
   - note that you need to provide -r OR -s even it may not match it will add the line. Without -r or -s it wont do anything
 
@@ -46,7 +51,7 @@ lineinfile - insert or make sure the line exist matching the search_string if se
 
   - With the state=absent option -l is ignored. Only -s or -r to search for string or regex - it will remove all lines matched.
 
-search_replace - insert or make sure the line exist matching the regex pattern
+search_replace|replace - insert or make sure the line exist matching the regex pattern
   - note that it is multiline search thus regex anchor ^ and $ wont match. Pattern can have capture group and value of group is expanded in the line using $N where N is the group number.
 
 blockinfile - make sure the block lines exists in file
@@ -63,7 +68,7 @@ blockinfile - make sure the block lines exists in file
 	It will replace the vault data only, keeping the like 'key2: !vault |' intact
 	To be reliable for success you should pass -a, -b, -r properly and ensure they matches uniquely so the program can detect block boundary correctly.
 `)
-	state := optFlag.String("state", "present", `state; choices:
+	state := optFlag.StringP("state", "S", "present", `state; choices:
 present      - line | block present.
 absent       - remove line
 
@@ -147,6 +152,10 @@ It will automatically turn on backup`)
 	output := map[string][]interface{}{}
 	isthereChange := false
 
+	if u.FileExistsV2(file_path) != nil {
+		u.FileTouch(file_path)
+	}
+
 	err := filepath.Walk(file_path, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err.Error())
@@ -188,6 +197,8 @@ It will automatically turn on backup`)
 				}
 
 				upperBound, lowerBound, marker := []string{}, []string{}, []string{}
+				// println("[DEBUG] upperBound " + *insertafter)
+				// println("[DEBUG] lowerBound " + *insertbefore)
 				u.CheckErr(json.Unmarshal([]byte(*insertafter), &upperBound), "Unmarshal upperBound "+*insertafter)
 				u.CheckErr(json.Unmarshal([]byte(*insertbefore), &lowerBound), "Unmarshal lowerBound "+*insertbefore)
 				u.CheckErr(json.Unmarshal([]byte(*regexptn), &marker), "Unmarshal marker "+*regexptn)
@@ -214,8 +225,12 @@ It will automatically turn on backup`)
 				if *backup {
 					u.CheckErr(u.Copy(path, path+".bak"), "Backup "+path)
 				}
+				insertIfNotFound := true
 				for {
-					oldblock, start, end, _ = u.BlockInFile(path, upperBound, lowerBound, marker, *line, *state == "keepboundary", false, start_line)
+					if start_line > 0 { // If we did once then we dont insert anymore for the rest of text
+						insertIfNotFound = false
+					}
+					oldblock, start, end, _ = u.BlockInFile(path, upperBound, lowerBound, marker, *line, *state == "keepboundary", false, start_line, map[string]any{"insertIfNotFound": insertIfNotFound})
 					if oldblock == "" {
 						break
 					}
