@@ -74,10 +74,11 @@ absent       - remove line
 
 keepboundary - same as present used in blockinfile; the block itself does not contain the upper and lower
 boundary. In other word, do not touch the upper and lower marker, just replace text block in between.
-This is the default mode
-If you do not want set state=includeboundary
+This is the default mode. If markers not found the block will be inserted *with* the boundary (option -a, -b)
+If you do not want set state=includeboundary below.
 
 includeboundary - The inverse - that is the block of text we replace include upper and lower string marker.
+
 print           - Print only print lines of matches but do nothing
 
 extract         - Only in blockinfile; it extract the text and return it the content, start line and end line. Run it and see the json it returns for further processing`)
@@ -123,7 +124,7 @@ It will automatically turn on backup`)
 		*line = ""
 	}
 
-	if *expected_change_count == -1 {
+	if *expected_change_count != -1 {
 		*backup = true
 	}
 
@@ -240,9 +241,10 @@ It will automatically turn on backup`)
 					}
 					start_line = end
 					changed_count++
-					if *expected_change_count > 0 && changed_count > *expected_change_count {
-						panic(fmt.Sprintf("[ERROR] File '%s' | changed_count %d not match with expected_change_count %d\n", path, changed_count, *expected_change_count))
-					}
+				}
+				fmt.Fprintf(os.Stderr, "file: %s - changes: %d - expected changes: %d\n", path, changed_count, *expected_change_count)
+				if *expected_change_count > 0 && changed_count != *expected_change_count {
+					panic(fmt.Sprintf("[ERROR] File '%s' | changed_count %d not match with expected_change_count %d\n", path, changed_count, *expected_change_count))
 				}
 			default:
 				fmt.Fprintln(os.Stderr)
