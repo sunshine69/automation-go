@@ -17,7 +17,7 @@ require (
 	github.com/nikolalohinski/gonja/v2 v2.5.1
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/viper v1.21.0
-	github.com/sunshine69/golang-tools/utils v0.0.0-20260109235017-e5a5fcbf0ce5
+	github.com/sunshine69/golang-tools/utils v0.0.0-20260111040644-0da5c08e6143
 	gopkg.in/ini.v1 v1.67.0
 	gopkg.in/yaml.v3 v3.0.1
 )

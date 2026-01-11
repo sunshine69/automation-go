@@ -11,6 +11,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/google/uuid"
 	u "github.com/sunshine69/golang-tools/utils"
 	"github.com/tidwall/gjson"
 	"gopkg.in/ini.v1"
@@ -419,4 +420,18 @@ func CheckPasswordStrength(password string) (PasswordStrength, float64, error) {
 	}
 
 	return StrongPassword, entropy, nil
+}
+
+// Take local jinja2 template file, template it and copy to remote hosts
+func GoTemplate(s *u.SshExec, src, dest string, data map[string]any, mode os.FileMode) (err error) {
+	if s.SshExecHost == "localhost" || s.SshExecHost == "127.0.0.1" {
+		TemplateFile(src, dest, data, mode)
+		return nil
+	}
+	tempDir := u.Must(os.MkdirTemp("", ""))
+	defer os.RemoveAll(tempDir)
+	tempFile := tempDir + "/" + uuid.NewString()
+	TemplateFile(src, tempFile, data, mode)
+	u.Must(s.CopyFile(dest, tempFile))
+	return nil
 }
