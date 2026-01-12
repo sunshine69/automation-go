@@ -150,7 +150,7 @@ It will automatically turn on backup`)
 	if *defaultExclude == "" {
 		defaultExcludePtn = nil
 	}
-	output := map[string][]interface{}{}
+	output := map[string][]any{}
 	isthereChange := false
 
 	if u.FileExistsV2(file_path) != nil {
@@ -175,11 +175,13 @@ It will automatically turn on backup`)
 					return nil
 				}
 			}
+			currentFileHash := u.Sha256SumFile(path)
+
 			switch *cmd_mode {
 			case "lineinfile":
 				err, changed := u.LineInFile(path, opt)
 				u.CheckErrNonFatal(err, "main lineinfile")
-				output[path] = []interface{}{changed, err}
+				output[path] = []any{map[string]any{"changed": changed, "error": err}}
 				if !isthereChange && changed {
 					isthereChange = true
 				}
@@ -188,7 +190,7 @@ It will automatically turn on backup`)
 					panic(`{"error": "option regexp (r) is required"}`)
 				}
 				count := u.SearchReplaceFile(path, *regexptn, *line, -1, *backup)
-				output[path] = []interface{}{count, nil}
+				output[path] = []any{count, nil}
 				if !isthereChange && count > 0 {
 					isthereChange = true
 				}
@@ -220,7 +222,7 @@ It will automatically turn on backup`)
 					}
 					return nil
 				}
-				oldblock, start, end, start_line := "", 0, 0, 0
+				oldblock, end, start_line := "", 0, 0
 				output[path] = []any{}
 				changed_count := 0
 				if *backup {
@@ -231,11 +233,10 @@ It will automatically turn on backup`)
 					if start_line > 0 { // If we did once then we dont insert anymore for the rest of text
 						insertIfNotFound = false
 					}
-					oldblock, start, end, _ = u.BlockInFile(path, upperBound, lowerBound, marker, *line, *state == "keepboundary", false, start_line, map[string]any{"insertIfNotFound": insertIfNotFound})
+					oldblock, _, end, _ = u.BlockInFile(path, upperBound, lowerBound, marker, *line, *state == "keepboundary", false, start_line, map[string]any{"insertIfNotFound": insertIfNotFound})
 					if oldblock == "" {
 						break
 					}
-					output[path] = append(output[path], map[string]any{"changed": true, "start_line_no": start, "end_line_no": end})
 					if !isthereChange {
 						isthereChange = true
 					}
@@ -246,6 +247,13 @@ It will automatically turn on backup`)
 				if *expected_change_count > 0 && changed_count != *expected_change_count {
 					panic(fmt.Sprintf("[ERROR] File '%s' | changed_count %d not match with expected_change_count %d\n", path, changed_count, *expected_change_count))
 				}
+				newFileHash := u.Sha256SumFile(path)
+				if newFileHash != currentFileHash {
+					isthereChange = true
+				} else {
+					isthereChange = false
+				}
+				output[path] = []any{map[string]any{"changed": isthereChange}}
 			default:
 				fmt.Fprintln(os.Stderr)
 				panic(`{"error": "Unknown command "` + *cmd_mode + `"}`)
