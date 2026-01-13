@@ -28,7 +28,7 @@ func printVersionBuildInfo() {
 func main() {
 	optFlag := pflag.NewFlagSet("opt", pflag.ExitOnError)
 	insertafter := optFlag.StringP("insertafter", "a", "", "insertafter. In blockinfile it is a json list of regex string used as upperBound")
-	insertbefore := optFlag.StringP("insertbefore", "b", "", "insertbefore. In blockinfile it is a json list of regex string used as lowerBound")
+	insertbefore := optFlag.StringP("insertbefore", "b", "EOF", "insertbefore. In blockinfile it is a json list of regex string used as lowerBound")
 	line := optFlag.StringP("line", "l", "", "Line(s) to insert. Can contains regex capture if your regex option has it - like $1, $2 etc..")
 	regexptn := optFlag.StringP("regexp", "r", "", "regexp to match for mode regex_search, Can contains group capture. In blockinfile mode it is a json list of regex string used as the marker")
 	search_string := optFlag.StringP("search_string", "s", "", "search string. This is used in non regex mode")
