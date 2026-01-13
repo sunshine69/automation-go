@@ -435,3 +435,78 @@ func GoTemplate(s *u.SshExec, src, dest string, data map[string]any, mode os.Fil
 	u.Must(s.CopyFile(dest, tempFile))
 	return nil
 }
+
+// FlattenVar recursively resolves all template variables in a string
+// until no more {{ }} patterns remain
+func FlattenVar(key string, data map[string]any, visited map[string]bool) (string, error) {
+	// Check for circular dependencies
+	if visited[key] {
+		return "", fmt.Errorf("circular dependency detected for key: %s", key)
+	}
+
+	// Get the value for this key
+	val, exists := data[key]
+	if !exists {
+		return "", fmt.Errorf("key not found: %s", key)
+	}
+
+	// Convert to string
+	strVal, ok := val.(string)
+	if !ok {
+		return fmt.Sprintf("%v", val), nil
+	}
+
+	// Mark this key as being processed
+	visited[key] = true
+	defer delete(visited, key)
+
+	// Regular expression to find {{ variable }} patterns
+	re := regexp.MustCompile(`\{\{\s*(\w+)\s*\}\}`)
+
+	// Keep resolving until no more templates exist
+	maxIterations := 100 // Prevent infinite loops
+	for i := 0; i < maxIterations; i++ {
+		// Check if there are any template patterns left
+		if !re.MatchString(strVal) {
+			break
+		}
+
+		// Find all referenced variables and flatten them first
+		matches := re.FindAllStringSubmatch(strVal, -1)
+		for _, match := range matches {
+			if len(match) > 1 {
+				refKey := match[1]
+				// Recursively flatten the referenced variable
+				if _, exists := data[refKey]; exists {
+					flattened, err := FlattenVar(refKey, data, visited)
+					if err != nil {
+						return "", err
+					}
+					// Update the data map with flattened value
+					data[refKey] = flattened
+				}
+			}
+		}
+
+		// Now template the current string
+		strVal = TemplateString(strVal, data)
+	}
+
+	return strVal, nil
+}
+
+// FlattenAllVars flattens all variables in the data map
+func FlattenAllVars(data map[string]any) (map[string]any, error) {
+	result := make(map[string]any)
+
+	for key := range data {
+		visited := make(map[string]bool)
+		flattened, err := FlattenVar(key, data, visited)
+		if err != nil {
+			return nil, err
+		}
+		result[key] = flattened
+	}
+
+	return result, nil
+}
