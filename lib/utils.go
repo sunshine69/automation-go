@@ -460,19 +460,19 @@ func FlattenVar(key string, data map[string]any, visited map[string]bool) (strin
 	visited[key] = true
 	defer delete(visited, key)
 
-	// Regular expression to find {{ variable }} patterns
-	re := regexp.MustCompile(`\{\{\s*(\w+)\s*\}\}`)
+	// Regular expression to find any variable references in the data map
+	varRe := regexp.MustCompile(`\{\{\s*(\w+)(?:\s|\}|\.|\|)`)
 
-	// Keep resolving until no more templates exist
+	// Keep resolving until no more {{ }} patterns exist
 	maxIterations := 100 // Prevent infinite loops
 	for i := 0; i < maxIterations; i++ {
-		// Check if there are any template patterns left
-		if !re.MatchString(strVal) {
+		// Check if there are any {{ or }} left (simple check for Jinja2 templates)
+		if !regexp.MustCompile(`\{\{|\}\}`).MatchString(strVal) {
 			break
 		}
 
 		// Find all referenced variables and flatten them first
-		matches := re.FindAllStringSubmatch(strVal, -1)
+		matches := varRe.FindAllStringSubmatch(strVal, -1)
 		for _, match := range matches {
 			if len(match) > 1 {
 				refKey := match[1]
