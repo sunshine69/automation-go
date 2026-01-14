@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -29,7 +28,7 @@ func main() {
 	optFlag := pflag.NewFlagSet("opt", pflag.ExitOnError)
 	insertafter := optFlag.StringP("insertafter", "a", "", "insertafter. In blockinfile it is a json list of regex string used as upperBound")
 	insertbefore := optFlag.StringP("insertbefore", "b", "EOF", "insertbefore. In blockinfile it is a json list of regex string used as lowerBound")
-	line := optFlag.StringP("line", "l", "", "Line(s) to insert. Can contains regex capture if your regex option has it - like $1, $2 etc..")
+	line := optFlag.StringP("line", "l", "", "Line(s) to insert. Can contains regex capture if your regex option has it - like $1, $2 etc... In Grep mode it will be the replacement if it is set to non empty")
 	regexptn := optFlag.StringP("regexp", "r", "", "regexp to match for mode regex_search, Can contains group capture. In blockinfile mode it is a json list of regex string used as the marker")
 	search_string := optFlag.StringP("search_string", "s", "", "search string. This is used in non regex mode")
 	backup := optFlag.Bool("backup", false, "backup")
@@ -41,7 +40,7 @@ If file does not exist it will be created.
 
   - The simplest way to mimic sed is using option -r 'regex-string' -l 'new line content' - it will search the regex ptn and replace with 'new line content'. regex-string can have group capture and in the line content you can expand capture using $N where N is the capture group number. Be sure only run once as using capture like this is likely not idempotant as re-run it will keep adding text to the capture output
 
-  The -r option wont add new line if teh regex not found. To add new line use option -s below. Thid is to make sure it is idempotant. You can add using -s first and then use -r to modify it if needed. Remember this tool can be run multiple times to lines stream editing of a file.
+  The -r option wont add new line if the regex not found. To add new line use option -s below. Thid is to make sure it is idempotant. You can add using -s first and then use -r to modify it if needed. Remember this tool can be run multiple times to lines stream editing of a file.
 
   - If you want to search raw string instead then use option -s instead of -r. it just replace the line contains the search string with new line. This is idempotant. If search string is not found line will be inserted based on the option -a (intertafter) or -b (insertbefore). If all not found or not supplied it will be inserted to the end of file. EOF and BOF is for end of file or begin of file respectively that can be used for option -a or -b.
 
@@ -53,6 +52,8 @@ If file does not exist it will be created.
 
 search_replace|replace - insert or make sure the line exist matching the regex pattern
   - note that it is multiline search thus regex anchor ^ and $ wont match. Pattern can have capture group and value of group is expanded in the line using $N where N is the group number.
+
+Grep Mode activated by option -g 'pattern'. It does the line stream based greping. Support replacement if option -l is supplied.
 
 blockinfile - make sure the block lines exists in file
 
@@ -83,7 +84,10 @@ print           - Print only print lines of matches but do nothing
 
 extract         - Only in blockinfile; it extract the text and return it the content, start line and end line. Run it and see the json it returns for further processing`)
 
-	grep := optFlag.StringP("grep", "g", "", "Simulate grep cmd. It will set state to print and take -r for pattern to grep")
+	grep := optFlag.StringP("grep", "g", "", "Simulate grep cmd. It will set state to print and take the pattern to grep")
+	grepOutputMatchOnly := optFlag.BoolP("grepOutputMatchOnly", "o", false, "Grep option - only output match only")
+	grepInverseMatch := optFlag.BoolP("grepInverseMatch", "v", false, "Grep option - inverse match")
+	grepWithFileNameOpt := optFlag.StringP("with-filename", "H", "", "Grep - include filename and path. Default is yes but if only one file it will automatically turn to false unless explicitly set using this option. Values: yes|no|1|0")
 	filename_ptn := optFlag.StringP("fptn", "f", ".*", "Filename regex pattern")
 	exclude := optFlag.StringP("exclude", "e", "", "Exclude file name pattern")
 	defaultExclude := optFlag.StringP("defaultexclude", "d", `^(\.git|.*\.zip|.*\.gz|.*\.xz|.*\.bz2|.*\.zst|.*\.7z|.*\.dll|.*\.iso|.*\.bin|.*\.tar|.*\.exe)$`, "Default exclude pattern. Set it to empty string if you need to")
@@ -104,15 +108,16 @@ It will automatically turn on backup`)
 	}
 	optFlag.Parse(os.Args[1:])
 
+	// All regex we compiled here to improve performance
+	var grepPtn, filename_regexp, excludePtn, defaultExcludePtn *regexp.Regexp
+
 	switch file_path {
 	case "version":
 		printVersionBuildInfo()
 		os.Exit(0)
 	case "-":
-		stdinContent := u.Must(io.ReadAll(os.Stdin))
 		*grep = u.Ternary(*grep == "", *regexptn, *grep)
-		ls, _ := u.Grep(string(stdinContent), *grep, true, false)
-		fmt.Fprint(os.Stdout, strings.Join(ls, "\n"))
+		u.GrepStream(os.Stdin, *grep, *grepOutputMatchOnly, *grepInverseMatch, "", *line)
 		return
 	}
 
@@ -121,7 +126,8 @@ It will automatically turn on backup`)
 		*regexptn = *grep
 		*search_string = ""
 		*backup = false
-		*line = ""
+		*cmd_mode = "grep"
+		grepPtn = regexp.MustCompile(*grep)
 	}
 
 	if *expected_change_count != -1 {
@@ -141,23 +147,41 @@ It will automatically turn on backup`)
 		fmt.Fprintf(os.Stderr, "cmd: %s\nOpt: %s\n", *cmd_mode, u.JsonDump(opt, "  "))
 	}
 
-	filename_regexp := regexp.MustCompile(*filename_ptn)
-	excludePtn := regexp.MustCompile(*exclude)
+	filename_regexp = regexp.MustCompile(*filename_ptn)
+	excludePtn = regexp.MustCompile(*exclude)
 	if *exclude == "" {
 		excludePtn = nil
 	}
-	defaultExcludePtn := regexp.MustCompile(*defaultExclude)
+	defaultExcludePtn = regexp.MustCompile(*defaultExclude)
 	if *defaultExclude == "" {
 		defaultExcludePtn = nil
 	}
 	output := map[string][]any{}
 	isthereChange := false
 
-	if u.FileExistsV2(file_path) != nil {
-		u.FileTouch(file_path)
+	grepWithFileName := false
+	switch *grepWithFileNameOpt {
+	case "1", "yes":
+		grepWithFileName = true
+	case "0", "no":
+		grepWithFileName = false
+	default:
+		grepWithFileName = false
 	}
 
-	err := filepath.Walk(file_path, func(path string, info fs.FileInfo, err error) error {
+	testPath, err := os.Stat(file_path)
+	if err != nil {
+		u.FileTouch(file_path)
+		if *grepWithFileNameOpt == "" {
+			grepWithFileName = false
+		}
+	} else {
+		if testPath.IsDir() && *grepWithFileNameOpt == "" {
+			grepWithFileName = true
+		}
+	}
+
+	err = filepath.Walk(file_path, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err.Error())
 			return nil
@@ -178,6 +202,15 @@ It will automatically turn on backup`)
 			currentFileHash := u.Sha256SumFile(path)
 
 			switch *cmd_mode {
+			case "grep":
+				input := u.Must(os.Open(path))
+				grepPrefix := ""
+				if grepWithFileName {
+					grepPrefix = path + ": "
+				}
+				fmt.Fprintf(os.Stderr, "[DEBUG] outputonly: %v inver: %v replace: %s\n", *grepOutputMatchOnly, *grepInverseMatch, *line)
+				u.GrepStream(input, grepPtn, *grepOutputMatchOnly, *grepInverseMatch, grepPrefix, *line)
+
 			case "lineinfile":
 				err, changed := u.LineInFile(path, opt)
 				u.CheckErrNonFatal(err, "main lineinfile")
