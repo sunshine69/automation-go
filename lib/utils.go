@@ -456,6 +456,18 @@ func FlattenVar(key string, data map[string]any, visited map[string]bool) (strin
 		return fmt.Sprintf("%v", val), nil
 	}
 
+	// Decrypt vault data if any
+	vaultPtn := regexp.MustCompile(`<vault>(.*?)</vault>`)
+	vaultPass := os.Getenv("VAULT_PASSWORD")
+	if vaultPass != "" {
+		match := vaultPtn.FindStringSubmatch(strVal)
+		if len(match) > 1 {
+			if decrypted, err := u.Decrypt(match[1], vaultPass, u.DefaultEncryptionConfig()); err == nil {
+				strVal = vaultPtn.ReplaceAllString(strVal, decrypted)
+			}
+		}
+	}
+
 	// Mark this key as being processed
 	visited[key] = true
 	defer delete(visited, key)

@@ -195,3 +195,14 @@ func BenchmarkCalculateEntropy(b *testing.B) {
 		})
 	}
 }
+
+func TestFlattenVar(t *testing.T) {
+	vault_data := u.Must(u.Encrypt("my-password", "1qa2ws", u.DefaultEncryptionConfig()))
+	data := map[string]any{
+		"var1": "{{ var2 }}",
+		"var2": "<vault>" + vault_data + "</vault>",
+	}
+	os.Setenv("VAULT_PASSWORD", "1qa2ws")
+	vars := u.Must(FlattenAllVars(data))
+	fmt.Println(u.JsonDump(vars, ""))
+}
