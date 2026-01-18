@@ -33,6 +33,8 @@ github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnr
 github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
 github.com/klauspost/compress v1.18.2 h1:iiPHWW0YrcFgpBYhsA6D1+fqHssJscY/Tm/y2Uqnapk=
 github.com/klauspost/compress v1.18.2/go.mod h1:R0h/fSBs8DE4ENlcrlib3PsXS61voFxhIs2DeRhCvJ4=
+github.com/klauspost/compress v1.18.3 h1:9PJRvfbmTabkOX8moIpXPbMMbYN60bWImDDU7L+/6zw=
+github.com/klauspost/compress v1.18.3/go.mod h1:R0h/fSBs8DE4ENlcrlib3PsXS61voFxhIs2DeRhCvJ4=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
 github.com/kr/pretty v0.3.1/go.mod h1:hoEshYVHaxMs3cyo3Yncou5ZscifuDolrwPKZanG3xk=
 github.com/kr/text v0.2.0 h1:5Nx0Ya0ZqY2ygV366QzturHI13Jq95ApcVaJBhpS+AY=
@@ -82,6 +84,10 @@ github.com/subosito/gotenv v1.6.0 h1:9NlTDc1FTs4qu0DDq7AEtTPNw6SVm7uBMsUCUjABIf8
 github.com/subosito/gotenv v1.6.0/go.mod h1:Dk4QP5c2W3ibzajGcXpNraDfq2IrhjMIvMSWPKKo0FU=
 github.com/sunshine69/golang-tools/utils v0.0.0-20260116065123-0cb541287cc4 h1:mFJTPIWXzaWHczcOy8kIht2qo/P4bt2CRk56tc+VWQc=
 github.com/sunshine69/golang-tools/utils v0.0.0-20260116065123-0cb541287cc4/go.mod h1:uH30jCx0YyuL6yDQlnMJiYeONoEGhwrCSv9LaoVpc6o=
+github.com/sunshine69/golang-tools/utils v0.0.0-20260118053246-5b0380ec55a9 h1:ki58d/iXpbRPMSGwJu38rKx95o+4tYR7UdE2PgsYneE=
+github.com/sunshine69/golang-tools/utils v0.0.0-20260118053246-5b0380ec55a9/go.mod h1:uH30jCx0YyuL6yDQlnMJiYeONoEGhwrCSv9LaoVpc6o=
+github.com/sunshine69/golang-tools/utils v0.0.0-20260118232537-176d0d764a95 h1:qiHKjQxUVp3BuCt2UMCFARhQfD9NuTHkRCCQHG24c1o=
+github.com/sunshine69/golang-tools/utils v0.0.0-20260118232537-176d0d764a95/go.mod h1:VKqcn0ZbRAwiugnkXKCMEvBZxFbAMbHoLDXdHPQHFPo=
 github.com/sunshine69/gonja/v2 v2.3.2 h1:RxyHtT3RHDbFdDJWgH5UWoQ5JHB7kZPpsQjidSl2yfk=
 github.com/sunshine69/gonja/v2 v2.3.2/go.mod h1:1Wcc/5huTu6y36e0sOFR1XQoFlylw3c3H3L5WOz0RDg=
 github.com/tidwall/gjson v1.18.0 h1:FIDeeyB800efLX89e5a8Y0BNH+LOngJyGrIWxG2FKQY=

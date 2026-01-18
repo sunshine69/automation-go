@@ -11,12 +11,12 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/hirochachacha/go-smb2 v1.1.0
 	github.com/json-iterator/go v1.1.12
-	github.com/klauspost/compress v1.18.2
+	github.com/klauspost/compress v1.18.3
 	github.com/mattn/go-isatty v0.0.20
 	github.com/nikolalohinski/gonja/v2 v2.5.1
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/viper v1.21.0
-	github.com/sunshine69/golang-tools/utils v0.0.0-20260116065123-0cb541287cc4
+	github.com/sunshine69/golang-tools/utils v0.0.0-20260118232537-176d0d764a95
 	gopkg.in/ini.v1 v1.67.1
 	gopkg.in/yaml.v3 v3.0.1
 )
