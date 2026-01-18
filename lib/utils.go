@@ -438,9 +438,11 @@ func GoTemplate(s *u.SshExec, src, dest string, data map[string]any, mode os.Fil
 
 // FlattenVar recursively resolves all template variables in a string
 // until no more {{ }} patterns remain
-func FlattenVar(key string, data map[string]any, visited map[string]bool) (string, error) {
+// visited map has key "cached" -> map[string]any that use to cache between recursion and
+// "visited" -> bool to mark key visited or not, this will be deleted after the recursion complete
+func FlattenVar(key string, data map[string]any, visited map[string]any) (string, error) {
 	// Check for circular dependencies
-	if visited[key] {
+	if visited["visited"].(map[string]bool)[key] {
 		return "", fmt.Errorf("circular dependency detected for key: %s", key)
 	}
 
@@ -450,14 +452,25 @@ func FlattenVar(key string, data map[string]any, visited map[string]bool) (strin
 		return "", fmt.Errorf("key not found: %s", key)
 	}
 
-	// Convert to string
+	// Convert to string TODO maybe parse to some object?
 	strVal, ok := val.(string)
 	if !ok {
 		return fmt.Sprintf("%v", val), nil
 	}
 
+	// Mark this key as being processed
+	if visited["visited"] == nil {
+		visited["visited"] = make(map[string]bool)
+	}
+	visited["visited"].(map[string]bool)[key] = true
+	defer delete(visited["visited"].(map[string]bool), key)
+
 	// Decrypt vault data if any
-	vaultPtn := regexp.MustCompile(`<vault>(.*?)</vault>`)
+	var vaultPtn *regexp.Regexp
+	if vaultPtn, ok = visited["cached"].(*regexp.Regexp); !ok {
+		vaultPtn = regexp.MustCompile(`<vault>(.*?)</vault>`)
+		visited["cached"] = vaultPtn
+	}
 	vaultPass := os.Getenv("VAULT_PASSWORD")
 	if vaultPass != "" {
 		match := vaultPtn.FindStringSubmatch(strVal)
@@ -467,10 +480,6 @@ func FlattenVar(key string, data map[string]any, visited map[string]bool) (strin
 			}
 		}
 	}
-
-	// Mark this key as being processed
-	visited[key] = true
-	defer delete(visited, key)
 
 	// Regular expression to find any variable references in the data map
 	varRe := regexp.MustCompile(`\{\{\s*(\w+)(?:\s|\}|\.|\|)`)
