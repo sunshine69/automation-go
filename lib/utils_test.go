@@ -202,6 +202,8 @@ func TestFlattenVar(t *testing.T) {
 		"var1": "{{ var2 | upper }}",
 		"var2": "<vault>" + vault_data + "</vault> value3 as int: {{ var3 }}",
 		"var3": 234,
+		"var4": "[\"a\", \"b - {{ var2 }}\"]",
+		"var5": "{\"b\": [\"c\", 234]}",
 	}
 	os.Setenv("VAULT_PASSWORD", "1qa2ws")
 	vars := u.Must(FlattenAllVars(data))

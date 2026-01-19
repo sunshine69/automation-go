@@ -2,6 +2,7 @@ package lib
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"math"
@@ -436,11 +437,36 @@ func GoTemplate(s *u.SshExec, src, dest string, data map[string]any, mode os.Fil
 	return nil
 }
 
+func parseWithNumbers(val string) (interface{}, error) {
+	d := json.NewDecoder(strings.NewReader(val))
+	d.UseNumber() // Forces numbers to stay as json.Number strings until you convert them
+
+	var x interface{}
+	if err := d.Decode(&x); err != nil {
+		return val, nil
+	}
+	return x, nil
+}
+func parseDynamicValue(val string) (interface{}, error) {
+	var detected interface{}
+
+	// Attempt to unmarshal the string as JSON
+	err := json.Unmarshal([]byte(val), &detected)
+
+	if err != nil {
+		// Not valid JSON; return original string as a fallback
+		return val, nil
+	}
+
+	// Return the converted type (could be float64, bool, []interface{}, or map[string]interface{})
+	return detected, nil
+}
+
 // FlattenVar recursively resolves all template variables in a string
 // until no more {{ }} patterns remain
 // visited map has key "cached" -> map[string]any that use to cache between recursion and
 // "visited" -> bool to mark key visited or not, this will be deleted after the recursion complete
-func FlattenVar(key string, data map[string]any, visited map[string]any) (string, error) {
+func FlattenVar(key string, data map[string]any, visited map[string]any) (any, error) {
 	if visited["visited"] == nil {
 		visited["visited"] = make(map[string]bool)
 	}
@@ -450,19 +476,10 @@ func FlattenVar(key string, data map[string]any, visited map[string]any) (string
 	}
 
 	// Get the value for this key
-	val, exists := data[key]
-	if !exists {
+	val, ok := data[key]
+	if !ok {
 		return "", fmt.Errorf("key not found: %s", key)
 	}
-
-	// Convert to string TODO maybe parse to some object?
-	strVal, ok := val.(string)
-	if !ok {
-		return fmt.Sprintf("%v", val), nil
-	}
-	// Mark this key as being processed
-	visited["visited"].(map[string]bool)[key] = true
-	defer delete(visited["visited"].(map[string]bool), key)
 
 	// Caching what can be cached
 	var vaultPtn, varRe, findCurly *regexp.Regexp
@@ -488,46 +505,62 @@ func FlattenVar(key string, data map[string]any, visited map[string]any) (string
 		findCurly = visited["cached"].(map[string]any)["regexvarFindCurly"].(*regexp.Regexp)
 	}
 
-	// Decrypt vault data if any
-	if vaultPass != "" {
-		match := vaultPtn.FindStringSubmatch(strVal)
-		if len(match) > 1 {
-			if decrypted, err := u.Decrypt(match[1], vaultPass, u.DefaultEncryptionConfig()); err == nil {
-				strVal = vaultPtn.ReplaceAllString(strVal, decrypted)
-			}
-		}
-	}
-
-	// Keep resolving until no more {{ }} patterns exist
-	maxIterations := 100 // Prevent infinite loops
-	for i := 0; i < maxIterations; i++ {
-		// Check if there are any {{ or }} left (simple check for Jinja2 templates)
-		if !findCurly.MatchString(strVal) {
-			break
-		}
-
-		// Find all referenced variables and flatten them first
-		matches := varRe.FindAllStringSubmatch(strVal, -1)
-		for _, match := range matches {
+	// Convert to string TODO maybe parse to some object?
+	var decodedVal any
+	switch v := val.(type) {
+	case string: // Vars coming from aini lib are map[string]string thus it will fall into this case
+		tempVal := v
+		// Decrypt vault data if any
+		if vaultPass != "" {
+			match := vaultPtn.FindStringSubmatch(tempVal)
 			if len(match) > 1 {
-				refKey := match[1]
-				// Recursively flatten the referenced variable
-				if _, exists := data[refKey]; exists {
-					flattened, err := FlattenVar(refKey, data, visited)
-					if err != nil {
-						return "", err
-					}
-					// Update the data map with flattened value
-					data[refKey] = flattened
+				if decrypted, err := u.Decrypt(match[1], vaultPass, u.DefaultEncryptionConfig()); err == nil {
+					tempVal = vaultPtn.ReplaceAllString(tempVal, decrypted)
 				}
 			}
 		}
+		// Keep resolving until no more {{ }} patterns exist
+		maxIterations := 100 // Prevent infinite loops
+		for i := 0; i < maxIterations; i++ {
+			// Check if there are any {{ or }} left (simple check for Jinja2 templates)
+			if !findCurly.MatchString(tempVal) {
+				break
+			}
+			// Find all referenced variables and flatten them first
+			matches := varRe.FindAllStringSubmatch(tempVal, -1)
+			for _, match := range matches {
+				if len(match) > 1 {
+					refKey := match[1]
+					// Recursively flatten the referenced variable
+					if _, exists := data[refKey]; exists {
+						flattened, err := FlattenVar(refKey, data, visited)
+						if err != nil {
+							return "", err
+						}
+						// Update the data map with flattened value
+						data[refKey] = flattened
+					}
+				}
+			}
+			// Now template the current string
+			tempVal = TemplateString(tempVal, data)
+		}
+		// More detection - parser?
+		tempVal_, err := parseDynamicValue(tempVal)
+		if err != nil {
+			decodedVal = tempVal
+		} else {
+			decodedVal = tempVal_
+		}
 
-		// Now template the current string
-		strVal = TemplateString(strVal, data)
+	default: // Normally override vars later on fall into this
+		decodedVal = v
 	}
+	// Mark this key as being processed
+	visited["visited"].(map[string]bool)[key] = true
+	defer delete(visited["visited"].(map[string]bool), key)
 
-	return strVal, nil
+	return decodedVal, nil
 }
 
 // FlattenAllVars flattens all variables in the data map
