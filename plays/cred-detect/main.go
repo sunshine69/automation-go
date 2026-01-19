@@ -15,9 +15,10 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/sunshine69/automation-go/lib"
+
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	ag "github.com/sunshine69/automation-go/lib"
 	u "github.com/sunshine69/golang-tools/utils"
 )
 
@@ -118,7 +119,7 @@ func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileIn
 							log_chan <- fmt.Sprintf("%s:%d - %s: %s", fpath, idx, match[group_index[ptn_idx][0]], match[group_index[ptn_idx][1]])
 						}
 
-						if len(match) > 1 && ag.IsLikelyPasswordOrToken(match[group_index[ptn_idx][1]], password_check_mode, WordDict, 4, entropy_threshold) {
+						if len(match) > 1 && lib.IsLikelyPasswordOrToken(match[group_index[ptn_idx][1]], password_check_mode, WordDict, 4, entropy_threshold) {
 							o.Matches = append(o.Matches, match[group_index[ptn_idx][0]], match[group_index[ptn_idx][1]])
 						}
 					}
@@ -262,7 +263,7 @@ func main() {
 			fmt.Println("Downloading words.txt")
 			u.Curl("GET", *words_list_url, "", word_file_path, []string{}, nil)
 		}
-		WordDict = u.Must(ag.LoadWordDictionary(word_file_path, 4))
+		WordDict = u.Must(lib.LoadWordDictionary(word_file_path, 4))
 	}
 
 	os.Setenv("LOAD_PROFILE_PATH", *load_profile_path)
