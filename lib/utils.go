@@ -460,14 +460,12 @@ func FlattenVar(key string, data map[string]any, visited map[string]any) (string
 	if !ok {
 		return fmt.Sprintf("%v", val), nil
 	}
-
 	// Mark this key as being processed
-
 	visited["visited"].(map[string]bool)[key] = true
 	defer delete(visited["visited"].(map[string]bool), key)
 
-	// Decrypt vault data if any
-	var vaultPtn *regexp.Regexp
+	// Caching what can be cached
+	var vaultPtn, varRe, findCurly *regexp.Regexp
 	var vaultPass string
 
 	if visited["cached"] == nil {
@@ -478,11 +476,19 @@ func FlattenVar(key string, data map[string]any, visited map[string]any) (string
 		visited["cached"].(map[string]any)["regex"] = vaultPtn
 		vaultPass = os.Getenv("VAULT_PASSWORD")
 		visited["cached"].(map[string]any)["passwd"] = vaultPass
+		varRe = regexp.MustCompile(`\{\{\s*(\w+)(?:\s|\}|\.|\|)`)
+		visited["cached"].(map[string]any)["regexvarRe"] = varRe
+		findCurly = regexp.MustCompile(`\{\{|\}\}`)
+		visited["cached"].(map[string]any)["regexvarFindCurly"] = findCurly
 	} else {
 		vaultPass = visited["cached"].(map[string]any)["passwd"].(string)
 		vaultPtn = visited["cached"].(map[string]any)["regex"].(*regexp.Regexp)
+		// Regular expression to find any variable references in the data map
+		varRe = visited["cached"].(map[string]any)["regexvarRe"].(*regexp.Regexp)
+		findCurly = visited["cached"].(map[string]any)["regexvarFindCurly"].(*regexp.Regexp)
 	}
 
+	// Decrypt vault data if any
 	if vaultPass != "" {
 		match := vaultPtn.FindStringSubmatch(strVal)
 		if len(match) > 1 {
@@ -492,14 +498,11 @@ func FlattenVar(key string, data map[string]any, visited map[string]any) (string
 		}
 	}
 
-	// Regular expression to find any variable references in the data map
-	varRe := regexp.MustCompile(`\{\{\s*(\w+)(?:\s|\}|\.|\|)`)
-
 	// Keep resolving until no more {{ }} patterns exist
 	maxIterations := 100 // Prevent infinite loops
 	for i := 0; i < maxIterations; i++ {
 		// Check if there are any {{ or }} left (simple check for Jinja2 templates)
-		if !regexp.MustCompile(`\{\{|\}\}`).MatchString(strVal) {
+		if !findCurly.MatchString(strVal) {
 			break
 		}
 
@@ -531,8 +534,8 @@ func FlattenVar(key string, data map[string]any, visited map[string]any) (string
 func FlattenAllVars(data map[string]any) (map[string]any, error) {
 	result := make(map[string]any)
 
+	visited := make(map[string]any) // Shared this to utilize cache. Each key will be deleetd after each call FlattenVar anyway
 	for key := range data {
-		visited := make(map[string]any)
 		flattened, err := FlattenVar(key, data, visited)
 		if err != nil {
 			return nil, err
