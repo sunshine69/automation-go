@@ -15,6 +15,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20
 	github.com/nikolalohinski/gonja/v2 v2.5.1
 	github.com/pkg/errors v0.9.1
+	github.com/relex/aini v1.6.0
 	github.com/spf13/viper v1.21.0
 	github.com/sunshine69/golang-tools/utils v0.0.0-20260118232537-176d0d764a95
 	gopkg.in/ini.v1 v1.67.1
@@ -26,8 +27,10 @@ require (
 	github.com/geoffgarside/ber v1.2.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
+	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/sagikazarmark/locafero v0.12.0 // indirect
+	github.com/samber/lo v1.38.1 // indirect
 	github.com/spf13/afero v1.15.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
