@@ -230,7 +230,7 @@ func ParseInventoryGenerator(inventoryFile string) *aini.InventoryData {
 
 // Load all inventory files at the first level. If file does not have extention or having .ini then treat it as ini format.
 // .yaml file will be treated as generator format. We dont support anything else as of now
-// Inventory will be combined.
+// Inventory will be combined. AddVars also called but var wont be flattern yet, you need to do it manually
 func ParseInventoryDir(inventoryDir string) *aini.InventoryData {
 	invFiles := u.Must(ReadFirstLevelFiles(inventoryDir))
 	builder := strings.Builder{}
@@ -256,6 +256,31 @@ func ParseInventoryDir(inventoryDir string) *aini.InventoryData {
 	Inventory := u.Must(aini.ParseString(builder.String()))
 	Inventory.AddVars(inventoryDir)
 	return Inventory
+}
+
+// Load inventory and return command line vars in Vars. Also populate global vars.
+// Per host will get its own vars later
+func LoadInventory(InventoryDir, HostsPattern string, extraVar u.ArrayFlags) (Inventory *aini.InventoryData, MatchedHostsMap map[string]*aini.Host, HostList []string, extraVars map[string]any) {
+	extraVars = make(map[string]any, 0)
+	if _, ok := extraVars["inventory_dir"]; ok {
+		return // Not reload it again
+	}
+	println("[INFO] InventoryPath: " + InventoryDir)
+	Inventory = ParseInventoryDir(InventoryDir)
+	MatchedHostsMap = u.Must(Inventory.MatchHosts(HostsPattern))
+	HostList = u.MapKeysToSlice(MatchedHostsMap)
+	// Populate some default inventory vars. The specific host before use will update this Vars with ansible vars and flattern them
+	extraVars["inventory_dir"] = InventoryDir
+	extraVars["playbook_dir"] = u.Must(os.Getwd())
+
+	// Loads command line vars
+	for _, item := range extraVar {
+		_tmp := strings.Split(item, "=")
+		key, val := strings.TrimSpace(_tmp[0]), strings.TrimSpace(_tmp[1])
+		println("Adding var from command line - " + key + "=" + val)
+		extraVars[key] = val
+	}
+	return
 }
 
 // ReadFirstLevelFiles reads the first level of a directory and returns only the files.

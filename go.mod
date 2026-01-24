@@ -17,7 +17,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/relex/aini v1.6.0
 	github.com/spf13/viper v1.21.0
-	github.com/sunshine69/golang-tools/utils v0.0.0-20260118232537-176d0d764a95
+	github.com/sunshine69/golang-tools/utils v0.0.0-20260124100451-9e131c6e7405
 	gopkg.in/ini.v1 v1.67.1
 	gopkg.in/yaml.v3 v3.0.1
 )
