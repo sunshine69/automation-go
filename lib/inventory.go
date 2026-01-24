@@ -3,6 +3,7 @@ package lib
 import (
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
@@ -225,6 +226,54 @@ func ParseInventoryGenerator(inventoryFile string) *aini.InventoryData {
 	inventory := u.Must(aini.ParseString(iniText))
 	inventory.AddVars(filepath.Dir(inventoryFile))
 	return inventory
+}
+
+// Load all inventory files at the first level. If file does not have extention or having .ini then treat it as ini format.
+// .yaml file will be treated as generator format. We dont support anything else as of now
+// Inventory will be combined.
+func ParseInventoryDir(inventoryDir string) *aini.InventoryData {
+	invFiles := u.Must(ReadFirstLevelFiles(inventoryDir))
+	builder := strings.Builder{}
+
+	for _, invF := range invFiles {
+		file_path := filepath.Join(inventoryDir, invF.Name())
+		ext := filepath.Ext(file_path)
+		println("Read file " + file_path)
+		if ext == "" || ext == ".ini" {
+			println("Read ini file " + file_path)
+			builder.Write(u.Must(os.ReadFile(file_path)))
+			builder.WriteString("\n")
+			continue
+		}
+		if ext == ".yaml" || ext == ".yml" {
+			println("Read yaml file " + file_path)
+			invConfig := GeneratorConfig{}
+			u.CheckErr(yaml.Unmarshal(u.Must(os.ReadFile(file_path)), &invConfig), "")
+			builder.WriteString(GenerateIniFromConfig(&invConfig))
+			builder.WriteString("\n")
+		}
+	}
+	Inventory := u.Must(aini.ParseString(builder.String()))
+	Inventory.AddVars(inventoryDir)
+	return Inventory
+}
+
+// ReadFirstLevelFiles reads the first level of a directory and returns only the files.
+func ReadFirstLevelFiles(dirPath string) ([]fs.DirEntry, error) {
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return nil, err
+	}
+
+	var files []fs.DirEntry
+	for _, entry := range entries {
+		// Check if the entry is a file
+		if !entry.IsDir() {
+			files = append(files, entry)
+		}
+	}
+
+	return files, nil
 }
 
 func parseDynamicValue(val string) (interface{}, error) {
