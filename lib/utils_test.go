@@ -30,31 +30,31 @@ func TestJinja2(t *testing.T) {
 This is has config line {{ newvar }} and {$ newvar $}`
 	println(TemplateString(dataStr, map[string]any{"newvar": "New value of new var"}))
 
-	u.GoTemplateFile("../tmp/test.go.tmpl", "../tmp/test.go.txt", map[string]interface{}{"header": "Header", "lines": []string{"line1", "line2", "line3"}}, 0o777)
-	u.GoTemplateFile("../tmp/test1.go.tmpl", "../tmp/test1.go.txt", map[string]interface{}{"header": "Header", "lines": []string{"line1", "line2", "line3"}}, 0o777)
+	u.GoTemplateFile("../tmp/test.go.tmpl", "../tmp/test.go.txt", map[string]any{"header": "Header", "lines": []string{"line1", "line2", "line3"}}, 0o777)
+	u.GoTemplateFile("../tmp/test1.go.tmpl", "../tmp/test1.go.txt", map[string]any{"header": "Header", "lines": []string{"line1", "line2", "line3"}}, 0o777)
 	data := map[string]any{"packages": []string{"p1", "p2", "p3"}}
 	// u.GoTemplateFile("/home/sitsxk5/tmp/all.yaml", "/home/sitsxk5/tmp/test.yaml",
 	// 	data, 0644)
-	// data := map[string]any{"packages": []string{"p1", "p2", "p3"}}
 	// New line after the coma makes it rendered properly - strange but keep this result as a sample
+	// Indentation is still erratic. lstrip block true not applied for the first for?
 	o := TemplateString(`#jinja2:variable_start_string:'{$', variable_end_string:'$}', trim_blocks:True, lstrip_blocks:True
 	[
-			{% for app in packages %}
+		{% for app in packages %}
 			"{$ app $}_config-pkg",
-			"{$ app $}"{% if not loop.last %},
-			{% endif %}
-			{% endfor %}
-			]`, data)
+			"{$ app $}"{% if not loop.last %},{% endif %}
+		{% endfor %}
+	]`, data)
 
 	println(o)
-
+	// In GoTemplate there is no block char and render char like jinja2 ({% %} and {{ }}). Only one used for all
+	// The indentation is very expected
 	o = u.GoTemplateString(`#gotmpl:variable_start_string:'{$', variable_end_string:'$}'
 	[
-			{{ range $idx, $app := .packages -}}
-			"{{ $app }}_config-pkg",
-			"{{ $app }}"{{ if ne $idx (add (len $.packages) -1) }},{{ end }}
-			{{ end -}}
-			]`, data)
+			{$ range $idx, $app := .packages -$}
+			"{$ $app $}_config-pkg",
+			"{$ $app $}"{$ if ne $idx (add (len $.packages) -1) $},{$ end $}
+			{$- end $}
+	]`, map[string]any{"packages": []string{"p1", "p2", "p3"}})
 
 	println(o)
 }

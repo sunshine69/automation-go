@@ -1,6 +1,9 @@
-#jinja2:variable_start_string:'{$', variable_end_string:'$}', trim_blocks:False, lstrip_blocks:False
-This has config line
+#jinja2:variable_start_string:'{$', variable_end_string:'$}', trim_blocks:True, lstrip_blocks:True
+This has config line. This shows erratic way gonja does. With both set to true and leave like this the line with comma is wrapped
+due to the block impact. Add plus sign does not work. Remove the 'if' makes it normal again. Best is leave it both at false and control manually. The old version of gonja render this fine (in branch main)
 {$ header $}
-{% for l in lines -%}
-{$ l $}{% if not loop.last %},{% endif %}
+{% for l in lines %}
+{$ l $}
+{%- if not loop.last %},
+{% endif %}
 {% endfor %}

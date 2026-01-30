@@ -1,5 +1,4 @@
-This has config line
+This has config line. This shows erratic way gonja does. With both set to true and leave like this the line with comma is wrapped
+due to the block impact. Add plus sign does not work. Remove the 'if' makes it normal again. Best is leave it both at false and control manually. The old version of gonja render this fine (in branch main)
 Header
-line1,
-line2,
-line3
+line1,line2,line3

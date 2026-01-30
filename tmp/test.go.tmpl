@@ -1,5 +1,5 @@
 This is not having config line
 {{.header }}
-{{ range $l := .lines -}}
-{{ $l }}
+{{ range $idx, $l := .lines -}}
+{{ $l }} {{ $idx }} {{ if ne $idx (add (len $.lines) -1) }},{{ end }}
 {{end -}}
