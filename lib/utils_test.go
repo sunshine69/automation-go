@@ -44,17 +44,17 @@ This is has config line {{ newvar }} and {$ newvar $}`
 			"{$ app $}"{% if not loop.last %},
 			{% endif %}
 			{% endfor %}
-			]`, data)
+	]`, data)
 
 	println(o)
 
 	o = u.GoTemplateString(`#gotmpl:variable_start_string:'{$', variable_end_string:'$}'
 	[
-			{{ range $idx, $app := .packages -}}
-			"{{ $app }}_config-pkg",
-			"{{ $app }}"{{ if ne $idx (add (len $.packages) -1) }},{{ end }}
-			{{ end -}}
-			]`, data)
+			{$ range $idx, $app := .packages -$}
+			"{$ $app $}_config-pkg",
+			"{$ $app $}"{$ if ne $idx (add (len $.packages) -1) $},{$ end $}
+			{$ end -$}
+	]`, data)
 
 	println(o)
 }
