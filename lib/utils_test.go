@@ -50,10 +50,10 @@ This is has config line {{ newvar }} and {$ newvar $}`
 
 	o = u.GoTemplateString(`#gotmpl:variable_start_string:'{$', variable_end_string:'$}'
 	[
-			{$ range $idx, $app := .packages -$}
-			"{$ $app $}_config-pkg",
-			"{$ $app $}"{$ if ne $idx (add (len $.packages) -1) $},{$ end $}
-			{$ end -$}
+		{$ range $idx, $app := .packages -$}
+		"{$ $app $}_config-pkg",
+		"{$ $app $}"{$ if ne $idx (add (len $.packages) -1) $},{$ end $}
+		{$ end $}
 	]`, data)
 
 	println(o)
