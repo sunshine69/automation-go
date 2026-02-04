@@ -1,8 +1,13 @@
 #gotmpl:variable_start_string:'{$', variable_end_string:'$}'
 namespace: "{{ namespace }}"
 This has config line
+{$/* comment line */ -$}
 {$ .header $}
 {$ range $l := .lines -$}
 {$ $l $}
 {$ end -$}
 {$ or .var2 "here is var2 default" | replace "default" "DEfault" $}
+
+{$ range $l := make_slice "a" "b" -$}
+{$ $l $}
+{$ end -$}

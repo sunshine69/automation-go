@@ -97,6 +97,10 @@ github.com/subosito/gotenv v1.6.0 h1:9NlTDc1FTs4qu0DDq7AEtTPNw6SVm7uBMsUCUjABIf8
 github.com/subosito/gotenv v1.6.0/go.mod h1:Dk4QP5c2W3ibzajGcXpNraDfq2IrhjMIvMSWPKKo0FU=
 github.com/sunshine69/golang-tools/utils v0.0.0-20260130033246-e199b7029b2f h1:R6HLx5fUvOSWRw/7gzqKAqBrAljls6H99zpC/TLG0Pk=
 github.com/sunshine69/golang-tools/utils v0.0.0-20260130033246-e199b7029b2f/go.mod h1:VKqcn0ZbRAwiugnkXKCMEvBZxFbAMbHoLDXdHPQHFPo=
+github.com/sunshine69/golang-tools/utils v0.0.0-20260204004003-7b9c6ed1b654 h1:cSsPk/IqDF3ebHdBKLaiHpQd28N6pDlkl1XqjJuJrxE=
+github.com/sunshine69/golang-tools/utils v0.0.0-20260204004003-7b9c6ed1b654/go.mod h1:VKqcn0ZbRAwiugnkXKCMEvBZxFbAMbHoLDXdHPQHFPo=
+github.com/sunshine69/golang-tools/utils v0.0.0-20260204005707-c5de5bdbd269 h1:HJIaucBdXiyL0iVdChWzMg6AaNNdaoLI+y+LaiyOxaU=
+github.com/sunshine69/golang-tools/utils v0.0.0-20260204005707-c5de5bdbd269/go.mod h1:VKqcn0ZbRAwiugnkXKCMEvBZxFbAMbHoLDXdHPQHFPo=
 github.com/sunshine69/sonja/v2 v2.3.3-0.20260131234424-99d35b62f693 h1:719BGAqXofJYDBTwTntUINVyr/PH6W1U0J87e16OXZg=
 github.com/sunshine69/sonja/v2 v2.3.3-0.20260131234424-99d35b62f693/go.mod h1:YZDnX8iPle4qqNSsLdCcKhlisyQwnWDRzF3QVlZB3/8=
 github.com/sunshine69/sonja/v2 v2.3.3 h1:AghvwLjQ4ONMUZzu/j+d4BDQCD9LIf9jy5IWdlzVsfo=
