@@ -15,12 +15,12 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/sunshine69/sonja/v2"
+	"github.com/pkg/errors"
+	u "github.com/sunshine69/golang-tools/utils"
+	gonja "github.com/sunshine69/sonja/v2"
 	"github.com/sunshine69/sonja/v2/config"
 	"github.com/sunshine69/sonja/v2/exec"
 	"github.com/sunshine69/sonja/v2/loaders"
-	"github.com/pkg/errors"
-	u "github.com/sunshine69/golang-tools/utils"
 	"gopkg.in/yaml.v3"
 )
 
@@ -124,20 +124,23 @@ var filterFuncToYaml exec.FilterFunction = func(e *exec.Evaluator, in *exec.Valu
 	return exec.AsValue(buf.String())
 }
 
-var filterFuncToJson exec.FilterFunction = func(e *exec.Evaluator, in *exec.Value, params *exec.VarArgs) *exec.Value {
-	// Done not mess around with trying to marshall error pipelines
-	if in.IsError() {
-		return in
-	}
-
-	// Monkey patching because arrays handling is broken
+// Monkey patching because arrays handling is broken
+func GonjaCastToList(in *exec.Value) any {
 	if in.IsList() {
 		inCast := make([]interface{}, in.Len())
 		for index := range inCast {
 			item := exec.ToValue(in.Index(index).Val)
 			inCast[index] = item.Val.Interface()
 		}
-		in = exec.AsValue(inCast)
+		return exec.AsValue(inCast).ToGoSimpleType(true)
+	}
+	return nil
+}
+
+var filterFuncToJson exec.FilterFunction = func(e *exec.Evaluator, in *exec.Value, params *exec.VarArgs) *exec.Value {
+	// Done not mess around with trying to marshall error pipelines
+	if in.IsError() {
+		return in
 	}
 
 	p := params.Expect(0, []*exec.KwArg{{Name: "indent", Default: nil}})
@@ -145,7 +148,7 @@ var filterFuncToJson exec.FilterFunction = func(e *exec.Evaluator, in *exec.Valu
 		return exec.AsValue(errors.Wrap(p, "Wrong signature for 'tojson'"))
 	}
 
-	casted := in.ToGoSimpleType(true)
+	casted := GonjaCastToList(in)
 	if err, ok := casted.(error); ok {
 		return exec.AsValue(err)
 	}
@@ -196,6 +199,23 @@ var filterFuncB64Decode exec.FilterFunction = func(e *exec.Evaluator, in *exec.V
 	return exec.AsValue(string(o))
 }
 
+var filterContainsAll exec.FilterFunction = func(e *exec.Evaluator, in *exec.Value, params *exec.VarArgs) *exec.Value {
+	if in.IsError() {
+		return in
+	}
+	// The sub_list passed as an argument: {{ main_list | contains_all(sub_list) }}
+
+	if !in.IsList() || !params.Args[0].IsList() {
+		return exec.AsValue(false)
+	}
+
+	mainList := GonjaCastToList(in).([]any)
+	subList := GonjaCastToList(params.Args[0]).([]any)
+	mainListStr := u.ConvertListIfaceToListStr(mainList)
+	subListStr := u.ConvertListIfaceToListStr(subList)
+	return exec.AsValue(u.SliceContainsItems(mainListStr, subListStr))
+}
+
 func CustomEnvironment() *exec.Environment {
 	e := gonja.DefaultEnvironment
 	if !e.Filters.Exists("regex_replace") {
@@ -215,6 +235,9 @@ func CustomEnvironment() *exec.Environment {
 	}
 	if !e.Filters.Exists("b64decode") {
 		e.Filters.Register("b64decode", filterFuncB64Decode)
+	}
+	if !e.Filters.Exists("contains") {
+		e.Filters.Register("contains", filterContainsAll)
 	}
 	return e
 }

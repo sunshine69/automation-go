@@ -3,3 +3,7 @@ This is test without config line
 {% for l in lines %}
 {{ l }}
 {% endfor %}
+
+{% if ["a","b","c"] | contains(["2","a","b","c"]) %}
+test contains and should display here
+{% endif %}

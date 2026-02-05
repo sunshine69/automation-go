@@ -23,7 +23,10 @@ func BenchmarkTemplateString(b *testing.B) {
 
 func TestJinja2(t *testing.T) {
 	TemplateFile("../tmp/test.j2", "../tmp/test.txt", map[string]interface{}{"header": "Header", "lines": []string{"line1", "line2", "line3"}}, 0o777)
-	TemplateFile("../tmp/test1.j2", "../tmp/test1.txt", map[string]interface{}{"header": "Header", "lines": []string{"line1", "line2", "line3"}}, 0o777)
+	TemplateFile("../tmp/test1.j2", "../tmp/test1.txt", map[string]any{
+		"header": "Header", "lines": []string{"line1", "line2", "line3"},
+		"mymap": map[string]any{"key1": "value of k1", "key2": "Value of key2"},
+	}, 0o777)
 	dataStr := `This is simple {{ newvar }}`
 	println(TemplateString(dataStr, map[string]any{"newvar": "New value of new var"}))
 	dataStr = `#jinja2:variable_start_string:'{$', variable_end_string:'$}', trim_blocks:True, lstrip_blocks:True
@@ -222,4 +225,23 @@ func TestGenerateFromConfig(t *testing.T) {
 	for hn, h := range h {
 		println("Host vars: "+hn, u.JsonDump(h.Vars, ""))
 	}
+}
+
+func TestJetTemplateString(t *testing.T) {
+	tmplTxt := `
+This is test without config line
+{$ header $}
+{$ counter := 0 $}
+{$- range i, l := lines $}
+{$- add(3, 5) -$}
+{$ l $} {$ i $}
+{$- end $}
+{$ counter $}
+	`
+	data := map[string]any{
+		"header": "My Header",
+		"lines":  []string{"line1", "line2", "line3"},
+	}
+	o := u.Must(RenderJetTemplate(tmplTxt, data, "{$", "$}"))
+	println(o)
 }
