@@ -216,6 +216,28 @@ var filterContainsAll exec.FilterFunction = func(e *exec.Evaluator, in *exec.Val
 	return exec.AsValue(u.SliceContainsItems(mainListStr, subListStr))
 }
 
+var filterContainsAny exec.FilterFunction = func(e *exec.Evaluator, in *exec.Value, params *exec.VarArgs) *exec.Value {
+	if in.IsError() {
+		return in
+	}
+	// The sub_list passed as an argument: {{ main_list | contains_all(sub_list) }}
+
+	if !in.IsList() || !params.Args[0].IsList() {
+		return exec.AsValue(false)
+	}
+
+	mainList := GonjaCastToList(in).([]any)
+	subList := GonjaCastToList(params.Args[0]).([]any)
+	mainListMap := u.SliceToMap(u.ConvertListIfaceToListStr(mainList))
+	subListStr := u.ConvertListIfaceToListStr(subList)
+	for _, item := range subListStr {
+		if _, ok := mainListMap[item]; ok {
+			return exec.AsValue(true)
+		}
+	}
+	return exec.AsValue(false)
+}
+
 var filterKeys exec.FilterFunction = func(e *exec.Evaluator, in *exec.Value, params *exec.VarArgs) *exec.Value {
 	if in.IsError() {
 		return in
@@ -252,6 +274,9 @@ func CustomEnvironment() *exec.Environment {
 	}
 	if !e.Filters.Exists("contains") {
 		e.Filters.Register("contains", filterContainsAll)
+	}
+	if !e.Filters.Exists("contains_any") {
+		e.Filters.Register("contains_any", filterContainsAny)
 	}
 	if !e.Filters.Exists("keys") {
 		e.Filters.Register("keys", filterKeys)
