@@ -94,6 +94,8 @@ github.com/sunshine69/golang-tools/utils v0.0.0-20260204005707-c5de5bdbd269 h1:H
 github.com/sunshine69/golang-tools/utils v0.0.0-20260204005707-c5de5bdbd269/go.mod h1:VKqcn0ZbRAwiugnkXKCMEvBZxFbAMbHoLDXdHPQHFPo=
 github.com/sunshine69/sonja/v2 v2.3.4-0.20260202080013-a91a55220ee7 h1:WxxEnV/FN8LLqJkXqwzpEPfi/wnKUqUWSpoQQvE16Us=
 github.com/sunshine69/sonja/v2 v2.3.4-0.20260202080013-a91a55220ee7/go.mod h1:YZDnX8iPle4qqNSsLdCcKhlisyQwnWDRzF3QVlZB3/8=
+github.com/sunshine69/sonja/v2 v2.3.5-0.20260205094531-85be9860a889 h1:CVLaZWIapAVyALvyYeH8zSZyd7DpZaTX/5RS7Mth8+g=
+github.com/sunshine69/sonja/v2 v2.3.5-0.20260205094531-85be9860a889/go.mod h1:YZDnX8iPle4qqNSsLdCcKhlisyQwnWDRzF3QVlZB3/8=
 github.com/tidwall/gjson v1.18.0 h1:FIDeeyB800efLX89e5a8Y0BNH+LOngJyGrIWxG2FKQY=
 github.com/tidwall/gjson v1.18.0/go.mod h1:/wbyibRr2FHMks5tjHJ5F8dMZh3AcwJEMf5vlfC0lxk=
 github.com/tidwall/match v1.1.1/go.mod h1:eRSPERbgtNPcGhD8UCthc6PmLEQXEWd3PRB5JTxsfmM=

@@ -17,7 +17,7 @@ require (
 	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.21.0
 	github.com/sunshine69/golang-tools/utils v0.0.0-20260204005707-c5de5bdbd269
-	github.com/sunshine69/sonja/v2 v2.3.4-0.20260202080013-a91a55220ee7
+	github.com/sunshine69/sonja/v2 v2.3.5-0.20260205094531-85be9860a889
 	github.com/tidwall/gjson v1.18.0
 	gopkg.in/ini.v1 v1.67.1
 	gopkg.in/yaml.v3 v3.0.1

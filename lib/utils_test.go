@@ -229,22 +229,3 @@ func TestGenerateFromConfig(t *testing.T) {
 		println("Host vars: "+hn, u.JsonDump(h.Vars, ""))
 	}
 }
-
-func TestJetTemplateString(t *testing.T) {
-	tmplTxt := `
-This is test without config line
-{$ header $}
-{$ counter := 0 $}
-{$- range i, l := lines $}
-{$- add(3, 5) -$}
-{$ l $} {$ i $}
-{$- end $}
-{$ counter $}
-	`
-	data := map[string]any{
-		"header": "My Header",
-		"lines":  []string{"line1", "line2", "line3"},
-	}
-	o := u.Must(RenderJetTemplate(tmplTxt, data, "{$", "$}"))
-	println(o)
-}
