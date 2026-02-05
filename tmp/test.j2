@@ -7,3 +7,7 @@ This is test without config line
 {% if ["a","b","c"] | contains(["2","a","b","c"]) %}
 test contains and should display here
 {% endif %}
+
+{% if mymap | keys | contains(["key1"]) %}
+Works
+{% endif %}

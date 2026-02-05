@@ -22,7 +22,10 @@ func BenchmarkTemplateString(b *testing.B) {
 }
 
 func TestJinja2(t *testing.T) {
-	TemplateFile("../tmp/test.j2", "../tmp/test.txt", map[string]interface{}{"header": "Header", "lines": []string{"line1", "line2", "line3"}}, 0o777)
+	TemplateFile("../tmp/test.j2", "../tmp/test.txt", map[string]interface{}{"header": "Header",
+		"lines": []string{"line1", "line2", "line3"},
+		"mymap": map[string]any{"key1": "value of k1", "key2": "Value of key2"},
+	}, 0o777)
 	TemplateFile("../tmp/test1.j2", "../tmp/test1.txt", map[string]any{
 		"header": "Header", "lines": []string{"line1", "line2", "line3"},
 		"mymap": map[string]any{"key1": "value of k1", "key2": "Value of key2"},

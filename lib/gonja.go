@@ -216,6 +216,20 @@ var filterContainsAll exec.FilterFunction = func(e *exec.Evaluator, in *exec.Val
 	return exec.AsValue(u.SliceContainsItems(mainListStr, subListStr))
 }
 
+var filterKeys exec.FilterFunction = func(e *exec.Evaluator, in *exec.Value, params *exec.VarArgs) *exec.Value {
+	if in.IsError() {
+		return in
+	}
+	// The sub_list passed as an argument: {{ main_list | contains_all(sub_list) }}
+
+	if !in.IsDict() {
+		return exec.AsValue([]string{})
+	}
+
+	out := u.MapKeysToSlice(in.ToGoSimpleType(true).(map[any]any))
+	return exec.AsValue(out)
+}
+
 func CustomEnvironment() *exec.Environment {
 	e := gonja.DefaultEnvironment
 	if !e.Filters.Exists("regex_replace") {
@@ -238,6 +252,9 @@ func CustomEnvironment() *exec.Environment {
 	}
 	if !e.Filters.Exists("contains") {
 		e.Filters.Register("contains", filterContainsAll)
+	}
+	if !e.Filters.Exists("keys") {
+		e.Filters.Register("keys", filterKeys)
 	}
 	return e
 }
