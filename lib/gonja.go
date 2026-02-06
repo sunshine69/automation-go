@@ -253,6 +253,7 @@ var filterKeys exec.FilterFunction = func(e *exec.Evaluator, in *exec.Value, par
 }
 
 func CustomEnvironment() *exec.Environment {
+	// combine, extract, or dict2items ???
 	e := gonja.DefaultEnvironment
 	if !e.Filters.Exists("regex_replace") {
 		e.Filters.Register("regex_replace", filterFuncRegexReplace)
@@ -356,24 +357,10 @@ func TemplateFromStringWithConfig(source string, config *config.Config) (*exec.T
 	return templateFromBytesWithConfig([]byte(source), config)
 }
 
-func templateFromFile(filepath string) (*exec.Template, string, error) {
-	needToProcess, tempFile, parsedCfg := inspectTemplateFile(filepath)
-	if !needToProcess {
-		loader, err := loaders.NewFileSystemLoader(path.Dir(filepath))
-		if err != nil {
-			return nil, "", err
-		}
-		t, err := exec.NewTemplate(path.Base(filepath), parsedCfg, loader, CustomEnvironment())
-		return t, "", err
-	}
-
-	loader, err := loaders.NewFileSystemLoader(path.Dir(tempFile))
-	if err != nil {
-		os.RemoveAll(tempFile)
-		return nil, "", err
-	}
-	t, err := exec.NewTemplate(path.Base(tempFile), parsedCfg, loader, CustomEnvironment())
-	return t, tempFile, err
+func templateFromFileWithConfig(filepath string, config *config.Config) (*exec.Template, error) {
+	loader, err := loaders.NewFileSystemLoader(path.Dir(filepath))
+	t, err := exec.NewTemplate(path.Base(filepath), config, loader, CustomEnvironment())
+	return t, err
 }
 
 // Template a file using template string and convert windows new line to unix. This is
@@ -388,21 +375,101 @@ func TemplateFile(src, dest string, data map[string]interface{}, fileMode os.Fil
 	}
 }
 
-// One day if the upstream lib fixed we can restore this func
-func TemplateFileOld(src, dest string, data map[string]interface{}, fileMode os.FileMode) {
+func parseConfigVarArgs(opt []string) (*config.Config, map[string]any) {
+	cfg := config.New()
+	cfg.TrimBlocks = true
+	cfg.LeftStripBlocks = true
+
+	extraConfig := map[string]any{}
+
+	optLength := len(opt)
+	if optLength >= 2 {
+		for i := 0; i <= optLength-2; i += 2 {
+			switch opt[i] {
+			case "variable_start_string":
+				cfg.VariableStartString = opt[i+1]
+			case "variable_end_string":
+				cfg.VariableEndString = opt[i+1]
+			case "trim_blocks":
+				cfg.TrimBlocks = opt[i+1] == "True"
+			case "lstrip_blocks":
+				cfg.LeftStripBlocks = opt[i+1] == "True"
+			case "auto_escape":
+				cfg.AutoEscape = opt[i+1] == "True"
+			case "comment_start_string":
+				cfg.CommentStartString = opt[i+1]
+			case "comment_end_string":
+				cfg.CommentEndString = opt[i+1]
+			case "strict_undefined":
+				cfg.StrictUndefined = opt[i+1] == "True"
+			default:
+				extraConfig[opt[i]] = opt[i+1]
+			}
+		}
+	}
+	return cfg, extraConfig
+}
+
+// This uses the template file for real, not reading all data and do the replace \r\n => \n
+// This func is suiatable to run on server as it wont crash but return err if tehre is err and have the most comprehensive options
+//
+// It also take the config options and do not parse the config line in the file so there is no intermedeate copy to temp file
+// it a bit tiny faster esp when template large files > 10Mb for example
+// Note there is known the windows new line problems if you this func. To replace_new_line set it to true
+func TemplateFileWithConfig(src, dest string, data map[string]interface{}, fileMode os.FileMode, opt ...string) error {
 	if fileMode == 0 {
 		fileMode = 0755
 	}
-	tmpl, tempFile, err := templateFromFile(src)
-	u.CheckErr(err, "")
-	if tempFile != "" {
-		defer os.RemoveAll(tempFile)
+
+	cfg, extraConfig := parseConfigVarArgs(opt)
+
+	if extraConfig["replace_new_line"] == "True" {
+		if dataB, err := os.ReadFile(src); err == nil {
+			dataB0 := bytes.ReplaceAll(dataB, []byte("\r\n"), []byte("\n"))
+			tempFile, err := os.CreateTemp("", "")
+			if err != nil {
+				return err
+			}
+			defer func() { os.Remove(tempFile.Name()) }()
+			_, err = tempFile.Write(dataB0)
+			if err != nil {
+				return err
+			}
+			tempFile.Close()
+			src = tempFile.Name()
+		}
+	}
+
+	tmpl, err := templateFromFileWithConfig(src, cfg)
+	if err != nil {
+		return err
 	}
 	execContext := exec.NewContext(data)
-	destFile := u.Must(os.Create(dest))
-	u.CheckErr(destFile.Chmod(fileMode), fmt.Sprintf("[ERROR] can not chmod %d for file %s\n", fileMode, dest))
+	destFile, err := os.Create(dest)
+	if err != nil {
+		return err
+	}
+	if err := u.CheckErrNonFatal(destFile.Chmod(fileMode), fmt.Sprintf("[ERROR] can not chmod %d for file %s\n", fileMode, dest)); err != nil {
+		return err
+	}
 	defer destFile.Close()
-	u.CheckErr(tmpl.Execute(destFile, execContext), "[ERROR] Can not template "+src+" => "+dest)
+	if err := u.CheckErrNonFatal(tmpl.Execute(destFile, execContext), "[ERROR] Can not template "+src+" => "+dest); err != nil {
+		return err
+	}
+	return nil
+}
+
+func TemplateStringWithConfig(srcString string, data map[string]interface{}, opt ...string) (string, error) {
+	cfg, extraCfg := parseConfigVarArgs(opt)
+	if extraCfg["replace_new_line"] == "True" {
+		srcString = strings.ReplaceAll(srcString, "\r\n", "\n")
+	}
+	tmpl, err := TemplateFromStringWithConfig(srcString, cfg)
+	if err != nil {
+		return "", err
+	}
+	execContext := exec.NewContext(data)
+	return tmpl.ExecuteToString(execContext)
 }
 
 func TemplateString(srcString string, data map[string]interface{}) string {

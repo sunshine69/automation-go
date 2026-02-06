@@ -12,3 +12,6 @@ line3
 
 
 Works
+
+
+f1 value
