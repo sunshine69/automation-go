@@ -1,3 +1,4 @@
+#jinja2:variable_start_string:', variable_end_string:', trim_blocks:True, lstrip_blocks:True
 This has config line. This gonja version is better that we still can control the if inside like this - Set both to True and
 avoid wrapping the line in middle. That is if we add - to it, the settings is invalid and honor the custom setting.
 The latest version does not do that (in branch testing no way to make this work)

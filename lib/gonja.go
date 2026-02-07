@@ -285,21 +285,21 @@ func CustomEnvironment() *exec.Environment {
 	return e
 }
 
-func inspectTemplateFile(inputFilePath string) (needProcess bool, tempfilePath string, customConfig *config.Config) {
-	prefix := u.Getenv("JINJA2_CONFIG_LINE_PREFIX", `#jinja2:`)
-	firstLine, newSrc, _, err := u.ReadFirstLineWithPrefix(inputFilePath, []string{prefix})
-	if err != nil || newSrc == "" {
-		return false, "", config.New()
-	}
-	foundConfig, config := parseJinja2Config(firstLine, prefix)
-	if !foundConfig {
-		newSrc = ""
-		needProcess = false
-	} else {
-		needProcess = true
-	}
-	return needProcess, newSrc, config
-}
+// func inspectTemplateFile(inputFilePath string) (needProcess bool, tempfilePath string, customConfig *config.Config) {
+// 	prefix := u.Getenv("JINJA2_CONFIG_LINE_PREFIX", `#jinja2:`)
+// 	firstLine, newSrc, _, err := u.ReadFirstLineWithPrefix(inputFilePath, []string{prefix})
+// 	if err != nil || newSrc == "" {
+// 		return false, "", config.New()
+// 	}
+// 	foundConfig, config := parseJinja2Config(firstLine, prefix)
+// 	if !foundConfig {
+// 		newSrc = ""
+// 		needProcess = false
+// 	} else {
+// 		needProcess = true
+// 	}
+// 	return needProcess, newSrc, config
+// }
 
 func inspectTemplateString(text string) (needProcess bool, remainText string, customConfig *config.Config) {
 	firstLine, newSrc := u.SplitFirstLine(text)
@@ -310,6 +310,20 @@ func inspectTemplateString(text string) (needProcess bool, remainText string, cu
 	foundConfig, config := parseJinja2Config(firstLine, prefix)
 	if !foundConfig {
 		newSrc = ""
+		needProcess = false
+	}
+	return needProcess, newSrc, config
+}
+
+func inspectTemplateBytes(dataB []byte) (needProcess bool, remainB []byte, customConfig *config.Config) {
+	firstLine, newSrc := u.SplitFirstLine(dataB)
+	if bytes.Equal(newSrc, []byte{}) {
+		return false, []byte{}, config.New()
+	}
+	prefix := u.Getenv("JINJA2_CONFIG_LINE_PREFIX", `#jinja2:`)
+	foundConfig, config := parseJinja2Config(string(firstLine), prefix)
+	if !foundConfig {
+		newSrc = []byte{}
 		needProcess = false
 	}
 	return needProcess, newSrc, config
@@ -370,17 +384,17 @@ func TemplateFile(src, dest string, data map[string]interface{}, fileMode os.Fil
 		fileMode = 0o777
 	}
 	if contentb, err := os.ReadFile(src); err == nil {
-		content := strings.ReplaceAll(string(contentb), "\r\n", "\n")
-		u.CheckErr(os.WriteFile(dest, []byte(TemplateString(content, data)), fileMode), "TemplateFile")
+		outb := u.Must(TemplateBytes(contentb, data))
+		u.CheckErr(os.WriteFile(dest, outb, fileMode), "TemplateFile")
 	}
 }
 
-func parseConfigVarArgs(opt []string) (*config.Config, map[string]any) {
+func parseConfigVarArgs(opt []string) (*config.Config, map[string]string) {
 	cfg := config.New()
 	cfg.TrimBlocks = true
 	cfg.LeftStripBlocks = true
 
-	extraConfig := map[string]any{}
+	extraConfig := map[string]string{"replace_new_line": "True"}
 
 	optLength := len(opt)
 	if optLength >= 2 {
@@ -410,7 +424,7 @@ func parseConfigVarArgs(opt []string) (*config.Config, map[string]any) {
 	return cfg, extraConfig
 }
 
-// Still not pass tests - Dont use. Run a file with \r\n on win 8 caused error in the engine. Run on unix does
+// Still not pass tests if run on windows - Dont use. Run a file with \r\n on win 8 caused error in the engine. Run on unix does
 // not return error but these lines are not removed at all. Might be the latest version works?
 // This uses the template file for real, not reading all data and do the replace \r\n => \n
 // This func is suiatable to run on server as it wont crash but return err if tehre is err and have the most comprehensive options
@@ -420,7 +434,7 @@ func parseConfigVarArgs(opt []string) (*config.Config, map[string]any) {
 // Note there is known the windows new line problems if you this func. To replace_new_line set it to true
 func TemplateFileWithConfig(src, dest string, data map[string]interface{}, fileMode os.FileMode, opt ...string) error {
 	if fileMode == 0 {
-		fileMode = 0755
+		fileMode = 0o777
 	}
 
 	cfg, extraConfig := parseConfigVarArgs(opt)
@@ -439,7 +453,12 @@ func TemplateFileWithConfig(src, dest string, data map[string]interface{}, fileM
 			}
 			tempFile.Close()
 			src = tempFile.Name()
+		} else {
+			return err
 		}
+	}
+	if extraConfig["DEBUG"] == "True" {
+		fmt.Fprintf(os.Stderr, "[DEBUG] %s\n", u.JsonDump(cfg, ""))
 	}
 
 	tmpl, err := templateFromFileWithConfig(src, cfg)
@@ -471,6 +490,9 @@ func TemplateStringWithConfig(srcString string, data map[string]interface{}, opt
 		return "", err
 	}
 	execContext := exec.NewContext(data)
+	if extraCfg["DEBUG"] == "True" {
+		fmt.Fprintf(os.Stderr, "CFG: %s\n", u.JsonDump(cfg, ""))
+	}
 	return tmpl.ExecuteToString(execContext)
 }
 
@@ -482,6 +504,21 @@ func TemplateString(srcString string, data map[string]interface{}) string {
 	tmpl := u.Must(TemplateFromStringWithConfig(newSrc, CustomConfig))
 	execContext := exec.NewContext(data)
 	return u.Must(tmpl.ExecuteToString(execContext))
+}
+
+func TemplateBytes(srcB []byte, data map[string]any) ([]byte, error) {
+	_, newSrc, CustomConfig := inspectTemplateBytes(srcB)
+	if bytes.Equal(newSrc, []byte{}) {
+		newSrc = srcB
+	}
+
+	srcB = bytes.ReplaceAll(srcB, []byte("\r\n"), []byte("\n"))
+
+	tmpl, err := templateFromBytesWithConfig(srcB, CustomConfig)
+	if err != nil {
+		return nil, err
+	}
+	return tmpl.ExecuteToBytes(exec.NewContext(data))
 }
 
 // TemplateDirTree read all templates files in the src directory and template to the target directory keeping the directory structure the same as source.

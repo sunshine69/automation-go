@@ -94,6 +94,10 @@ github.com/sunshine69/golang-tools/utils v0.0.0-20260204005707-c5de5bdbd269 h1:H
 github.com/sunshine69/golang-tools/utils v0.0.0-20260204005707-c5de5bdbd269/go.mod h1:VKqcn0ZbRAwiugnkXKCMEvBZxFbAMbHoLDXdHPQHFPo=
 github.com/sunshine69/golang-tools/utils v0.0.0-20260205044758-2046bfcec6bb h1:OKk6dnneYweotV7f2ONJGssr5UVzoV0ZGfnEgEgSgEE=
 github.com/sunshine69/golang-tools/utils v0.0.0-20260205044758-2046bfcec6bb/go.mod h1:VKqcn0ZbRAwiugnkXKCMEvBZxFbAMbHoLDXdHPQHFPo=
+github.com/sunshine69/golang-tools/utils v0.0.0-20260207104906-4b0470314752 h1:tVND7CwjZ6OQrwPstiW/eFUFAPon0spKAIqxrNmHV3A=
+github.com/sunshine69/golang-tools/utils v0.0.0-20260207104906-4b0470314752/go.mod h1:VKqcn0ZbRAwiugnkXKCMEvBZxFbAMbHoLDXdHPQHFPo=
+github.com/sunshine69/golang-tools/utils v0.0.0-20260207105630-0a9ceae19f32 h1:Tdk9DUAhRFkpt4KRlQ0ONLfEN7tYg7jMJ+lMdfSi67k=
+github.com/sunshine69/golang-tools/utils v0.0.0-20260207105630-0a9ceae19f32/go.mod h1:VKqcn0ZbRAwiugnkXKCMEvBZxFbAMbHoLDXdHPQHFPo=
 github.com/sunshine69/sonja/v2 v2.3.4-0.20260202080013-a91a55220ee7 h1:WxxEnV/FN8LLqJkXqwzpEPfi/wnKUqUWSpoQQvE16Us=
 github.com/sunshine69/sonja/v2 v2.3.4-0.20260202080013-a91a55220ee7/go.mod h1:YZDnX8iPle4qqNSsLdCcKhlisyQwnWDRzF3QVlZB3/8=
 github.com/sunshine69/sonja/v2 v2.3.5-0.20260205094531-85be9860a889 h1:CVLaZWIapAVyALvyYeH8zSZyd7DpZaTX/5RS7Mth8+g=
