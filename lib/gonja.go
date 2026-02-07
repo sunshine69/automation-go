@@ -438,25 +438,19 @@ func TemplateFileWithConfig(src, dest string, data map[string]interface{}, fileM
 	}
 
 	cfg, extraConfig := parseConfigVarArgs(opt)
-
+	// By default teh replace new line is set to True from parseConfigVarArgs
 	if extraConfig["replace_new_line"] == "True" {
 		if dataB, err := os.ReadFile(src); err == nil {
-			dataB0 := bytes.ReplaceAll(dataB, []byte("\r\n"), []byte("\n"))
-			tempFile, err := os.CreateTemp("", "")
+			outB, err := TemplateBytes(dataB, data)
 			if err != nil {
 				return err
 			}
-			defer func() { os.Remove(tempFile.Name()) }()
-			_, err = tempFile.Write(dataB0)
-			if err != nil {
-				return err
-			}
-			tempFile.Close()
-			src = tempFile.Name()
+			return os.WriteFile(dest, outB, fileMode)
 		} else {
 			return err
 		}
 	}
+	// Now we dont replace new line - we use gonja filesystem loader directly from now on
 	if extraConfig["DEBUG"] == "True" {
 		fmt.Fprintf(os.Stderr, "[DEBUG] %s\n", u.JsonDump(cfg, ""))
 	}
