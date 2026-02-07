@@ -512,9 +512,9 @@ func TemplateBytes(srcB []byte, data map[string]any) ([]byte, error) {
 		newSrc = srcB
 	}
 
-	srcB = bytes.ReplaceAll(srcB, []byte("\r\n"), []byte("\n"))
+	srcB = bytes.ReplaceAll(newSrc, []byte("\r\n"), []byte("\n"))
 
-	tmpl, err := templateFromBytesWithConfig(srcB, CustomConfig)
+	tmpl, err := templateFromBytesWithConfig(newSrc, CustomConfig)
 	if err != nil {
 		return nil, err
 	}
