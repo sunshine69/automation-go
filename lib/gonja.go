@@ -410,6 +410,8 @@ func parseConfigVarArgs(opt []string) (*config.Config, map[string]any) {
 	return cfg, extraConfig
 }
 
+// Still not pass tests - Dont use. Run a file with \r\n on win 8 caused error in the engine. Run on unix does
+// not return error but these lines are not removed at all. Might be the latest version works?
 // This uses the template file for real, not reading all data and do the replace \r\n => \n
 // This func is suiatable to run on server as it wont crash but return err if tehre is err and have the most comprehensive options
 //

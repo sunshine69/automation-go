@@ -37,7 +37,13 @@ func TestJinja2V2(y *testing.T) {
 	err = TemplateFileWithConfig("../tmp/test1.j2", "../tmp/test1.txt", map[string]any{
 		"header": "Header", "lines": []string{"line1", "line2", "line3"},
 		"mymap": map[string]any{"key1": "value of k1", "key2": "Value of key2"},
-	}, 0o777)
+	}, 0o777, "variable_start_string", "{$", "variable_end_string", "$}")
+	u.CheckErr(err, "2")
+
+	err = TemplateFileWithConfig("../tmp/test1-notepad.j2", "../tmp/test1-notepad.txt", map[string]any{
+		"header": "Header", "lines": []string{"line1", "line2", "line3"},
+		"mymap": map[string]any{"key1": "value of k1", "key2": "Value of key2"},
+	}, 0o777, "variable_start_string", "{$", "variable_end_string", "$}", "replace_new_line", "True")
 	u.CheckErr(err, "2")
 
 	dataStr := `This is simple {{ newvar }}`
