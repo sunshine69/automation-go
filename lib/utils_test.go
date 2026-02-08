@@ -21,56 +21,11 @@ func BenchmarkTemplateString(b *testing.B) {
 	}
 }
 
-func TestJinja2V2(y *testing.T) {
-	err := TemplateFileWithConfig("../tmp/test.j2", "../tmp/test.txt", map[string]interface{}{"header": "Header",
-		"lines": []string{"line1", "line2", "line3"},
-		"mymap": map[string]any{"key1": "value of k1", "key2": "Value of key2"},
-		"mystruct": struct {
-			F1 string
-			F2 int
-		}{
-			F1: "f1 value",
-			F2: 123,
-		},
-	}, 0o777)
-	u.CheckErr(err, "1")
-	err = TemplateFileWithConfig("../tmp/test1.j2", "../tmp/test1.txt", map[string]any{
-		"header": "Header", "lines": []string{"line1", "line2", "line3"},
-		"mymap": map[string]any{"key1": "value of k1", "key2": "Value of key2"},
-	}, 0o777, "variable_start_string", "{$", "variable_end_string", "$}")
-	u.CheckErr(err, "2")
-
-	// err = TemplateFileWithConfig("../tmp/test1-notepad.j2", "../tmp/test1-notepad.txt", map[string]any{
-	// 	"header": "Header", "lines": []string{"line1", "line2", "line3"},
-	// 	"mymap": map[string]any{"key1": "value of k1", "key2": "Value of key2"},
-	// }, 0o777, "variable_start_string", "{$", "variable_end_string", "$}", "replace_new_line", "True")
-	// u.CheckErr(err, "2")
-	dataStr := string(u.Must(os.ReadFile("../tmp/test1.j2")))
-	outStr := u.Must(TemplateStringWithConfig(dataStr, map[string]any{
-		"header": "Header", "lines": []string{"line1", "line2", "line3"},
-		"mymap": map[string]any{"key1": "value of k1", "key2": "Value of key2"},
-	}, "variable_start_string", "{$", "variable_end_string", "$}", "replace_new_line", "True", "DEBUG", "True"))
-	println(outStr)
-
-	dataStr = `This is simple {$ newvar $}`
-	println(u.Must(TemplateStringWithConfig(dataStr, map[string]any{"newvar": "New value of new var"}, "variable_start_string", "{$", "variable_end_string", "$}", "replace_new_line", "True")))
-
-	data := map[string]any{"packages": []string{"p1", "p2", "p3"}}
-	o, err := TemplateStringWithConfig(`#jinja2:variable_start_string:'{$', variable_end_string:'$}', trim_blocks:True, lstrip_blocks:True
-	[
-			{% for app in packages %}
-			"{$ app $}_config-pkg",
-			"{$ app $}"{% if not loop.last %},
-			{% endif %}
-			{% endfor %}
-	]`, data, "variable_start_string", "{$", "variable_end_string", "$}")
-	println(o)
-}
-
 func TestJinja2(t *testing.T) {
-	TemplateFile("../tmp/test.j2", "../tmp/test.txt", map[string]interface{}{"header": "Header",
-		"lines": []string{"line1", "line2", "line3"},
-		"mymap": map[string]any{"key1": "value of k1", "key2": "Value of key2"},
+	TemplateFile("../tmp/test.j2", "../tmp/test.txt", map[string]any{
+		"header": "Header",
+		"lines":  []string{"line1", "line2", "line3"},
+		"mymap":  map[string]any{"key1": "value of k1", "key2": "Value of key2"},
 		"mystruct": struct {
 			F1 string
 			F2 int
@@ -79,15 +34,15 @@ func TestJinja2(t *testing.T) {
 			F2: 123,
 		},
 	}, 0o777)
+
 	TemplateFile("../tmp/test1.j2", "../tmp/test1.txt", map[string]any{
 		"header": "Header", "lines": []string{"line1", "line2", "line3"},
 		"mymap": map[string]any{"key1": "value of k1", "key2": "Value of key2"},
 	}, 0o777)
 
-	TemplateFile("../tmp/test1-notepad.j2", "../tmp/test1-notepad.txt", map[string]any{
-		"header": "Header", "lines": []string{"line1", "line2", "line3"},
-		"mymap": map[string]any{"key1": "value of k1", "key2": "Value of key2"},
-	}, 0o777)
+	// TemplateFile("../tmp/test1.j2", "../tmp/test1.txt", map[string]any{
+	// 	"header": "Header", "lines": []string{"line1", "line2", "line3"},
+	// }, 0o777)
 
 	dataStr := `This is simple {{ newvar }}`
 	println(TemplateString(dataStr, map[string]any{"newvar": "New value of new var"}))
