@@ -11,8 +11,10 @@ line3
 
 
 
-Works
+contains Works
 
 
 Should display here:
 f1 value
+
+Test regex_replace - 

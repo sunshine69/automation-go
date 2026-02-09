@@ -151,8 +151,60 @@ func NewJinjaEnvironment(whc *syntax.WhitespaceConfig, cfg *syntax.SyntaxConfig)
 	env.AddFilter("contains", filterContainsAll)
 	env.AddFilter("contains_any", filterContainsAny)
 	env.AddFilter("keys", filters.FilterKeys)
-
+	env.AddFilter("indent", filterIndent)
 	return env
+}
+
+var filterIndent mj.FilterFunc = func(_ mj.FilterState, val value.Value, args []value.Value, kwargs map[string]value.Value) (value.Value, error) {
+	s, ok := val.AsString()
+	if !ok {
+		return val, nil
+	}
+
+	width := 4
+	if len(args) > 0 {
+		if w, ok := args[0].AsInt(); ok {
+			width = int(w)
+		}
+	}
+
+	for key, val := range kwargs {
+		switch key {
+		case "width":
+			if valI, ok := val.AsInt(); ok {
+				width = int(valI)
+			}
+		default:
+			return value.Undefined(), fmt.Errorf("unspoorted keyword arguments %s", key)
+		}
+	}
+
+	first := false
+	if len(args) > 1 {
+		if b, ok := args[1].AsBool(); ok {
+			first = b
+		}
+	}
+
+	blank := false
+	if len(args) > 2 {
+		if b, ok := args[2].AsBool(); ok {
+			blank = b
+		}
+	}
+
+	indent := strings.Repeat(" ", width)
+	lines := strings.Split(s, "\n")
+	for i, line := range lines {
+		if i == 0 && !first {
+			continue
+		}
+		if line == "" && !blank {
+			continue
+		}
+		lines[i] = indent + line
+	}
+	return value.FromString(strings.Join(lines, "\n")), nil
 }
 
 // var filterKeys mj.FilterFunc = func(state mj.FilterState, val value.Value, args []value.Value, kwargs map[string]value.Value) (value.Value, error) {
@@ -178,7 +230,12 @@ func convertPerlCapPattern(input string) string {
 var filterFuncRegexReplace mj.FilterFunc = func(state mj.FilterState, val value.Value, args []value.Value, kwargs map[string]value.Value) (value.Value, error) {
 	s, ok := val.AsString()
 	if !ok {
-		return value.Undefined(), fmt.Errorf("regex_replace expects a string")
+		debugStr := ""
+		debug, ok := kwargs["DEBUG"]
+		if ok {
+			debugStr, _ = debug.AsString()
+		}
+		return value.Undefined(), fmt.Errorf("regex_replace expects a string. I got %s. debugstr is: %s", u.JsonDump(val, ""), debugStr)
 	}
 	// 2 args is mandate, option arg count default val is nil. Backslash \ need to escape like \\ so template compile works
 	// p := params.Expect(2, []*exec.KwArg{{Name: "count", Default: nil}})

@@ -14,3 +14,5 @@ contains Works
 
 Should display here:
 {{ mystruct.F1 }}
+
+Test regex_replace - {{ myvar | default('') | regex_replace('^.* ([^\\s]+) .*$','\\1') }}
