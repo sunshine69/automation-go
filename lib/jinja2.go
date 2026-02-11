@@ -54,94 +54,21 @@ func NewJinjaEnvironment(whc *syntax.WhitespaceConfig, cfg *syntax.SyntaxConfig)
 	if cfg != nil {
 		env.SetSyntax(*cfg)
 	}
-	env.AddFilter("reverse_str", func(state mj.FilterState, val value.Value, args []value.Value, kwargs map[string]value.Value) (value.Value, error) {
-		s, ok := val.AsString()
-		if !ok {
-			return value.Undefined(), fmt.Errorf("reverse_str expects a string")
-		}
-		runes := []rune(s)
-		for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
-			runes[i], runes[j] = runes[j], runes[i]
-		}
-		return value.FromString(string(runes)), nil
-	})
-
-	// A filter with arguments that wraps text in a tag
-	env.AddFilter("wrap", func(state mj.FilterState, val value.Value, args []value.Value, kwargs map[string]value.Value) (value.Value, error) {
-		s, ok := val.AsString()
-		if !ok {
-			return value.Undefined(), fmt.Errorf("wrap expects a string")
-		}
-
-		tag := "span"
-		if len(args) > 0 {
-			if t, ok := args[0].AsString(); ok {
-				tag = t
-			}
-		}
-
-		// Check for class kwarg
-		class := ""
-		if c, ok := kwargs["class"]; ok {
-			if cs, ok := c.AsString(); ok {
-				class = fmt.Sprintf(` class="%s"`, cs)
-			}
-		}
-
-		result := fmt.Sprintf("<%s%s>%s</%s>", tag, class, s, tag)
-		// Return as safe string since we're generating HTML
-		return value.FromSafeString(result), nil
-	})
-
 	// =========================================
 	// Custom Tests
 	// =========================================
-
-	// A test that checks if a string starts with a prefix
-	env.AddTest("startswith", func(state mj.TestState, val value.Value, args []value.Value) (bool, error) {
-		s, ok := val.AsString()
-		if !ok {
-			return false, nil
-		}
-		if len(args) == 0 {
-			return false, fmt.Errorf("startswith requires a prefix argument")
-		}
-		prefix, ok := args[0].AsString()
-		if !ok {
-			return false, nil
-		}
-		return strings.HasPrefix(s, prefix), nil
-	})
-
+	env.AddTest("startswith", testStartWith)
 	// A test for checking if a number is in a range
-	env.AddTest("between", func(state mj.TestState, val value.Value, args []value.Value) (bool, error) {
-		n, ok := val.AsInt()
-		if !ok {
-			return false, nil
-		}
-		if len(args) < 2 {
-			return false, fmt.Errorf("between requires min and max arguments")
-		}
-		min, _ := args[0].AsInt()
-		max, _ := args[1].AsInt()
-		return n >= min && n <= max, nil
-	})
+	env.AddTest("between", testBetween)
 
 	// =========================================
 	// Custom Functions
 	// =========================================
-
 	// A function that returns the current time
-	env.AddFunction("now", func(state *mj.State, args []value.Value, kwargs map[string]value.Value) (value.Value, error) {
-		format := time.RFC3339
-		if len(args) > 0 {
-			if f, ok := args[0].AsString(); ok {
-				format = f
-			}
-		}
-		return value.FromString(time.Now().Format(format)), nil
-	})
-
+	env.AddFunction("now", filterNow)
+	env.AddFilter("reverse_str", filterReverseStr)
+	// A filter with arguments that wraps text in a tag
+	env.AddFilter("wrap", filterWrap)
 	env.AddFilter("regex_replace", filterFuncRegexReplace)
 	env.AddFilter("regex_search", filterFuncRegexSearch)
 	env.AddFilter("to_yaml", filterFuncToYaml)
@@ -155,7 +82,80 @@ func NewJinjaEnvironment(whc *syntax.WhitespaceConfig, cfg *syntax.SyntaxConfig)
 	return env
 }
 
-var filterIndent mj.FilterFunc = func(_ mj.FilterState, val value.Value, args []value.Value, kwargs map[string]value.Value) (value.Value, error) {
+func filterReverseStr(state mj.FilterState, val value.Value, args []value.Value, kwargs map[string]value.Value) (value.Value, error) {
+	s, ok := val.AsString()
+	if !ok {
+		return value.Undefined(), fmt.Errorf("reverse_str expects a string")
+	}
+	runes := []rune(s)
+	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+		runes[i], runes[j] = runes[j], runes[i]
+	}
+	return value.FromString(string(runes)), nil
+}
+
+func filterWrap(state mj.FilterState, val value.Value, args []value.Value, kwargs map[string]value.Value) (value.Value, error) {
+	s, ok := val.AsString()
+	if !ok {
+		return value.Undefined(), fmt.Errorf("wrap expects a string")
+	}
+
+	tag := "span"
+	if len(args) > 0 {
+		if t, ok := args[0].AsString(); ok {
+			tag = t
+		}
+	}
+	// Check for class kwarg
+	class := ""
+	if c, ok := kwargs["class"]; ok {
+		if cs, ok := c.AsString(); ok {
+			class = fmt.Sprintf(` class="%s"`, cs)
+		}
+	}
+	result := fmt.Sprintf("<%s%s>%s</%s>", tag, class, s, tag)
+	// Return as safe string since we're generating HTML
+	return value.FromSafeString(result), nil
+}
+func filterNow(state *mj.State, args []value.Value, kwargs map[string]value.Value) (value.Value, error) {
+	format := time.RFC3339
+	if len(args) > 0 {
+		if f, ok := args[0].AsString(); ok {
+			format = f
+		}
+	}
+	return value.FromString(time.Now().Format(format)), nil
+}
+
+func testStartWith(state mj.TestState, val value.Value, args []value.Value) (bool, error) {
+	s, ok := val.AsString()
+	if !ok {
+		return false, nil
+	}
+	if len(args) == 0 {
+		return false, fmt.Errorf("startswith requires a prefix argument")
+	}
+	prefix, ok := args[0].AsString()
+	if !ok {
+		return false, nil
+	}
+	return strings.HasPrefix(s, prefix), nil
+}
+
+func testBetween(state mj.TestState, val value.Value, args []value.Value) (bool, error) {
+	n, ok := val.AsInt()
+	if !ok {
+		return false, nil
+	}
+	if len(args) < 2 {
+		return false, fmt.Errorf("between requires min and max arguments")
+	}
+	min, _ := args[0].AsInt()
+	max, _ := args[1].AsInt()
+	return n >= min && n <= max, nil
+}
+
+func filterIndent(_ mj.FilterState, val value.Value, args []value.Value, kwargs map[string]value.Value) (value.Value, error) {
 	s, ok := val.AsString()
 	if !ok {
 		return val, nil
@@ -227,7 +227,7 @@ func convertPerlCapPattern(input string) string {
 	return result
 }
 
-var filterFuncRegexReplace mj.FilterFunc = func(state mj.FilterState, val value.Value, args []value.Value, kwargs map[string]value.Value) (value.Value, error) {
+func filterFuncRegexReplace(state mj.FilterState, val value.Value, args []value.Value, kwargs map[string]value.Value) (value.Value, error) {
 	s, ok := val.AsString()
 	if !ok {
 		debugStr := ""
@@ -255,7 +255,7 @@ var filterFuncRegexReplace mj.FilterFunc = func(state mj.FilterState, val value.
 	return value.FromString(output), nil
 }
 
-var filterFuncRegexSearch mj.FilterFunc = func(state mj.FilterState, val value.Value, args []value.Value, kwargs map[string]value.Value) (value.Value, error) {
+func filterFuncRegexSearch(state mj.FilterState, val value.Value, args []value.Value, kwargs map[string]value.Value) (value.Value, error) {
 	input, ok := val.AsString()
 	if !ok {
 		return value.Undefined(), fmt.Errorf("regex_search expects a string")
@@ -277,7 +277,7 @@ var filterFuncRegexSearch mj.FilterFunc = func(state mj.FilterState, val value.V
 	return value.FromString(""), nil
 }
 
-var filterFuncToYaml mj.FilterFunc = func(state mj.FilterState, val value.Value, args []value.Value, kwargs map[string]value.Value) (value.Value, error) {
+func filterFuncToYaml(state mj.FilterState, val value.Value, args []value.Value, kwargs map[string]value.Value) (value.Value, error) {
 	input := ValueToNative(val)
 
 	var indent int64 = 2
@@ -298,7 +298,7 @@ var filterFuncToYaml mj.FilterFunc = func(state mj.FilterState, val value.Value,
 	return value.FromString(buf.String()), nil
 }
 
-var filterFuncB64Encode mj.FilterFunc = func(state mj.FilterState, val value.Value, args []value.Value, kwargs map[string]value.Value) (value.Value, error) {
+func filterFuncB64Encode(state mj.FilterState, val value.Value, args []value.Value, kwargs map[string]value.Value) (value.Value, error) {
 	input, ok := val.AsString()
 	if !ok {
 		return value.Undefined(), fmt.Errorf("b64encode expects a string")
@@ -308,7 +308,7 @@ var filterFuncB64Encode mj.FilterFunc = func(state mj.FilterState, val value.Val
 	return value.FromString(o), nil
 }
 
-var filterFuncB64Decode mj.FilterFunc = func(state mj.FilterState, val value.Value, args []value.Value, kwargs map[string]value.Value) (value.Value, error) {
+func filterFuncB64Decode(state mj.FilterState, val value.Value, args []value.Value, kwargs map[string]value.Value) (value.Value, error) {
 	input, ok := val.AsString()
 	if !ok {
 		return value.Undefined(), fmt.Errorf("b64decode expects a string")
@@ -317,7 +317,7 @@ var filterFuncB64Decode mj.FilterFunc = func(state mj.FilterState, val value.Val
 	return value.FromBytes(o), nil
 }
 
-var filterContainsAll mj.FilterFunc = func(state mj.FilterState, val value.Value, args []value.Value, kwargs map[string]value.Value) (value.Value, error) {
+func filterContainsAll(state mj.FilterState, val value.Value, args []value.Value, kwargs map[string]value.Value) (value.Value, error) {
 	mainList, ok := val.AsSlice()
 	if !ok {
 		return value.Undefined(), fmt.Errorf("contains_all expects a list")
@@ -332,7 +332,7 @@ var filterContainsAll mj.FilterFunc = func(state mj.FilterState, val value.Value
 	return value.FromBool(u.SliceContainsItems(mainList1, subList1)), nil
 }
 
-var filterContainsAny mj.FilterFunc = func(state mj.FilterState, val value.Value, args []value.Value, kwargs map[string]value.Value) (value.Value, error) {
+func filterContainsAny(state mj.FilterState, val value.Value, args []value.Value, kwargs map[string]value.Value) (value.Value, error) {
 	mainList, ok := val.AsSlice()
 	if !ok {
 		return value.Undefined(), fmt.Errorf("contains_all expects a list")
