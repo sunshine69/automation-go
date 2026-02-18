@@ -262,10 +262,12 @@ func main() {
 	}
 
 	if strings.Contains(*password_check_mode, "word") {
-		if res, _ := u.FileExists(word_file_path); !res {
-			fmt.Println("Downloading words.txt")
-			u.Curl("GET", *words_list_url, "", word_file_path, []string{}, nil)
+		res, err := u.FileExists(word_file_path)
+		if !res || err != nil {
+			fmt.Fprintln(os.Stderr, "Downloading words.txt")
+			u.Must(u.Curl("GET", *words_list_url, "", word_file_path, []string{}, nil))
 		}
+		fmt.Fprintf(os.Stderr, "[DEBUG] %v - %v\n", res, err)
 		WordDict = u.Must(lib.LoadWordDictionary(word_file_path, 4))
 	}
 
