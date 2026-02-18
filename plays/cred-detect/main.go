@@ -166,6 +166,7 @@ func main() {
 	skipBinary := optFlag.BoolP("skipbinary", "y", true, "Skip binary file")
 	password_check_mode := optFlag.String("check-mode", "letter+word", "Password check mode. List of allowed values: letter, digit, special, letter+digit, letter+digit+word, all. The default value (letter+digit+word) requires a file /tmp/words.txt; it will automatically download it if it does not exist. Link to download https://github.com/dwyl/english-words/blob/master/words.txt . It describes what it looks like a password for example if the value is 'letter' means any random ascii letter can be treated as password and will be reported. Same for others, eg, letter+digit+word means value has letter, digit and NOT looks like English word will be treated as password. Value 'all' is like letter+digit+special ")
 	words_list_url := optFlag.String("words-list-url", "https://github.com/dwyl/english-words/blob/master/words.txt", "Word list url to download")
+	words_dir_path := optFlag.String("words-dir", "", "Words directory path to search for or download. Default is system temp dir")
 
 	debug := optFlag.Bool("debug", false, "Enable debugging. Note that it will print password values unmasked. Do not run it on CI/CD")
 	save_config_file := optFlag.String("save-config", "cred-detect-config.yaml", "Path to save config from command flags to a yaml file")
@@ -217,6 +218,10 @@ func main() {
 		os.Exit(0)
 	}
 
+	if *words_dir_path == "" {
+		*words_dir_path = os.TempDir()
+	}
+
 	viper.BindPFlags(optFlag)
 
 	viper.SetConfigName("cred-detect-config") // name of config file (without extension)
@@ -243,9 +248,7 @@ func main() {
 	*password_check_mode = viper.GetString("check-mode")
 	*words_list_url = viper.GetString("words-list-url")
 	*debug = viper.GetBool("debug")
-	user_home_dir, err := os.UserHomeDir()
-	u.CheckErr(err, "UserHomeDir")
-	word_file_path := path.Join(user_home_dir, "cred-detect-word.txt")
+	word_file_path := path.Join(*words_dir_path, "cred-detect-word.txt")
 
 	if len(*cred_regexptn) > 0 {
 		Credential_patterns = append(Credential_patterns, *cred_regexptn...)
