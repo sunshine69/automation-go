@@ -160,7 +160,7 @@ func main() {
 	pattern_group_index_bp := optFlag.IntSliceP("group-index-b", "b", []int{}, "Similar to --group-index-a. Set the group index to capture the credential itself.")
 	filename_ptn := optFlag.StringP("fptn", "f", ".*", "Filename regex pattern")
 	exclude := optFlag.StringP("exclude", "e", "", "Exclude file name pattern")
-	path_exclude := optFlag.String("path-exclude", "", "File Path to Exclude pattern")
+	path_exclude := optFlag.StringSlice("path-exclude", []string{""}, "File Path to Exclude pattern")
 	load_profile_path := optFlag.String("profile", "", "File Path to load the result from previous run")
 	defaultExclude := optFlag.StringP("defaultexclude", "d", `^(\.git|.*\.zip|.*\.gz|.*\.xz|.*\.bz2|.*\.zstd|.*\.7z|.*\.dll|.*\.iso|.*\.bin|.*\.tar|.*\.exe)$`, "Default exclude pattern. Set it to empty string if you need to")
 	skipBinary := optFlag.BoolP("skipbinary", "y", true, "Skip binary file")
@@ -241,7 +241,7 @@ func main() {
 	*cred_regexptn = viper.GetStringSlice("regexp")
 	*filename_ptn = viper.GetString("fptn")
 	*exclude = viper.GetString("exclude")
-	*path_exclude = viper.GetString("path-exclude")
+	*path_exclude = viper.GetStringSlice("path-exclude")
 	*load_profile_path = viper.GetString("profile")
 	*defaultExclude = viper.GetString("defaultexclude")
 	*skipBinary = viper.GetBool("skipbinary")
@@ -284,9 +284,9 @@ func main() {
 	if *defaultExclude == "" {
 		defaultExcludePtn = nil
 	}
-	var path_exclude_ptn *regexp.Regexp = nil
-	if *path_exclude != "" {
-		path_exclude_ptn = regexp.MustCompile(*path_exclude)
+	path_exclude_ptn := []*regexp.Regexp{}
+	for _, ptn := range *path_exclude {
+		path_exclude_ptn = append(path_exclude_ptn, regexp.MustCompile(ptn))
 	}
 
 	output := ProjectOutputFmt{}
@@ -347,8 +347,8 @@ func main() {
 			fmt.Fprintln(os.Stderr, err.Error())
 			return nil
 		}
-		if path_exclude_ptn != nil {
-			if path_exclude_ptn.MatchString(fpath) {
+		for _, ptn := range path_exclude_ptn {
+			if ptn.MatchString(fpath) {
 				if *debug {
 					fmt.Fprintf(os.Stderr, "SKIP PATH %s\n", fpath)
 				}
