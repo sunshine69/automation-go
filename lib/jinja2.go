@@ -5,6 +5,7 @@ import (
 	b64 "encoding/base64"
 	"fmt"
 	"io/fs"
+	"sort"
 	"time"
 
 	"github.com/mitsuhiko/minijinja/minijinja-go/v2/filters"
@@ -77,9 +78,67 @@ func NewJinjaEnvironment(whc *syntax.WhitespaceConfig, cfg *syntax.SyntaxConfig)
 	env.AddFilter("b64decode", filterFuncB64Decode)
 	env.AddFilter("contains", filterContainsAll)
 	env.AddFilter("contains_any", filterContainsAny)
-	env.AddFilter("keys", filters.FilterKeys)
+	env.AddFilter("keys", FilterKeys)
 	env.AddFilter("indent", filterIndent)
 	return env
+}
+
+// FilterKeys returns a list of keys from a map.
+//
+// The keys are sorted alphabetically.
+//
+// Example:
+//
+//	env := minijinja.NewEnvironment()
+//	env.AddFilter("keys", FilterKeys)
+//
+// Template usage:
+//
+//	{{ my_dict|keys }}
+func FilterKeys(_ mj.FilterState, val value.Value, _ []value.Value, _ map[string]value.Value) (value.Value, error) {
+	if m, ok := val.AsMap(); ok {
+		keys := make([]string, 0, len(m))
+		for k := range m {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+
+		result := make([]value.Value, len(keys))
+		for i, k := range keys {
+			result[i] = value.FromString(k)
+		}
+		return value.FromSlice(result), nil
+	}
+	return value.FromSlice(nil), nil
+}
+
+// FilterValues returns a list of values from a map.
+//
+// The values are returned in the same order as the sorted keys.
+//
+// Example:
+//
+//	env := minijinja.NewEnvironment()
+//	env.AddFilter("values", FilterValues)
+//
+// Template usage:
+//
+//	{{ my_dict|values }}
+func FilterValues(_ mj.FilterState, val value.Value, _ []value.Value, _ map[string]value.Value) (value.Value, error) {
+	if m, ok := val.AsMap(); ok {
+		keys := make([]string, 0, len(m))
+		for k := range m {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+
+		result := make([]value.Value, len(keys))
+		for i, k := range keys {
+			result[i] = m[k]
+		}
+		return value.FromSlice(result), nil
+	}
+	return value.FromSlice(nil), nil
 }
 
 func filterReverseStr(state mj.FilterState, val value.Value, args []value.Value, kwargs map[string]value.Value) (value.Value, error) {
