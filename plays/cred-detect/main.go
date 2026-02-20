@@ -45,6 +45,10 @@ var (
 	WordDict map[string]struct{} = nil
 )
 
+func printVersionBuildInfo() {
+	fmt.Printf("Version: %s\nBuild time: %s\n", version, buildTime)
+}
+
 // Output format of each line. A file may have many lines; each line may have more than 1 creds pair matches
 type OutputFmt struct {
 	File    string
@@ -145,10 +149,6 @@ func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileIn
 			}
 		}
 	}
-}
-
-func printVersionBuildInfo() {
-	fmt.Printf("Version: %s\nBuild time: %s\n", version, buildTime)
 }
 
 func main() {
