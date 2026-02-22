@@ -1,13 +1,20 @@
 This is test without config line
 Header
+
 line1
+
 line2
+
 line3
 
 
 
 
-Works
+
+contains Works
 
 
+Should display here:
 f1 value
+
+Test regex_replace - 

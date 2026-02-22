@@ -45,6 +45,10 @@ var (
 	WordDict map[string]struct{} = nil
 )
 
+func printVersionBuildInfo() {
+	fmt.Printf("Version: %s\nBuild time: %s\n", version, buildTime)
+}
+
 // Output format of each line. A file may have many lines; each line may have more than 1 creds pair matches
 type OutputFmt struct {
 	File    string
@@ -147,10 +151,6 @@ func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileIn
 	}
 }
 
-func printVersionBuildInfo() {
-	fmt.Printf("Version: %s\nBuild time: %s\n", version, buildTime)
-}
-
 func main() {
 	optFlag := pflag.NewFlagSet("opt", pflag.ExitOnError)
 	// config_file := optFlag.String("project-config", "", "File Path to Exclude pattern")
@@ -160,12 +160,13 @@ func main() {
 	pattern_group_index_bp := optFlag.IntSliceP("group-index-b", "b", []int{}, "Similar to --group-index-a. Set the group index to capture the credential itself.")
 	filename_ptn := optFlag.StringP("fptn", "f", ".*", "Filename regex pattern")
 	exclude := optFlag.StringP("exclude", "e", "", "Exclude file name pattern")
-	path_exclude := optFlag.String("path-exclude", "", "File Path to Exclude pattern")
+	path_exclude := optFlag.StringSlice("path-exclude", []string{""}, "File Path to Exclude pattern")
 	load_profile_path := optFlag.String("profile", "", "File Path to load the result from previous run")
 	defaultExclude := optFlag.StringP("defaultexclude", "d", `^(\.git|.*\.zip|.*\.gz|.*\.xz|.*\.bz2|.*\.zstd|.*\.7z|.*\.dll|.*\.iso|.*\.bin|.*\.tar|.*\.exe)$`, "Default exclude pattern. Set it to empty string if you need to")
 	skipBinary := optFlag.BoolP("skipbinary", "y", true, "Skip binary file")
 	password_check_mode := optFlag.String("check-mode", "letter+word", "Password check mode. List of allowed values: letter, digit, special, letter+digit, letter+digit+word, all. The default value (letter+digit+word) requires a file /tmp/words.txt; it will automatically download it if it does not exist. Link to download https://github.com/dwyl/english-words/blob/master/words.txt . It describes what it looks like a password for example if the value is 'letter' means any random ascii letter can be treated as password and will be reported. Same for others, eg, letter+digit+word means value has letter, digit and NOT looks like English word will be treated as password. Value 'all' is like letter+digit+special ")
 	words_list_url := optFlag.String("words-list-url", "https://github.com/dwyl/english-words/blob/master/words.txt", "Word list url to download")
+	words_dir_path := optFlag.String("words-dir", "", "Words directory path to search for or download. Default is system temp dir")
 
 	debug := optFlag.Bool("debug", false, "Enable debugging. Note that it will print password values unmasked. Do not run it on CI/CD")
 	save_config_file := optFlag.String("save-config", "cred-detect-config.yaml", "Path to save config from command flags to a yaml file")
@@ -217,6 +218,10 @@ func main() {
 		os.Exit(0)
 	}
 
+	if *words_dir_path == "" {
+		*words_dir_path = os.TempDir()
+	}
+
 	viper.BindPFlags(optFlag)
 
 	viper.SetConfigName("cred-detect-config") // name of config file (without extension)
@@ -236,16 +241,14 @@ func main() {
 	*cred_regexptn = viper.GetStringSlice("regexp")
 	*filename_ptn = viper.GetString("fptn")
 	*exclude = viper.GetString("exclude")
-	*path_exclude = viper.GetString("path-exclude")
+	*path_exclude = viper.GetStringSlice("path-exclude")
 	*load_profile_path = viper.GetString("profile")
 	*defaultExclude = viper.GetString("defaultexclude")
 	*skipBinary = viper.GetBool("skipbinary")
 	*password_check_mode = viper.GetString("check-mode")
 	*words_list_url = viper.GetString("words-list-url")
 	*debug = viper.GetBool("debug")
-	user_home_dir, err := os.UserHomeDir()
-	u.CheckErr(err, "UserHomeDir")
-	word_file_path := path.Join(user_home_dir, "cred-detect-word.txt")
+	word_file_path := path.Join(*words_dir_path, "cred-detect-word.txt")
 
 	if len(*cred_regexptn) > 0 {
 		Credential_patterns = append(Credential_patterns, *cred_regexptn...)
@@ -259,10 +262,12 @@ func main() {
 	}
 
 	if strings.Contains(*password_check_mode, "word") {
-		if res, _ := u.FileExists(word_file_path); !res {
-			fmt.Println("Downloading words.txt")
-			u.Curl("GET", *words_list_url, "", word_file_path, []string{}, nil)
+		res, err := u.FileExists(word_file_path)
+		if !res || err != nil {
+			fmt.Fprintln(os.Stderr, "Downloading words.txt")
+			u.Must(u.Curl("GET", *words_list_url, "", word_file_path, []string{}, nil))
 		}
+		fmt.Fprintf(os.Stderr, "[DEBUG] %v - %v\n", res, err)
 		WordDict = u.Must(lib.LoadWordDictionary(word_file_path, 4))
 	}
 
@@ -279,9 +284,9 @@ func main() {
 	if *defaultExclude == "" {
 		defaultExcludePtn = nil
 	}
-	var path_exclude_ptn *regexp.Regexp = nil
-	if *path_exclude != "" {
-		path_exclude_ptn = regexp.MustCompile(*path_exclude)
+	path_exclude_ptn := []*regexp.Regexp{}
+	for _, ptn := range *path_exclude {
+		path_exclude_ptn = append(path_exclude_ptn, regexp.MustCompile(ptn))
 	}
 
 	output := ProjectOutputFmt{}
@@ -342,8 +347,8 @@ func main() {
 			fmt.Fprintln(os.Stderr, err.Error())
 			return nil
 		}
-		if path_exclude_ptn != nil {
-			if path_exclude_ptn.MatchString(fpath) {
+		for _, ptn := range path_exclude_ptn {
+			if ptn.MatchString(fpath) {
 				if *debug {
 					fmt.Fprintf(os.Stderr, "SKIP PATH %s\n", fpath)
 				}

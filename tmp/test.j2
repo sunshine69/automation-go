@@ -9,7 +9,10 @@ test contains and should display here
 {% endif %}
 
 {% if mymap | keys | contains(["key1"]) %}
-Works
+contains Works
 {% endif %}
 
+Should display here:
 {{ mystruct.F1 }}
+
+Test regex_replace - {{ myvar | default('') | regex_replace('^.* ([^\\s]+) .*$','\\1') }}

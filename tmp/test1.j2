@@ -4,17 +4,17 @@ avoid wrapping the line in middle. That is if we add - to it, the settings is in
 The latest version does not do that (in branch testing no way to make this work)
 {$ header $}
 
-{% if (lines | length) == 0 %}
+{% if (lines | length) > 0 %}
     {% for l in lines %}
-{$ l $}
+{$ l | upper $}
     {%- if not loop.last %},
     {% endif %}
     {% endfor %}
 {% endif %}
 
-{% for k, v in mymap %}
-{% if 'Value' in v %}
-{$ k $} - {$ v $}
+{% for k in mymap %}
+{% if "Value" in mymap[k] %}
+{$ k $} - {$ mymap[k] $}
 {% endif %}
 {% endfor %}
 

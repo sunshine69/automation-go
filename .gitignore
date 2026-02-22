@@ -30,3 +30,4 @@ words.txt
 *.ini 
 lineinfile-*-x86_64
 .vscode/**
+.continue/**

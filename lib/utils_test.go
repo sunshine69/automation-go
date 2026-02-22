@@ -3,7 +3,9 @@ package lib
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 
 	u "github.com/sunshine69/golang-tools/utils"
@@ -21,56 +23,11 @@ func BenchmarkTemplateString(b *testing.B) {
 	}
 }
 
-func TestJinja2V2(y *testing.T) {
-	err := TemplateFileWithConfig("../tmp/test.j2", "../tmp/test.txt", map[string]interface{}{"header": "Header",
-		"lines": []string{"line1", "line2", "line3"},
-		"mymap": map[string]any{"key1": "value of k1", "key2": "Value of key2"},
-		"mystruct": struct {
-			F1 string
-			F2 int
-		}{
-			F1: "f1 value",
-			F2: 123,
-		},
-	}, 0o777)
-	u.CheckErr(err, "1")
-	err = TemplateFileWithConfig("../tmp/test1.j2", "../tmp/test1.txt", map[string]any{
-		"header": "Header", "lines": []string{"line1", "line2", "line3"},
-		"mymap": map[string]any{"key1": "value of k1", "key2": "Value of key2"},
-	}, 0o777, "variable_start_string", "{$", "variable_end_string", "$}")
-	u.CheckErr(err, "2")
-
-	// err = TemplateFileWithConfig("../tmp/test1-notepad.j2", "../tmp/test1-notepad.txt", map[string]any{
-	// 	"header": "Header", "lines": []string{"line1", "line2", "line3"},
-	// 	"mymap": map[string]any{"key1": "value of k1", "key2": "Value of key2"},
-	// }, 0o777, "variable_start_string", "{$", "variable_end_string", "$}", "replace_new_line", "True")
-	// u.CheckErr(err, "2")
-	dataStr := string(u.Must(os.ReadFile("../tmp/test1.j2")))
-	outStr := u.Must(TemplateStringWithConfig(dataStr, map[string]any{
-		"header": "Header", "lines": []string{"line1", "line2", "line3"},
-		"mymap": map[string]any{"key1": "value of k1", "key2": "Value of key2"},
-	}, "variable_start_string", "{$", "variable_end_string", "$}", "replace_new_line", "True", "DEBUG", "True"))
-	println(outStr)
-
-	dataStr = `This is simple {$ newvar $}`
-	println(u.Must(TemplateStringWithConfig(dataStr, map[string]any{"newvar": "New value of new var"}, "variable_start_string", "{$", "variable_end_string", "$}", "replace_new_line", "True")))
-
-	data := map[string]any{"packages": []string{"p1", "p2", "p3"}}
-	o, err := TemplateStringWithConfig(`#jinja2:variable_start_string:'{$', variable_end_string:'$}', trim_blocks:True, lstrip_blocks:True
-	[
-			{% for app in packages %}
-			"{$ app $}_config-pkg",
-			"{$ app $}"{% if not loop.last %},
-			{% endif %}
-			{% endfor %}
-	]`, data, "variable_start_string", "{$", "variable_end_string", "$}")
-	println(o)
-}
-
 func TestJinja2(t *testing.T) {
-	TemplateFile("../tmp/test.j2", "../tmp/test.txt", map[string]interface{}{"header": "Header",
-		"lines": []string{"line1", "line2", "line3"},
-		"mymap": map[string]any{"key1": "value of k1", "key2": "Value of key2"},
+	TemplateFile("../tmp/test.j2", "../tmp/test.txt", map[string]any{
+		"header": "Header",
+		"lines":  []string{"line1", "line2", "line3"},
+		"mymap":  map[string]any{"key1": "value of k1", "key2": "Value of key2"},
 		"mystruct": struct {
 			F1 string
 			F2 int
@@ -79,15 +36,15 @@ func TestJinja2(t *testing.T) {
 			F2: 123,
 		},
 	}, 0o777)
+
 	TemplateFile("../tmp/test1.j2", "../tmp/test1.txt", map[string]any{
 		"header": "Header", "lines": []string{"line1", "line2", "line3"},
 		"mymap": map[string]any{"key1": "value of k1", "key2": "Value of key2"},
 	}, 0o777)
 
-	TemplateFile("../tmp/test1-notepad.j2", "../tmp/test1-notepad.txt", map[string]any{
-		"header": "Header", "lines": []string{"line1", "line2", "line3"},
-		"mymap": map[string]any{"key1": "value of k1", "key2": "Value of key2"},
-	}, 0o777)
+	// TemplateFile("../tmp/test1.j2", "../tmp/test1.txt", map[string]any{
+	// 	"header": "Header", "lines": []string{"line1", "line2", "line3"},
+	// }, 0o777)
 
 	dataStr := `This is simple {{ newvar }}`
 	println(TemplateString(dataStr, map[string]any{"newvar": "New value of new var"}))
@@ -122,6 +79,97 @@ This is has config line {{ newvar }} and {$ newvar $}`
 	]`, data)
 
 	println(o)
+}
+
+// TestLoadTemplatesInDirectory tests the LoadTemplatesInDirectory function
+func TestLoadTemplatesInDirectory(t *testing.T) {
+	// Create a temporary directory structure for testing
+	tempDir, err := os.MkdirTemp("", "jinja2_test")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Create test template files with jinja2 configuration in first line
+	testFiles := map[string]string{
+		"template1.tmpl":               `Hello {{ name }}!`,
+		"template2.tmpl":               `#{{ variable }}#`,
+		"subdir/template3.tmpl":        `{{ greeting }} {{ name }}!`,
+		"subdir/nested/template4.tmpl": `{{ message }}`,
+		"config_template.tmpl": `#jinja2:variable_start_string:'{$', variable_end_string:'$}', trim_blocks:True, lstrip_blocks:True
+{$ variable $}#`,
+	}
+
+	// Create directory structure and files
+	for filePath, content := range testFiles {
+		fullPath := filepath.Join(tempDir, filePath)
+		if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
+			t.Fatalf("Failed to create directory: %v", err)
+		}
+		if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
+			t.Fatalf("Failed to write file: %v", err)
+		}
+	}
+
+	// Test the function
+	templates, err := LoadTemplatesInDirectory(tempDir)
+	if err != nil {
+		t.Fatalf("LoadTemplatesInDirectory failed: %v", err)
+	}
+
+	// Verify we got the expected number of templates
+	expectedCount := len(testFiles)
+	if len(templates) != expectedCount {
+		t.Errorf("Expected %d templates, got %d", expectedCount, len(templates))
+	}
+
+	// Verify specific template paths
+	expectedPaths := []string{
+		"template1.tmpl",
+		"template2.tmpl",
+		"subdir/template3.tmpl",
+		"subdir/nested/template4.tmpl",
+		"config_template.tmpl",
+	}
+
+	for _, expectedPath := range expectedPaths {
+		if _, exists := templates[expectedPath]; !exists {
+			t.Errorf("Expected template %s not found", expectedPath)
+		}
+	}
+
+	// Test rendering one of the templates
+	if tmpl, exists := templates["template1.tmpl"]; exists {
+		data := map[string]interface{}{"name": "World"}
+		result, err := tmpl.Render(data)
+		if err != nil {
+			t.Errorf("Failed to render template1.tmpl: %v", err)
+		}
+		expectedResult := "Hello World!"
+		if strings.TrimSpace(result) != expectedResult {
+			t.Errorf("Expected %s, got %s", expectedResult, strings.TrimSpace(result))
+		}
+	}
+
+	// Test rendering the config template with custom settings
+	if tmpl, exists := templates["config_template.tmpl"]; exists {
+		data := map[string]interface{}{"variable": "test"}
+		result, err := tmpl.Render(data)
+		if err != nil {
+			t.Errorf("Failed to render config_template.tmpl: %v", err)
+		}
+		// Should render as "test#" with custom variable delimiters
+		expectedResult := "test#"
+		if strings.TrimSpace(result) != expectedResult {
+			t.Errorf("Expected %s, got %s", expectedResult, strings.TrimSpace(result))
+		}
+	}
+
+	// Test with non-existent directory
+	_, err = LoadTemplatesInDirectory(filepath.Join(tempDir, "nonexistent"))
+	if err == nil {
+		t.Error("Expected error for non-existent directory")
+	}
 }
 
 func TestAdhoc(t *testing.T) {

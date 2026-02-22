@@ -1,4 +1,4 @@
-package lib
+package gonja
 
 import (
 	"bytes"
