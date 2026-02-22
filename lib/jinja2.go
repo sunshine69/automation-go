@@ -413,18 +413,41 @@ func filterContainsAny(state mj.FilterState, val value.Value, args []value.Value
 	return value.FromBool(false), nil
 }
 
-func inspectTemplateString(text string) (needProcess bool, remainText string, whc syntax.WhitespaceConfig, cfg syntax.SyntaxConfig) {
+// InspectTemplateString inspects the first line of a string to determine
+// if it contains Jinja2-specific configuration directives.
+//
+// If a configuration line is found, it returns the remaining source text
+// and the parsed WhitespaceConfig and SyntaxConfig. If no configuration
+// is found, it returns the original text and defaults.
+// Caller can always use the remainText as source of templateString
+//
+// The function uses the environment variable JINJA2_CONFIG_LINE_PREFIX
+// (default: "#jinja2:") to identify configuration lines.
+func InspectTemplateString(text string) (foundConfig bool, remainText string, whc syntax.WhitespaceConfig, cfg syntax.SyntaxConfig) {
 	firstLine, newSrc := u.SplitFirstLine(text)
 	if newSrc == "" {
 		return false, text, syntax.DefaultWhitespace(), syntax.DefaultSyntax()
 	}
 	prefix := u.Getenv("JINJA2_CONFIG_LINE_PREFIX", `#jinja2:`)
-	foundConfig, whc, cfg := parseJinja2Config(firstLine, prefix)
-	if !foundConfig {
+	_foundConfig, whc, cfg := parseJinja2Config(firstLine, prefix)
+	if !_foundConfig {
 		newSrc = text
-		needProcess = false
+		foundConfig = false
+		whc.LstripBlocks = true
+		whc.TrimBlocks = true
 	}
-	return needProcess, newSrc, whc, cfg
+	return foundConfig, newSrc, whc, cfg
+}
+
+// InspectTemplateFile reads the content of a file and uses InspectTemplateString
+// to determine if it contains Jinja2 configuration directives.
+//
+// Returns the processing flag, remaining text, and the parsed whitespace and
+// syntax configurations based on the file's contents.
+// Caller can always use the remainText as source of templateString
+func InspectTemplateFile(filePath string) (foundConfig bool, remainText string, whc syntax.WhitespaceConfig, cfg syntax.SyntaxConfig) {
+	data := string(u.Must(os.ReadFile(filePath)))
+	return InspectTemplateString(data)
 }
 
 // Template a file using template string and convert windows new line to unix. This is
@@ -434,7 +457,7 @@ func TemplateFile(src, dest string, data map[string]any, fileMode os.FileMode) {
 		fileMode = 0o777
 	}
 	srcB := u.Must(os.ReadFile(src))
-	_, remain, whc, cfg := inspectTemplateString(string(srcB))
+	_, remain, whc, cfg := InspectTemplateString(string(srcB))
 	// println("FILE: " + src)
 	// println("SOURCE: " + string(srcB))
 	// println("REMAIN: " + remain)
@@ -513,6 +536,10 @@ func TemplateFileWithConfig(src, dest string, data map[string]interface{}, fileM
 	return tmpl.RenderToWrite(data, destFile)
 }
 
+// TemplateStringWithConfig renders a Jinja2 template string with the specified
+// Whitespace and Syntax configurations.
+//
+// The opt argument allows passing whitespace and syntax options (e.g. "ignore:").
 func TemplateStringWithConfig(srcString string, data map[string]interface{}, opt ...string) (string, error) {
 	whc, cfg, _ := parseConfigVarArgs(opt)
 	env := NewJinjaEnvironment(&whc, &cfg)
@@ -523,8 +550,11 @@ func TemplateStringWithConfig(srcString string, data map[string]interface{}, opt
 	return tmpl.Render(data)
 }
 
+// If a configuration line is found, it renders the template body with the
+// specific settings. If no configuration is found, it renders the original
+// string with default settings.
 func TemplateString(srcString string, data map[string]interface{}) string {
-	_, newSrc, whc, cfg := inspectTemplateString(srcString)
+	_, newSrc, whc, cfg := InspectTemplateString(srcString)
 	if newSrc == "" {
 		newSrc = srcString
 	}
@@ -559,6 +589,54 @@ func TemplateDirTree(srcDirpath, targetRoot string, tmplData map[string]interfac
 	return nil
 }
 
+// LoadTemplatesInDirectory loads all template files from a directory and returns
+// a map of template names (relative paths) to their parsed template objects.
+//
+// The function walks through the directory recursively, ignoring directories
+// and processing only files. Template files are parsed using the default
+// Jinja2 environment settings.
+func LoadTemplatesInDirectory(dirPath string) (map[string]*mj.Template, error) {
+	templates := make(map[string]*mj.Template)
+
+	err := filepath.Walk(dirPath, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			// Get relative path from dirPath
+			relPath, err := filepath.Rel(dirPath, path)
+			if err != nil {
+				return err
+			}
+
+			// Use InspectTemplateFile to get the parsed template
+			_, remain, whc, cfg := InspectTemplateFile(path)
+
+			// Create template with parsed settings
+			env := NewJinjaEnvironment(&whc, &cfg)
+			tmpl, err := env.TemplateFromString(remain)
+			if err != nil {
+				return fmt.Errorf("failed to parse template %s: %w", path, err)
+			}
+
+			templates[relPath] = tmpl
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return templates, nil
+}
+
+// ValueToNative converts a jinja2 value.Value type to a native Go interface{}.
+//
+// It handles conversion for primitive types (bool, int, float, string),
+// slices (mapped to []interface{}), and maps (mapped to map[string]interface{}).
+// For KindMap, it attempts to convert the keys to strings. If the value cannot be
+// converted, it returns the raw string representation of the value.
 func ValueToNative(v value.Value) interface{} {
 	switch v.Kind() {
 	case value.KindUndefined, value.KindNone:
