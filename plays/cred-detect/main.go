@@ -275,7 +275,7 @@ func main() {
 				defer os.RemoveAll(tmpDir)
 				tmpFile := filepath.Join(tmpDir, "words.txt.lzma")
 				// Write embedded data to temporary file
-				os.WriteFile(tmpFile, data, 0o640)
+				u.CheckErr(os.WriteFile(tmpFile, data, 0o640), "Write temp words file")
 				*words_file_path = tmpFile
 			}
 			fmt.Fprintln(os.Stderr, "Loading words file "+*words_file_path)
