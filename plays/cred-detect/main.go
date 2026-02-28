@@ -47,14 +47,25 @@ var (
 	// This allows us to extract the data in the report when matching agains the regex. The default value matched with the default ptn
 	group_index [][]int = [][]int{{1, 2}}
 	// group_index [][]int = [][]int{{2, 3}}
-	WordDict    map[string]struct{} = nil
-	compiledPtn map[string]*regexp.Regexp
+	WordDict            map[string]struct{} = nil
+	compiledPtn         map[string]*regexp.Regexp
+	previous_run_result ProjectOutputFmt
 )
 
-func init() {
+func InitGlobalVars() {
 	compiledPtn = make(map[string]*regexp.Regexp)
 	for _, ptn := range Credential_patterns {
 		compiledPtn[ptn] = regexp.MustCompile(ptn)
+	}
+
+	previous_run_result = make(ProjectOutputFmt)
+	load_profile_path := os.Getenv("LOAD_PROFILE_PATH")
+	if load_profile_path != "" {
+		var err error
+		previous_run_result, err = loadProfile(load_profile_path)
+		if u.CheckErrNonFatal(err, "[WARN] can not load profile "+load_profile_path) != nil {
+			os.Setenv("LOAD_PROFILE_PATH", "")
+		}
 	}
 }
 
@@ -88,16 +99,7 @@ func loadProfile(filename string) (output ProjectOutputFmt, err error) {
 // cred_detect_ProcessFiles to process a batch of files to detect credential pattern and send result to output_chan
 func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileInfo, password_check_mode string, entropy_threshold float64, output_chan chan<- OutputFmt, log_chan chan<- string, debug bool) {
 	defer wg.Done()
-	load_profile_path := os.Getenv("LOAD_PROFILE_PATH")
-	previous_run_result := ProjectOutputFmt{}
 
-	if load_profile_path != "" {
-		var err error
-		previous_run_result, err = loadProfile(load_profile_path)
-		if u.CheckErrNonFatal(err, "[WARN] can not load profile "+load_profile_path) != nil {
-			os.Setenv("LOAD_PROFILE_PATH", "")
-		}
-	}
 	for fpath, finfo := range fileBatch {
 		datab, err := os.ReadFile(fpath)
 		if err1 := u.CheckErrNonFatal(err, "ReadFile "+fpath); err1 != nil {
@@ -285,6 +287,7 @@ func main() {
 	}
 
 	os.Setenv("LOAD_PROFILE_PATH", *load_profile_path)
+	InitGlobalVars()
 
 	filename_regexp := regexp.MustCompile(*filename_ptn)
 
