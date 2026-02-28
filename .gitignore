@@ -31,3 +31,5 @@ words.txt
 lineinfile-*-x86_64
 .vscode/**
 .continue/**
+.aider*
+cred-detect

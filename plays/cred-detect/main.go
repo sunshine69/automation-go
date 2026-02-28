@@ -15,12 +15,17 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/sunshine69/automation-go/lib"
-
+	rice "github.com/GeertJohan/go.rice"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"github.com/sunshine69/automation-go/lib"
 	u "github.com/sunshine69/golang-tools/utils"
 )
+
+// Build using this directory - env CGO_ENABLED=0 go build -trimpath -ldflags="-X main.version=1.0 -X main.buildTime="(date +%Y%m%d_%H%M%S)" -extldflags=-static -w -s" --tags "osusergo,netgo,sqlite_stat4,sqlite_foreign_keys,sqlite_json" -o cred-detect plays/cred-detect/main.go
+// Binary produced, rice wont be able to find data box as it only find in the current dir. You need to append
+// rice append --exec cred-detect -i plays/cred-detect/main.go - rice does not have the option to set where the box dir is
+// So while development - always use option --words-file to test words
 
 //	var Credential_patterns = []string{
 //		`(?i)['"]?password['"]?\s*[=:]\s*['"]?([^'"\s]+)['"]?`, // Matches "password [=:] value"
@@ -42,8 +47,16 @@ var (
 	// This allows us to extract the data in the report when matching agains the regex. The default value matched with the default ptn
 	group_index [][]int = [][]int{{1, 2}}
 	// group_index [][]int = [][]int{{2, 3}}
-	WordDict map[string]struct{} = nil
+	WordDict    map[string]struct{} = nil
+	compiledPtn map[string]*regexp.Regexp
 )
+
+func init() {
+	compiledPtn = make(map[string]*regexp.Regexp)
+	for _, ptn := range Credential_patterns {
+		compiledPtn[ptn] = regexp.MustCompile(ptn)
+	}
+}
 
 func printVersionBuildInfo() {
 	fmt.Printf("Version: %s\nBuild time: %s\n", version, buildTime)
@@ -84,10 +97,6 @@ func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileIn
 		if u.CheckErrNonFatal(err, "[WARN] can not load profile "+load_profile_path) != nil {
 			os.Setenv("LOAD_PROFILE_PATH", "")
 		}
-	}
-	compiledPtn := map[string]*regexp.Regexp{}
-	for _, ptn := range Credential_patterns {
-		compiledPtn[ptn] = regexp.MustCompile(ptn)
 	}
 	for fpath, finfo := range fileBatch {
 		datab, err := os.ReadFile(fpath)
@@ -165,8 +174,7 @@ func main() {
 	defaultExclude := optFlag.StringP("defaultexclude", "d", `^(\.git|.*\.zip|.*\.gz|.*\.xz|.*\.bz2|.*\.zstd|.*\.7z|.*\.dll|.*\.iso|.*\.bin|.*\.tar|.*\.exe)$`, "Default exclude pattern. Set it to empty string if you need to")
 	skipBinary := optFlag.BoolP("skipbinary", "y", true, "Skip binary file")
 	password_check_mode := optFlag.String("check-mode", "letter+word", "Password check mode. List of allowed values: letter, digit, special, letter+digit, letter+digit+word, all. The default value (letter+digit+word) requires a file /tmp/words.txt; it will automatically download it if it does not exist. Link to download https://github.com/dwyl/english-words/blob/master/words.txt . It describes what it looks like a password for example if the value is 'letter' means any random ascii letter can be treated as password and will be reported. Same for others, eg, letter+digit+word means value has letter, digit and NOT looks like English word will be treated as password. Value 'all' is like letter+digit+special ")
-	words_list_url := optFlag.String("words-list-url", "https://github.com/dwyl/english-words/blob/master/words.txt", "Word list url to download")
-	words_dir_path := optFlag.String("words-dir", "", "Words directory path to search for or download. Default is system temp dir")
+	words_file_path := optFlag.String("words-file", "", "File path to the words file to be used. You can download it from https://github.com/dwyl/english-words/blob/master/words.zip. Zip of zstd, xz, lzma or raw format (.txt) supported. Default empty then a built in world list is used. Last update as of the version build date.")
 
 	debug := optFlag.Bool("debug", false, "Enable debugging. Note that it will print password values unmasked. Do not run it on CI/CD")
 	save_config_file := optFlag.String("save-config", "cred-detect-config.yaml", "Path to save config from command flags to a yaml file")
@@ -218,10 +226,6 @@ func main() {
 		os.Exit(0)
 	}
 
-	if *words_dir_path == "" {
-		*words_dir_path = os.TempDir()
-	}
-
 	viper.BindPFlags(optFlag)
 
 	viper.SetConfigName("cred-detect-config") // name of config file (without extension)
@@ -246,9 +250,8 @@ func main() {
 	*defaultExclude = viper.GetString("defaultexclude")
 	*skipBinary = viper.GetBool("skipbinary")
 	*password_check_mode = viper.GetString("check-mode")
-	*words_list_url = viper.GetString("words-list-url")
+	*words_file_path = viper.GetString("words-file")
 	*debug = viper.GetBool("debug")
-	word_file_path := path.Join(*words_dir_path, "cred-detect-word.txt")
 
 	if len(*cred_regexptn) > 0 {
 		Credential_patterns = append(Credential_patterns, *cred_regexptn...)
@@ -262,13 +265,23 @@ func main() {
 	}
 
 	if strings.Contains(*password_check_mode, "word") {
-		res, err := u.FileExists(word_file_path)
-		if !res || err != nil {
-			fmt.Fprintln(os.Stderr, "Downloading words.txt")
-			u.Must(u.Curl("GET", *words_list_url, "", word_file_path, []string{}, nil))
+		var wordsProcess = func() {
+			if *words_file_path == "" {
+				// Use embedded words.txt.lzma file
+				box := rice.MustFindBox("data")
+				data := u.Must(box.Bytes("words.txt.lzma"))
+				// Create temporary file
+				tmpDir := u.Must(os.MkdirTemp("", "words"))
+				defer os.RemoveAll(tmpDir)
+				tmpFile := filepath.Join(tmpDir, "words.txt.lzma")
+				// Write embedded data to temporary file
+				os.WriteFile(tmpFile, data, 0o640)
+				*words_file_path = tmpFile
+			}
+			fmt.Fprintln(os.Stderr, "Loading words file "+*words_file_path)
+			WordDict = u.Must(lib.LoadWordDictionary(*words_file_path, 4))
 		}
-		fmt.Fprintf(os.Stderr, "[DEBUG] %v - %v\n", res, err)
-		WordDict = u.Must(lib.LoadWordDictionary(word_file_path, 4))
+		wordsProcess()
 	}
 
 	os.Setenv("LOAD_PROFILE_PATH", *load_profile_path)

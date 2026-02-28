@@ -3,6 +3,7 @@ package lib
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"io/fs"
 	"math"
 	"os"
@@ -12,8 +13,11 @@ import (
 	"unicode"
 
 	"github.com/google/uuid"
+	"github.com/klauspost/compress/zstd"
 	u "github.com/sunshine69/golang-tools/utils"
 	"github.com/tidwall/gjson"
+	"github.com/ulikunitz/xz"
+	"github.com/ulikunitz/xz/lzma"
 	"gopkg.in/ini.v1"
 	"gopkg.in/yaml.v3"
 )
@@ -300,6 +304,138 @@ func CalculateEntropy(password string) float64 {
 
 // Load dictionary words from a file and return a map for faster lookups
 func LoadWordDictionary(filename string, word_len int) (map[string]struct{}, error) {
+
+	if filename == "" {
+		return nil, fmt.Errorf("[ERROR] word file path is empty")
+	}
+	wordsFilePath := filename
+	ext := strings.ToLower(filepath.Ext(wordsFilePath))
+
+	switch ext {
+	case ".zip":
+		// Extract zip file
+		extractDir, err := os.MkdirTemp("", "words_extract")
+		if err != nil {
+			return nil, fmt.Errorf("[ERROR] Failed to create temp dir for extraction: %s", err.Error())
+		} else {
+			defer os.RemoveAll(extractDir)
+
+			err = u.ExtractZipArchive(wordsFilePath, extractDir, nil)
+			if err != nil {
+				return nil, fmt.Errorf("[ERROR] Failed to extract zip file: %s", err.Error())
+			} else {
+				// Look for txt files in extracted directory
+				var txtFile string
+				err := filepath.Walk(extractDir, func(path string, info os.FileInfo, err error) error {
+					if err != nil {
+						return err
+					}
+					if !info.IsDir() && strings.HasSuffix(strings.ToLower(path), ".txt") {
+						txtFile = path
+						return filepath.SkipDir // Stop after finding first txt file
+					}
+					return nil
+				})
+				if err != nil {
+					return nil, fmt.Errorf("[ERROR] Error searching for txt file in zip: %s", err.Error())
+				}
+				if txtFile != "" {
+					filename = txtFile
+				}
+			}
+		}
+	case ".lzma", ".xz":
+		// Extract lzma/xz file
+		extractDir, err := os.MkdirTemp("", "words_extract")
+		if err != nil {
+			return nil, fmt.Errorf("[ERROR] Failed to create temp dir for extraction: %s\n", err.Error())
+		} else {
+			defer os.RemoveAll(extractDir)
+
+			// Create temporary file for extraction
+			tmpExtractPath := filepath.Join(extractDir, "words.txt")
+
+			// Open the lzma/xz file
+			lzmaFile, err := os.Open(wordsFilePath)
+			if err != nil {
+				return nil, fmt.Errorf("[ERROR] Failed to open lzma/xz file: %s\n", err.Error())
+			} else {
+				defer lzmaFile.Close()
+
+				// Create the output file
+				outputFile, err := os.Create(tmpExtractPath)
+				if err != nil {
+					return nil, fmt.Errorf("[ERROR] Failed to create output file: %s\n", err.Error())
+				} else {
+					defer outputFile.Close()
+
+					// Create xz decoder
+					var decoder io.Reader
+					if ext == ".lzma" {
+						decoder, err = lzma.NewReader(lzmaFile)
+					} else {
+						decoder, err = xz.NewReader(lzmaFile)
+					}
+
+					if err != nil {
+						return nil, fmt.Errorf("[ERROR] Failed to create xz decoder: %s\n", err.Error())
+					} else {
+						// Copy decompressed data to output file
+						_, err = io.Copy(outputFile, decoder)
+						if err != nil {
+							return nil, fmt.Errorf("[ERROR] Failed to extract lzma/xz file: %s\n", err.Error())
+						} else {
+							filename = tmpExtractPath
+						}
+					}
+				}
+			}
+		}
+	case ".zst", ".zstd":
+		// Extract zstd file
+		extractDir, err := os.MkdirTemp("", "words_extract")
+		if err != nil {
+			return nil, fmt.Errorf("[ERROR] Failed to create temp dir for extraction: %s", err.Error())
+		} else {
+			defer os.RemoveAll(extractDir)
+
+			// Create temporary file for extraction
+			tmpExtractPath := filepath.Join(extractDir, "words.txt")
+
+			// Open the zstd file
+			zstdFile, err := os.Open(wordsFilePath)
+			if err != nil {
+				return nil, fmt.Errorf("[ERROR] Failed to open zstd file: %s", err.Error())
+			} else {
+				defer zstdFile.Close()
+
+				// Create the output file
+				outputFile, err := os.Create(tmpExtractPath)
+				if err != nil {
+					return nil, fmt.Errorf("[ERROR] Failed to create output file: %s", err.Error())
+				} else {
+					defer outputFile.Close()
+
+					// Create zstd decoder
+					decoder, err := zstd.NewReader(zstdFile)
+					if err != nil {
+						return nil, fmt.Errorf("[ERROR] Failed to create zstd decoder: %s", err.Error())
+					} else {
+						defer decoder.Close()
+
+						// Copy decompressed data to output file
+						_, err = io.Copy(outputFile, decoder)
+						if err != nil {
+							return nil, fmt.Errorf("[ERROR] Failed to extract zstd file: %s", err.Error())
+						} else {
+							filename = tmpExtractPath
+						}
+					}
+				}
+			}
+		}
+	}
+
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, err
