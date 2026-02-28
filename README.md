@@ -6,6 +6,14 @@ My initial thing is to port ansible to go but then I do not think it is needed. 
 
 In plays folder there are several commands which I found usefull.
 
+## Library
+See in `lib/` folder.
+
+Bunch of jinja2 function wrapper for convienient usages and yaml, ini handling.
+
+
+## Tools (cli)
+
 ### cred-detect
 a password scan tools.
 
