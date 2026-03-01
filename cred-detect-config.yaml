@@ -11,4 +11,4 @@ profile: ""
 regexp: []
 save-config: cred-detect-config.yaml
 skipbinary: true
-words-file: ""
+words-file: /mnt/nfs-data/stevek-src/automation-go/plays/cred-detect/data/words.txt

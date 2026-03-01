@@ -393,6 +393,11 @@ func TestContainsDictionaryWord(t *testing.T) {
 			input:    "m.GetRequestValue(r,",
 			expected: true,
 		},
+		{
+			name:     "s2",
+			input:    "*jwt.Token)",
+			expected: true,
+		},
 	}
 
 	for _, tt := range tests {
