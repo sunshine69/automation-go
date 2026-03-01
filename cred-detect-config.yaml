@@ -1,4 +1,4 @@
-batch-size: 8
+batch-size: 16
 check-mode: letter+word
 debug: true
 defaultexclude: ^(\.git|.*\.zip|.*\.gz|.*\.xz|.*\.bz2|.*\.zstd|.*\.7z|.*\.dll|.*\.iso|.*\.bin|.*\.tar|.*\.exe)$
@@ -11,4 +11,4 @@ profile: ""
 regexp: []
 save-config: cred-detect-config.yaml
 skipbinary: true
-words-file: plays/cred-detect/data/words.txt
+words-file: ""

@@ -336,3 +336,71 @@ func TestGenerateFromConfig(t *testing.T) {
 		println("Host vars: "+hn, u.JsonDump(h.Vars, ""))
 	}
 }
+
+func TestContainsDictionaryWord(t *testing.T) {
+	// Create a test dictionary
+	// dictionary := map[string]struct{}{
+	// 	"hello":       {},
+	// 	"world":       {},
+	// 	"test":        {},
+	// 	"example":     {},
+	// 	"Go":          {},
+	// 	"programming": {},
+	// }
+	dictionary := u.Must(LoadWordDictionary("../plays/cred-detect/data/words.txt", 4))
+	tests := []struct {
+		name     string
+		input    string
+		expected bool
+	}{
+		{
+			name:     "Contains dictionary word",
+			input:    "Hello world!",
+			expected: true,
+		},
+		{
+			name:     "Does not contain dictionary word",
+			input:    "This is a test string",
+			expected: true,
+		},
+		{
+			name:     "No dictionary words",
+			input:    "This is a random string with no matches",
+			expected: true,
+		},
+		{
+			name:     "Mixed case with dictionary word",
+			input:    "GO programming is fun",
+			expected: true,
+		},
+		{
+			name:     "Numbers and special characters",
+			input:    "test123!@#",
+			expected: false,
+		},
+		{
+			name:     "Empty string",
+			input:    "",
+			expected: false,
+		},
+		{
+			name:     "Only special characters",
+			input:    "!@#$%^&*()",
+			expected: false,
+		},
+		{
+			name:     "s1",
+			input:    "m.GetRequestValue(r,",
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ContainsDictionaryWord(tt.input, dictionary)
+			if result != tt.expected {
+				t.Errorf("ContainsDictionaryWord(%q) = %v, want %v", tt.input, result, tt.expected)
+			}
+		})
+	}
+}

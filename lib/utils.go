@@ -450,7 +450,10 @@ func LoadWordDictionary(filename string, word_len int) (map[string]struct{}, err
 	for scanner.Scan() {
 		word := strings.ToLower(scanner.Text())
 		if len(word) >= word_len {
-			dictionary[word] = struct{}{}
+			words := u.CamelCaseToWords(word, true)
+			for _, w := range words {
+				dictionary[w] = struct{}{}
+			}
 		}
 	}
 
@@ -463,10 +466,11 @@ func LoadWordDictionary(filename string, word_len int) (map[string]struct{}, err
 
 // Function to check if a string contains any dictionary words using a map
 func ContainsDictionaryWord(s string, dictionary map[string]struct{}) bool {
+	// Split input s into slice of words - delimeter char is in the func(r rune)
 	words := strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
 		return !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9'))
 	})
-	words = append(words, u.CamelCaseToWords(s)...)
+	words = append(words, u.CamelCaseToWords(s, true)...)
 	for _, word := range words {
 		if _, exists := dictionary[word]; exists {
 			return true
