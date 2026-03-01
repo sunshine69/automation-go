@@ -1,20 +1,17 @@
 This is test without config line
 Header
-
 line1
-
 line2
-
 line3
 
 
-
-
-
 contains Works
-
 
 Should display here:
 f1 value
 
 Test regex_replace - 
+
+Test if we set var in if and the var is available outside
+
+myvar: My var is set

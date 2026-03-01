@@ -16,3 +16,12 @@ Should display here:
 {{ mystruct.F1 }}
 
 Test regex_replace - {{ myvar | default('') | regex_replace('^.* ([^\\s]+) .*$','\\1') }}
+
+Test if we set var in if and the var is available outside
+{% if "mystring" == "mystring" %}
+{% set myvar = "My var is set" %}
+{% else %}
+{% set myvar = "My var in the else" %}
+{% endif %}
+
+myvar: {{ myvar }}
