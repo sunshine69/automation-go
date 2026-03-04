@@ -193,8 +193,8 @@ func TestPasswordDetect(t *testing.T) {
 		u.Curl("GET", "https://github.com/dwyl/english-words/blob/master/words.txt", "", "/tmp/words.txt", []string{}, nil)
 	}
 
-	if IsLikelyPasswordOrToken(p, "letter+word", "/tmp/words.txt", 0, 0) {
-		println("Is password!!!")
+	if ispass, msg := IsLikelyPasswordOrToken(p, "letter+word", "/tmp/words.txt", 0, 0); ispass {
+		println("Is password!!! - " + msg)
 	}
 }
 
@@ -347,7 +347,7 @@ func TestContainsDictionaryWord(t *testing.T) {
 	// 	"Go":          {},
 	// 	"programming": {},
 	// }
-	dictionary := u.Must(LoadWordDictionary("../plays/cred-detect/data/words.txt", 4))
+	dictionary := u.Must(LoadWordDictionary("../plays/cred-detect/data/words-new.txt", 4))
 	tests := []struct {
 		name     string
 		input    string
@@ -359,7 +359,7 @@ func TestContainsDictionaryWord(t *testing.T) {
 			expected: true,
 		},
 		{
-			name:     "Does not contain dictionary word",
+			name:     "Contains dictionary word - sentence",
 			input:    "This is a test string",
 			expected: true,
 		},
@@ -385,7 +385,7 @@ func TestContainsDictionaryWord(t *testing.T) {
 		},
 		{
 			name:     "Only special characters",
-			input:    "!@#$%^&*()",
+			input:    "!@#$%^&*()apfgwe",
 			expected: false,
 		},
 		{
@@ -395,8 +395,13 @@ func TestContainsDictionaryWord(t *testing.T) {
 		},
 		{
 			name:     "s2",
-			input:    "*jwt.Token)",
-			expected: true,
+			input:    "7YX>2p;Dxgt2<f0#%-*JVjj5@Y5Msi1b.1#",
+			expected: false,
+		},
+		{
+			name:     "Complex",
+			input:    "aB3$kL9@mN2#pQ7&rS4*tU8",
+			expected: false,
 		},
 	}
 
@@ -408,4 +413,84 @@ func TestContainsDictionaryWord(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestIsLikelyPasswordOrToken_LetterWord(t *testing.T) {
+	// Test with words file path
+	wordsFilePath := "../plays/cred-detect/data/words-new.txt"
+	word_src := u.Must(LoadWordDictionary(wordsFilePath, 4))
+	// Test cases
+	tests := []struct {
+		name     string
+		value    string
+		expected bool
+	}{
+		{
+			name:     "Simple password with letters and digits",
+			value:    "password123",
+			expected: false,
+		},
+		{
+			name:     "Password with common word",
+			value:    "password",
+			expected: false, // Should be rejected because it's a common word
+		},
+		{
+			name:     "Password with common word and digits",
+			value:    "password123",
+			expected: false, // Should be rejected because it contains a common word
+		},
+		{
+			name:     "Complex password with letters, digits, and special chars",
+			value:    "P@ssw0rd!",
+			expected: true,
+		},
+		{
+			name:     "Short password (less than 6 chars)",
+			value:    "abc",
+			expected: false,
+		},
+		{
+			name:     "Long password (more than 64 chars)",
+			value:    "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6",
+			expected: false,
+		},
+		{
+			name:     "Password with only letters",
+			value:    "password",
+			expected: false,
+		},
+		{
+			name:     "Password with only digits",
+			value:    "123456",
+			expected: false,
+		},
+		{
+			name:     "Strong password with entropy above threshold",
+			value:    "aB3$kL9@mN2#pQ7&rS4*tU8",
+			expected: true,
+		},
+		{
+			name:     "Should return false",
+			value:    "browserWorkerApp",
+			expected: false,
+		},
+		{
+			name:     "2",
+			value:    "aB3$kL9@mN2#pQ7&rS4*tU8",
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, msg := IsLikelyPasswordOrToken(tt.value, "letter+word", word_src, 4, 2.5)
+			println(result, msg)
+			if result != tt.expected {
+				t.Errorf("IsLikelyPasswordOrToken(%q, \"letter+word\", %q, 4, 2.5) = %v, want %v - reason: %s",
+					tt.value, wordsFilePath, result, tt.expected, msg)
+			}
+		})
+	}
+	// os.WriteFile("debug-word-src.json", []byte(u.JsonDump(word_src, "")), 0o644)
 }

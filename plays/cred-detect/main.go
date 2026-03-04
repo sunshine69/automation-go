@@ -133,8 +133,11 @@ func cred_detect_ProcessFiles(wg *sync.WaitGroup, fileBatch map[string]fs.FileIn
 							log_chan <- fmt.Sprintf("%s:%d - %s: %s", fpath, idx, match[group_index[ptn_idx][0]], match[group_index[ptn_idx][1]])
 						}
 
-						if len(match) > 1 && lib.IsLikelyPasswordOrToken(match[group_index[ptn_idx][1]], password_check_mode, WordDict, 4, entropy_threshold) {
-							o.Matches = append(o.Matches, match[group_index[ptn_idx][0]], match[group_index[ptn_idx][1]])
+						if len(match) > 1 {
+							if isPass, msg := lib.IsLikelyPasswordOrToken(match[group_index[ptn_idx][1]], password_check_mode, WordDict, 4, entropy_threshold); isPass {
+								fmt.Fprintf(os.Stderr, "positive - %s\n", msg)
+								o.Matches = append(o.Matches, match[group_index[ptn_idx][0]], match[group_index[ptn_idx][1]])
+							}
 						}
 					}
 					if len(o.Matches) > 0 {

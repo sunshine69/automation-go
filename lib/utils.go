@@ -203,11 +203,10 @@ func ValidateYamlDir(yaml_dir string, yamlobj *map[string]interface{}) bool {
 // Link to download https://github.com/dwyl/english-words/blob/master/words.txt
 // These rules to reduce the false positive detection as people might put there as an example of password rather then real password,
 // we only want to spot out real password.
-func IsLikelyPasswordOrToken[W string | map[string]struct{}](value, check_mode string, words_source W, word_len int, entropy_threshold float64) bool {
+func IsLikelyPasswordOrToken[W string | map[string]struct{}](value, check_mode string, words_source W, word_len int, entropy_threshold float64) (bool, string) {
 	// Check length
-	if len(value) < 6 || len(value) > 64 {
-		// fmt.Printf("[WARN] Skipping %s as len is not > 8 and < 64\n", value)
-		return false
+	if len(value) < 6 || len(value) > 256 {
+		return false, fmt.Sprintf("[WARN] Skipping %s as len is not > 8 and < 256\n", value)
 	}
 	if word_len == 0 {
 		word_len = 4
@@ -230,12 +229,13 @@ func IsLikelyPasswordOrToken[W string | map[string]struct{}](value, check_mode s
 		entropy_threshold = 2.5
 	}
 	if entropy := CalculateEntropy(value); entropy <= entropy_threshold {
-		return false
+		return false, fmt.Sprintf("Entropy: %f lower than settings %f", entropy, entropy_threshold)
 	}
 	hasWord := false
+	msg := ""
 	var word_dict map[string]struct{} = nil
 
-	detectHasWord := func(word_dict map[string]struct{}) bool {
+	detectHasWord := func(word_dict map[string]struct{}) (bool, string) {
 		anywords_source := any(words_source)
 		if words_file_path, ok := anywords_source.(string); ok {
 			if words_file_path == "" {
@@ -249,36 +249,40 @@ func IsLikelyPasswordOrToken[W string | map[string]struct{}](value, check_mode s
 		} else {
 			panic("word_source is nil and we need it\n")
 		}
-		return ContainsDictionaryWord(value, word_dict)
+		res := ContainsDictionaryWord(strings.ToLower(value), word_dict)
+		if res {
+			return true, fmt.Sprintf("%s contains dict word - lowercase\n", value)
+		}
+		return res, fmt.Sprint(value)
 	}
 
 	switch check_mode {
 	case "letter":
-		return hasUpper && hasLower
+		return hasUpper && hasLower, "hasUpper && hasLower"
 	case "digit":
-		return hasDigit
+		return hasDigit, "hasDigit"
 	case "special":
-		return hasSpecial
+		return hasSpecial, "hasSpecial"
 	case "letter+digit":
-		return hasUpper && hasLower && hasDigit
+		return hasUpper && hasLower && hasDigit, "hasUpper && hasLower && hasDigit"
 	case "letter+word":
-		hasWord = detectHasWord(word_dict)
+		hasWord, msg = detectHasWord(word_dict)
 		if hasWord {
-			return false
+			return false, fmt.Sprint("Contains dict word - letter+word - " + msg)
 		}
-		return hasUpper && hasLower
+		return hasUpper && hasLower, "letter+word - " + msg
 	case "letter+digit+word":
-		hasWord = detectHasWord(word_dict)
+		hasWord, msg = detectHasWord(word_dict)
 		if hasWord {
-			return false
+			return false, fmt.Sprint("Contains dict word - letter+digit+word - " + msg)
 		}
-		return hasUpper && hasLower && hasDigit
+		return hasUpper && hasLower && hasDigit, "letter+digit+word - " + msg
 	default:
-		hasWord = detectHasWord(word_dict)
+		hasWord, msg = detectHasWord(word_dict)
 		if hasWord {
-			return false
+			return false, fmt.Sprint("Contains dict word: - default case - " + msg)
 		}
-		return hasUpper && hasLower && hasDigit && hasSpecial
+		return hasUpper && hasLower && hasDigit && hasSpecial, fmt.Sprint("Contains dict word: - default case - " + msg)
 	}
 }
 
@@ -450,10 +454,7 @@ func LoadWordDictionary(filename string, word_len int) (map[string]struct{}, err
 	for scanner.Scan() {
 		word := strings.ToLower(scanner.Text())
 		if len(word) >= word_len {
-			words := u.CamelCaseToWords(word, true)
-			for _, w := range words {
-				dictionary[w] = struct{}{}
-			}
+			dictionary[word] = struct{}{}
 		}
 	}
 
@@ -466,11 +467,10 @@ func LoadWordDictionary(filename string, word_len int) (map[string]struct{}, err
 
 // Function to check if a string contains any dictionary words using a map
 func ContainsDictionaryWord(s string, dictionary map[string]struct{}) bool {
-	// Split input s into slice of words - delimeter char is in the func(r rune)
+
 	words := strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
-		return !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9'))
+		return !(r >= 'a' && r <= 'z')
 	})
-	words = append(words, u.CamelCaseToWords(s, true)...)
 	for _, word := range words {
 		if _, exists := dictionary[word]; exists {
 			return true
