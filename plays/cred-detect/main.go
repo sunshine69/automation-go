@@ -273,11 +273,11 @@ func main() {
 			if *words_file_path == "" {
 				// Use embedded words.txt.lzma file
 				box := rice.MustFindBox("data")
-				data := u.Must(box.Bytes("words.txt.lzma"))
+				data := u.Must(box.Bytes("words.txt.zst"))
 				// Create temporary file
 				tmpDir := u.Must(os.MkdirTemp("", "words"))
 				defer os.RemoveAll(tmpDir)
-				tmpFile := filepath.Join(tmpDir, "words.txt.lzma")
+				tmpFile := filepath.Join(tmpDir, "words.txt.zst")
 				// Write embedded data to temporary file
 				u.CheckErr(os.WriteFile(tmpFile, data, 0o640), "Write temp words file")
 				*words_file_path = tmpFile
