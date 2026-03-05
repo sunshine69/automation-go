@@ -341,8 +341,7 @@ func main() {
 				if !moredata {
 					output_chan = nil
 				}
-			case file_count, more_file := <-stat_chan:
-				total_files_process += file_count
+			case _, more_file := <-stat_chan:
 				if !more_file {
 					stat_chan = nil
 				}
@@ -383,6 +382,7 @@ func main() {
 		// Check if the file matches the pattern
 
 		if !info.IsDir() {
+			// total_files_scanned = total_files_scanned + 1
 			total_files_scanned++
 			if fpath != *load_profile_path && filename_regexp.MatchString(fname) && ((excludePtn == nil) || (excludePtn != nil && !excludePtn.MatchString(fname))) && ((defaultExcludePtn == nil) || (defaultExcludePtn != nil && !defaultExcludePtn.MatchString(fname))) {
 				if *skipBinary {
@@ -406,7 +406,11 @@ func main() {
 					filesBatch[fpath] = info
 				} else {
 					wg.Add(1)
+					total_files_process += *batchSize
 					go cred_detect_ProcessFiles(&wg, filesBatch, *password_check_mode, 0, output_chan, log_chan, *debug)
+					if *debug {
+						fmt.Fprintf(os.Stderr, "Add file: %s\n", fpath)
+					}
 					filesBatch = map[string]fs.FileInfo{fpath: info} // Need to add this one as the batch is full we miss add it.
 				}
 			}
@@ -415,6 +419,7 @@ func main() {
 	})
 
 	if len(filesBatch) > 0 { // Last batch
+		total_files_process += len(filesBatch)
 		wg.Add(1)
 		go cred_detect_ProcessFiles(&wg, filesBatch, *password_check_mode, 0, output_chan, log_chan, *debug)
 	}
@@ -429,16 +434,17 @@ func main() {
 	if len(logs) > 0 {
 		fmt.Fprintln(os.Stderr, strings.Join(logs, "\n"))
 	}
-
+	exitCode := 0
 	if len(output) > 0 {
 		// fmt.Printf("%s\n", u.JsonDump(output, "     "))
 		je := json.NewEncoder(os.Stdout)
 		je.SetEscapeHTML(false) // prevent < or > to be backspace like \uXXXX
 		je.SetIndent("", "  ")
-		je.Encode(output)
-		os.Exit(1)
+		u.CheckErr(je.Encode(output), "")
+		exitCode = 1
 	} else {
 		fmt.Print("{}")
 	}
 	fmt.Fprintf(os.Stderr, "Scanned %d files and has processed %d files\n", total_files_scanned, total_files_process)
+	os.Exit(exitCode)
 }
