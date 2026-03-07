@@ -20,11 +20,12 @@ a password scan tools.
 build:
 ```
 env CGO_ENABLED=0 go build -trimpath -ldflags="-X main.version=1.0 -X main.buildTime=(date +%Y%m%d%H%M) 
--extldflags=-static -w -s" --tags "osusergo,netgo,sqlite_stat4,sqlite_foreign_keys,sqlite_json" -o cred-detect plays/cred-detect/main.go
+-extldflags=-static -w -s" --tags "osusergo,netgo" -o cred-detect plays/cred-detect/main.go
 
-# You can test the binary but remember to use the options `--words-file` pointing to the words file, you can add more words into it to teach the cli know the words, so it wont report it as real password. The file is in plays/cred-detect/data/words.txt. aFter done, compress this file using command `lzma` and then append it to the binary
+# You can test the binary but remember to use the options `--words-file` pointing to the words file, you can add more words into it to teach the cli know the words, so it wont report it as real password. The file is in plays/cred-detect/data/words.txt. aFter done, compress this file using command `zstd` and then append it to the binary
 
 rice append --exec cred-detect -i plays/cred-detect/main.go
+# You need `rice` command. To install run `go install github.com/GeertJohan/go.rice/rice@latest`
 
 ```
 
