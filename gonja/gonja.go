@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 
-	json "github.com/json-iterator/go"
+	"encoding/json"
 
 	"os"
 	"path"
@@ -156,13 +156,13 @@ var filterFuncToJson exec.FilterFunction = func(e *exec.Evaluator, in *exec.Valu
 	indent := p.KwArgs["indent"]
 	var out string
 	if indent.IsNil() {
-		b, err := json.ConfigCompatibleWithStandardLibrary.Marshal(casted)
+		b, err := json.Marshal(casted)
 		if err != nil {
 			return exec.AsValue(errors.Wrap(err, "Unable to marhsall to json"))
 		}
 		out = string(b)
 	} else if indent.IsInteger() {
-		b, err := json.ConfigCompatibleWithStandardLibrary.MarshalIndent(casted, "", strings.Repeat(" ", indent.Integer()))
+		b, err := json.MarshalIndent(casted, "", strings.Repeat(" ", indent.Integer()))
 		if err != nil {
 			return exec.AsValue(errors.Wrap(err, "Unable to marhsall to json"))
 		}
