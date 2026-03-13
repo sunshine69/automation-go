@@ -174,7 +174,7 @@ func TestLoadTemplatesInDirectory(t *testing.T) {
 
 func TestAdhoc(t *testing.T) {
 	// u.ExtractTextBlock("/home/sitsxk5/src")
-	filename := "/home/stevek/src/"
+	filename := "/tmp/failedtest"
 	ptn := regexp.MustCompile(`(?m)\<\?php echo (\$[a-zA-Z0-9]+); \?\>`)
 	datab, err := os.ReadFile(filename)
 	u.CheckErr(err, "")

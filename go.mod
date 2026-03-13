@@ -16,7 +16,7 @@ require (
 	github.com/relex/aini v1.6.0
 	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.21.0
-	github.com/sunshine69/golang-tools/utils v0.0.0-20260313230106-7a87b542dfae
+	github.com/sunshine69/golang-tools/utils v0.0.0-20260313232804-2a31e5e055bb
 	github.com/sunshine69/sonja/v2 v2.3.4
 	github.com/tidwall/gjson v1.18.0
 	github.com/ulikunitz/xz v0.5.15
