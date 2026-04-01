@@ -42,6 +42,8 @@ github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnr
 github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
 github.com/klauspost/compress v1.18.4 h1:RPhnKRAQ4Fh8zU2FY/6ZFDwTVTxgJ/EMydqSTzE9a2c=
 github.com/klauspost/compress v1.18.4/go.mod h1:R0h/fSBs8DE4ENlcrlib3PsXS61voFxhIs2DeRhCvJ4=
+github.com/klauspost/compress v1.18.5 h1:/h1gH5Ce+VWNLSWqPzOVn6XBO+vJbCNGvjoaGBFW2IE=
+github.com/klauspost/compress v1.18.5/go.mod h1:cwPg85FWrGar70rWktvGQj8/hthj3wpl0PGDogxkrSQ=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
 github.com/kr/pretty v0.3.1/go.mod h1:hoEshYVHaxMs3cyo3Yncou5ZscifuDolrwPKZanG3xk=
 github.com/kr/text v0.2.0 h1:5Nx0Ya0ZqY2ygV366QzturHI13Jq95ApcVaJBhpS+AY=
@@ -50,6 +52,8 @@ github.com/mattn/go-isatty v0.0.20 h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWE
 github.com/mattn/go-isatty v0.0.20/go.mod h1:W+V8PltTTMOvKvAeJH7IuucS94S2C6jfK/D7dTCTo3Y=
 github.com/mitsuhiko/minijinja/minijinja-go/v2 v2.17.1 h1:PhTcDhXaRjusPZXDqLVvzdsGVk+qbDe/d14PidqwTp4=
 github.com/mitsuhiko/minijinja/minijinja-go/v2 v2.17.1/go.mod h1:nfRUY950h3qI2abjyHpuFSLgcyWI/yy3l0/ZDmbXjOA=
+github.com/mitsuhiko/minijinja/minijinja-go/v2 v2.18.0 h1:fGST+x3AdJ9b8o2NyGYHQxWWs1ejPB/luh357z5cEaM=
+github.com/mitsuhiko/minijinja/minijinja-go/v2 v2.18.0/go.mod h1:nfRUY950h3qI2abjyHpuFSLgcyWI/yy3l0/ZDmbXjOA=
 github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
 github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd h1:TRLaZ9cD/w8PVh93nsPXa1VrQ6jlwL5oN8l14QlcNfg=
 github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
@@ -62,6 +66,8 @@ github.com/onsi/gomega v1.37.0 h1:CdEG8g0S133B4OswTDC/5XPSzE1OeP29QOioj2PID2Y=
 github.com/onsi/gomega v1.37.0/go.mod h1:8D9+Txp43QWKhM24yyOBEdpkzN8FvJyAwecBgsU4KU0=
 github.com/pelletier/go-toml/v2 v2.2.4 h1:mye9XuhQ6gvn5h28+VilKrrPoQVanw5PMw/TB0t5Ec4=
 github.com/pelletier/go-toml/v2 v2.2.4/go.mod h1:2gIqNv+qfxSVS7cM2xJQKtLSTLUE9V8t9Stt+h56mCY=
+github.com/pelletier/go-toml/v2 v2.3.0 h1:k59bC/lIZREW0/iVaQR8nDHxVq8OVlIzYCOJf421CaM=
+github.com/pelletier/go-toml/v2 v2.3.0/go.mod h1:2gIqNv+qfxSVS7cM2xJQKtLSTLUE9V8t9Stt+h56mCY=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
@@ -100,6 +106,8 @@ github.com/sunshine69/golang-tools/utils v0.0.0-20260313230106-7a87b542dfae h1:A
 github.com/sunshine69/golang-tools/utils v0.0.0-20260313230106-7a87b542dfae/go.mod h1:leJAZh5QDWGKJmZvannU9RHwMJe4CofXFjkq0jkqW7Y=
 github.com/sunshine69/golang-tools/utils v0.0.0-20260313232804-2a31e5e055bb h1:8ZXp3nHAr7xSz8PNxvSadVJeqXRwl22cLSv53r53TOo=
 github.com/sunshine69/golang-tools/utils v0.0.0-20260313232804-2a31e5e055bb/go.mod h1:leJAZh5QDWGKJmZvannU9RHwMJe4CofXFjkq0jkqW7Y=
+github.com/sunshine69/golang-tools/utils v0.0.0-20260401041122-cbc1ba2909e2 h1:rkTOykHT5YRchZGUdn4caFQ133Jtn2C8FFbVd+l01tQ=
+github.com/sunshine69/golang-tools/utils v0.0.0-20260401041122-cbc1ba2909e2/go.mod h1:KYd8i/JeSEd5fZ3oyiAkT6arqCskEBfhScU8gLH1hPE=
 github.com/sunshine69/sonja/v2 v2.3.4 h1:9m/fqv5GDnk+RT7E1n4lcrefG9sQPPQjqXEV1VO338g=
 github.com/sunshine69/sonja/v2 v2.3.4/go.mod h1:YZDnX8iPle4qqNSsLdCcKhlisyQwnWDRzF3QVlZB3/8=
 github.com/tidwall/gjson v1.18.0 h1:FIDeeyB800efLX89e5a8Y0BNH+LOngJyGrIWxG2FKQY=
