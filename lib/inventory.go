@@ -1,31 +1,459 @@
 package lib
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
-	"io/fs"
-	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 
-	"github.com/relex/aini"
 	u "github.com/sunshine69/golang-tools/utils"
 	"gopkg.in/yaml.v3"
 )
 
-type Inventory struct {
-	Groups map[string]*Group
-}
-
-type Group struct {
-	Hosts map[string]*Host
-	Vars  map[string]any
-}
-
+// Host: DNS-safe, no children, no groupSet field
 type Host struct {
-	Vars map[string]any
+	Name   string         `json:"name"`
+	Groups []string       `json:"groups,omitempty"`
+	Vars   map[string]any `json:"vars,omitempty"`
+}
+
+// Group
+type Group struct {
+	Name     string         `json:"name"`
+	Hosts    []string       `json:"hosts,omitempty"`
+	Children []string       `json:"children,omitempty"`
+	Vars     map[string]any `json:"vars,omitempty"`
+}
+
+// Inventory
+type Inventory struct {
+	All          *Group            `json:"all,omitempty"`
+	Groups       map[string]*Group `json:"groups"`
+	Hosts        map[string]*Host  `json:"hosts"`
+	GroupOrder   []string          `json:"group_order,omitempty"`
+	InventoryDir string
+}
+
+func NewInventory(inventoryDir string) *Inventory {
+	return &Inventory{
+		Groups:       make(map[string]*Group),
+		Hosts:        make(map[string]*Host),
+		InventoryDir: inventoryDir,
+	}
+}
+
+// DNS validator (RFC 1123-friendly: alphanumeric, . _ -)
+var validHostname = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
+
+func hostValid(name string) bool {
+	if name == "" || len(name) > 253 {
+		return false
+	}
+	return validHostname.MatchString(name)
+}
+
+// AddHost — validates hostname strictly
+func (inv *Inventory) AddHost(hostname string) *Host {
+	if !hostValid(hostname) {
+		fmt.Fprintf(os.Stderr, "Warning: invalid hostname '%s'\n", hostname)
+		return nil
+	}
+	if _, ok := inv.Hosts[hostname]; !ok {
+		inv.Hosts[hostname] = &Host{
+			Name:   hostname,
+			Groups: []string{},
+			Vars:   make(map[string]any),
+		}
+	}
+	return inv.Hosts[hostname]
+}
+
+// AddGroup
+func (inv *Inventory) AddGroup(name string) *Group {
+	if name == "" {
+		return nil
+	}
+	name = strings.TrimSpace(name)
+	if _, ok := inv.Groups[name]; !ok {
+		inv.GroupOrder = append(inv.GroupOrder, name)
+		inv.Groups[name] = &Group{
+			Name:     name,
+			Hosts:    []string{},
+			Children: []string{},
+			Vars:     make(map[string]any),
+		}
+	}
+	return inv.Groups[name]
+}
+
+// parseSectionHeader: only parses [name], [name:vars], [name:children]
+func parseSectionHeader(line string) (name, sectionType string) {
+	if !strings.HasPrefix(line, "[") || !strings.HasSuffix(line, "]") {
+		return "", ""
+	}
+	content := strings.TrimSpace(line[1 : len(line)-1])
+	if content == "" {
+		return "", ""
+	}
+
+	// Only zero or one ':' — and only in valid contexts
+	if strings.Count(content, ":") > 1 {
+		return "", ""
+	}
+
+	if idx := strings.Index(content, ":"); idx != -1 {
+		name = content[:idx]
+		sectionType = content[idx+1:]
+		if sectionType != "vars" && sectionType != "children" {
+			return "", ""
+		}
+	} else {
+		name = content
+		sectionType = ""
+	}
+
+	if !hostValid(name) {
+		return "", ""
+	}
+
+	return name, sectionType
+}
+
+// parseLineForHost: only hostname (first token), rejects ':', spaces, invalid chars
+func parseLineForHost(line string) (string, error) {
+	line = strings.TrimSpace(line)
+	if line == "" || line[0] == '#' || line[0] == ';' {
+		return "", fmt.Errorf("empty or comment")
+	}
+
+	// Reject if line contains ':' — but only for host lines
+	if strings.Contains(line, ":") {
+		return "", fmt.Errorf("invalid hostname '%s': contains ':'", line)
+	}
+
+	tokens := strings.Fields(line)
+	if len(tokens) == 0 {
+		return "", fmt.Errorf("no hostname")
+	}
+	hostname := tokens[0]
+
+	if !hostValid(hostname) {
+		return "", fmt.Errorf("invalid hostname '%s'", hostname)
+	}
+	return hostname, nil
+}
+
+// unquote
+func unquote(s string) string {
+	s = strings.TrimSpace(s)
+	if len(s) >= 2 {
+		if (s[0] == '"' && s[len(s)-1] == '"') || (s[0] == '\'' && s[len(s)-1] == '\'') {
+			return s[1 : len(s)-1]
+		}
+	}
+	return s
+}
+
+// parseInlineVars: ["k1=v1", "k2='v2'"] → map[string]any
+// Converts each value to appropriate type (int, bool, string, etc.)
+func parseInlineVars(tokens []string) map[string]any {
+	vars := make(map[string]any)
+	for _, tok := range tokens {
+		parts := strings.SplitN(tok, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		valRaw := parts[1]
+		// Try numeric/bool detection before string
+		val := parseValue(valRaw)
+		vars[key] = val
+	}
+	return vars
+}
+
+// Helper to guess type (string, int, float, bool, or raw string)
+func parseValue(s string) any {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+
+	// Try bool
+	if b, err := strconv.ParseBool(s); err == nil {
+		return b
+	}
+	// Try int
+	if i, err := strconv.ParseInt(s, 10, 64); err == nil {
+		return i
+	}
+	// Try float
+	if f, err := strconv.ParseFloat(s, 64); err == nil {
+		return f
+	}
+	// Otherwise, unquote string
+	return unquote(s)
+}
+
+// parseInventoryFile: main parsing loop
+func parseInventoryFile(filePath string, inv *Inventory) error {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to open %s: %w", filePath, err)
+	}
+	defer file.Close()
+
+	var currentGroup *Group
+
+	scanner := bufio.NewScanner(file)
+	lineNum := 0
+	for scanner.Scan() {
+		lineNum++
+		line := strings.TrimSpace(scanner.Text())
+
+		// Skip comments/empty
+		if line == "" || line[0] == '#' || line[0] == ';' {
+			continue
+		}
+
+		// 🔑 FIRST: section headers (must be parsed before host lines!)
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			name, sectionType := parseSectionHeader(line)
+			if name == "" {
+				continue // invalid header, skip
+			}
+
+			switch sectionType {
+			case "":
+				currentGroup = inv.AddGroup(name)
+
+			case "vars":
+				currentGroup = inv.AddGroup(name)
+
+			case "children":
+				currentGroup = inv.AddGroup(name)
+
+			}
+			continue
+		}
+
+		// Now: host line (only valid if inside a group)
+		if currentGroup == nil {
+			fmt.Fprintf(os.Stderr, "Warning (%s:%d): host line '%s' outside any group\n", filePath, lineNum, line)
+			continue
+		}
+
+		// Extract hostname (first token), validate strictly
+		hostname, err := parseLineForHost(line)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning (%s:%d): %v\n", filePath, lineNum, err)
+			continue
+		}
+
+		host := inv.AddHost(hostname)
+		if host == nil {
+			continue
+		}
+		// Prepend "all" to host.Groups if not already present
+		allInserted := false
+		for _, g := range host.Groups {
+			if g == "all" {
+				allInserted = true
+				break
+			}
+		}
+		if !allInserted {
+			host.Groups = append([]string{"all"}, host.Groups...)
+		}
+		// Add host to current group (avoid duplicates)
+		if !containsStr(currentGroup.Hosts, hostname) {
+			currentGroup.Hosts = append(currentGroup.Hosts, hostname)
+		}
+		if !containsStr(host.Groups, currentGroup.Name) {
+			host.Groups = append(host.Groups, currentGroup.Name)
+		}
+
+		// Parse inline vars if any (after hostname)
+		tokens := strings.Fields(line)
+		if len(tokens) > 1 {
+			vars := parseInlineVars(tokens[1:])
+			if host.Vars == nil {
+				host.Vars = make(map[string]any)
+			}
+			for k, v := range vars {
+				host.Vars[k] = v
+			}
+		}
+	}
+
+	return scanner.Err()
+}
+
+// parseInventoryDir: parses all .ini and extensionless files in directory
+func parseInventoryDir(invDir string) (*Inventory, error) {
+	inv := NewInventory(invDir)
+
+	entries, err := os.ReadDir(invDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read directory %s: %w", invDir, err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		ext := filepath.Ext(name)
+		// Accept .ini and files without extension
+		if ext != ".ini" && ext != "" {
+			continue
+		}
+
+		fullPath := filepath.Join(invDir, name)
+		err := parseInventoryFile(fullPath, inv)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing file %s: %w", fullPath, err)
+		}
+	}
+
+	// Build implicit `all` group
+	inv.All = &Group{
+		Name:     "all",
+		Hosts:    []string{},
+		Children: []string{},
+		Vars:     make(map[string]any),
+	}
+	for hostName := range inv.Hosts {
+		inv.All.Hosts = append(inv.All.Hosts, hostName)
+	}
+
+	sortGroupOrder(inv)
+	FinalizeInventory(inv)
+	return inv, nil
+}
+
+// FinalizeInventory: sort groups per host by priority (simples before composites)
+func FinalizeInventory(inv *Inventory) {
+	for _, host := range inv.Hosts {
+		simples, composites := []string{}, []string{}
+		for _, g := range host.Groups {
+			if strings.Contains(g, "_") {
+				composites = append(composites, g)
+			} else {
+				simples = append(simples, g)
+			}
+		}
+		sort.Strings(simples)
+		sort.Strings(composites)
+		host.Groups = append(simples, composites...)
+	}
+}
+
+func sortGroupOrder(inv *Inventory) {
+	simples, composites := []string{}, []string{}
+	for _, g := range inv.GroupOrder {
+		if strings.Contains(g, "_") {
+			composites = append(composites, g)
+		} else {
+			simples = append(simples, g)
+		}
+	}
+	sort.Strings(simples)
+	sort.Strings(composites)
+	inv.GroupOrder = append(simples, composites...)
+}
+
+func containsStr(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
+}
+
+// ParseInventoryVars: parses [name:vars] sections for groups/hosts
+func (inv *Inventory) ParseInventoryVars(invDir string) error {
+	entries, err := os.ReadDir(invDir)
+	if err != nil {
+		return fmt.Errorf("failed to read directory %s: %w", invDir, err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		ext := filepath.Ext(name)
+		if ext != ".ini" && ext != "" {
+			continue
+		}
+
+		fullPath := filepath.Join(invDir, name)
+		file, err := os.Open(fullPath)
+		if err != nil {
+			continue
+		}
+		defer file.Close()
+
+		scanner := bufio.NewScanner(file)
+		lineNum := 0
+
+		for scanner.Scan() {
+			lineNum++
+			line := strings.TrimSpace(scanner.Text())
+
+			if line == "" || line[0] == '#' || line[0] == ';' {
+				continue
+			}
+
+			// Only process [name:vars] sections
+			if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+				name, sectionType := parseSectionHeader(line)
+				if sectionType != "vars" || name == "" {
+					continue
+				}
+
+				// Found [name:vars] — now parse its content
+				// Check if group exists
+				if g, ok := inv.Groups[name]; ok {
+					g.Vars = make(map[string]any)
+					for scanner.Scan() {
+						line = strings.TrimSpace(scanner.Text())
+						if strings.HasPrefix(line, "[") || line == "" {
+							break
+						}
+						if idx := strings.Index(line, "="); idx != -1 {
+							key := strings.TrimSpace(line[:idx])
+							val := unquote(line[idx+1:])
+							g.Vars[key] = val
+						}
+					}
+				} else if h, ok := inv.Hosts[name]; ok {
+					h.Vars = make(map[string]any)
+					for scanner.Scan() {
+						line = strings.TrimSpace(scanner.Text())
+						if strings.HasPrefix(line, "[") || line == "" {
+							break
+						}
+						if idx := strings.Index(line, "="); idx != -1 {
+							key := strings.TrimSpace(line[:idx])
+							val := unquote(line[idx+1:])
+							h.Vars[key] = val
+						}
+					}
+				} else {
+					fmt.Fprintf(os.Stderr, "Warning: [%s:vars] references unknown group or host '%s'\n", name, name)
+				}
+			}
+		}
+	}
+	return nil
 }
 
 type GeneratorConfig struct {
@@ -44,276 +472,6 @@ type GroupConfig struct {
 	Name    string            `yaml:"name"`
 	Vars    map[string]string `yaml:"vars"`
 	Parents []GroupConfig     `yaml:"parents"`
-}
-
-// Layer expansion (cartesian product)
-// This turns:
-// ops: [update]
-// pkg: [letsencrypt]
-// env: [dev, uat, prod]
-// into:
-// []map[string]any{
-// 	{"ops":"update","pkg":"letsencrypt","env":"dev"},
-// 	{"ops":"update","pkg":"letsencrypt","env":"uat"},
-// 	{"ops":"update","pkg":"letsencrypt","env":"prod"},
-// }
-
-func ExpandLayers(layers map[string][]string) []map[string]any {
-	keys := make([]string, 0, len(layers))
-	for k := range layers {
-		keys = append(keys, k)
-	}
-
-	var res []map[string]any
-
-	var walk func(int, map[string]any)
-	walk = func(i int, cur map[string]any) {
-		if i == len(keys) {
-			// println("[DEBUG]", u.JsonDump(cur, ""), "[END]")
-			// m := map[string]any{}
-			// for k, v := range cur {
-			// 	m[k] = v
-			// }
-			m := maps.Clone(cur)
-			res = append(res, m)
-			return
-		}
-
-		key := keys[i]
-		for _, val := range layers[key] {
-			cur[key] = val
-			walk(i+1, cur)
-		}
-	}
-
-	walk(0, map[string]any{})
-	return res
-}
-
-type IniInventory struct {
-	Groups        map[string][]string          // group -> hosts
-	GroupVars     map[string]map[string]string // group -> vars
-	GroupChildren map[string]map[string]bool   // parent -> child groups
-}
-
-func ensureGroupChildren(m map[string]map[string]bool, parent string) {
-	if _, ok := m[parent]; !ok {
-		m[parent] = map[string]bool{}
-	}
-}
-
-func ensureGroup(m map[string][]string, name string) {
-	if _, ok := m[name]; !ok {
-		m[name] = []string{}
-	}
-}
-
-func ensureGroupVars(m map[string]map[string]string, name string) {
-	if _, ok := m[name]; !ok {
-		m[name] = map[string]string{}
-	}
-}
-
-func GenerateIniFromConfig(cfg *GeneratorConfig) string {
-	inv := &IniInventory{
-		Groups:        map[string][]string{},
-		GroupVars:     map[string]map[string]string{},
-		GroupChildren: map[string]map[string]bool{},
-	}
-
-	objects := ExpandLayers(cfg.Layers)
-
-	for _, ctx := range objects {
-		host := TemplateString(cfg.Hosts.Name, ctx)
-
-		ensureGroup(inv.Groups, "all")
-		inv.Groups["all"] = append(inv.Groups["all"], host)
-
-		for _, p := range cfg.Hosts.Parents {
-			processGroupINI(inv, p, ctx, host, true)
-		}
-
-	}
-
-	if len(cfg.Hosts.Vars) > 0 {
-		ensureGroupVars(inv.GroupVars, "all")
-		for k, v := range cfg.Hosts.Vars {
-			inv.GroupVars["all"][k] = v
-		}
-	}
-	// fmt.Printf("DEBUG GroupChildren = %s\n", u.JsonDump(inv.GroupChildren, ""))
-	return renderIni(inv)
-}
-
-func renderIni(inv *IniInventory) string {
-	var b strings.Builder
-
-	for g, hosts := range inv.Groups {
-		b.WriteString("[" + g + "]\n")
-		for _, h := range hosts {
-			b.WriteString(h + "\n")
-		}
-		b.WriteString("\n")
-	}
-
-	for parent, children := range inv.GroupChildren {
-		b.WriteString("[" + parent + ":children]\n")
-		for c := range maps.Keys(children) {
-			b.WriteString(c + "\n")
-		}
-		// render [parent:children]
-	}
-	for g, vars := range inv.GroupVars {
-		b.WriteString("[" + g + ":vars]\n")
-		for k, v := range vars {
-			b.WriteString(fmt.Sprintf("%s=%s\n", k, v))
-		}
-		b.WriteString("\n")
-	}
-
-	return b.String()
-}
-
-func processGroupINI(
-	inv *IniInventory,
-	cfg GroupConfig,
-	ctx map[string]any,
-	host string,
-	withHost bool,
-) {
-	groupName := TemplateString(cfg.Name, ctx)
-	if groupName == "" {
-		return
-	}
-
-	// ensure group exists
-	ensureGroup(inv.Groups, groupName)
-
-	// only leaf groups get hosts
-	if withHost {
-		inv.Groups[groupName] = append(inv.Groups[groupName], host)
-	}
-
-	// group vars
-	for k, tmpl := range cfg.Vars {
-		v := TemplateString(tmpl, ctx)
-		ensureGroupVars(inv.GroupVars, groupName)
-		inv.GroupVars[groupName][k] = v
-	}
-
-	// parents → children relationship
-	for _, p := range cfg.Parents {
-		parentName := TemplateString(p.Name, ctx)
-		if parentName == "" {
-			continue
-		}
-		ensureGroupChildren(inv.GroupChildren, parentName)
-		inv.GroupChildren[parentName][groupName] = true
-
-		// ensure parent exists
-		ensureGroup(inv.Groups, parentName)
-
-		// recurse upward WITHOUT hosts
-		processGroupINI(inv, p, ctx, host, false)
-	}
-}
-
-func ParseInventoryGenerator(inventoryFile string) *aini.InventoryData {
-	datab := u.Must(os.ReadFile(inventoryFile))
-	invConfig := GeneratorConfig{}
-	u.CheckErr(yaml.Unmarshal(datab, &invConfig), "")
-	iniText := GenerateIniFromConfig(&invConfig)
-	inventory := u.Must(aini.ParseString(iniText))
-	inventory.AddVars(filepath.Dir(inventoryFile))
-	return inventory
-}
-
-// Load all inventory files at the first level. If file does not have extention or having .ini then treat it as ini format.
-// .yaml file will be treated as generator format. We dont support anything else as of now
-// Inventory will be combined. AddVars also called but var wont be flattern yet, you need to do it manually
-func ParseInventoryDir(inventoryDir string) *aini.InventoryData {
-	invFiles := u.Must(ReadFirstLevelFiles(inventoryDir))
-	builder := strings.Builder{}
-
-	for _, invF := range invFiles {
-		file_path := filepath.Join(inventoryDir, invF.Name())
-		ext := filepath.Ext(file_path)
-		println("Read file " + file_path)
-		if ext == "" || ext == ".ini" {
-			println("Read ini file " + file_path)
-			builder.Write(u.Must(os.ReadFile(file_path)))
-			builder.WriteString("\n")
-			continue
-		}
-		if ext == ".yaml" || ext == ".yml" {
-			println("Read yaml file " + file_path)
-			invConfig := GeneratorConfig{}
-			u.CheckErr(yaml.Unmarshal(u.Must(os.ReadFile(file_path)), &invConfig), "")
-			builder.WriteString(GenerateIniFromConfig(&invConfig))
-			builder.WriteString("\n")
-		}
-	}
-	Inventory := u.Must(aini.ParseString(builder.String()))
-	Inventory.AddVars(inventoryDir)
-	return Inventory
-}
-
-// Load inventory and return command line vars in Vars. Also populate global vars.
-// Per host will get its own vars later
-func LoadInventory(InventoryDir, HostsPattern string, extraVar u.ArrayFlags) (Inventory *aini.InventoryData, MatchedHostsMap map[string]*aini.Host, HostList []string, extraVars map[string]any) {
-	extraVars = make(map[string]any, 0)
-	if _, ok := extraVars["inventory_dir"]; ok {
-		return // Not reload it again
-	}
-	println("[INFO] InventoryPath: " + InventoryDir)
-	Inventory = ParseInventoryDir(InventoryDir)
-	MatchedHostsMap = u.Must(Inventory.MatchHosts(HostsPattern))
-	HostList = u.MapKeysToSlice(MatchedHostsMap)
-	// Populate some default inventory vars. The specific host before use will update this Vars with ansible vars and flattern them
-	extraVars["inventory_dir"] = InventoryDir
-	extraVars["playbook_dir"] = u.Must(os.Getwd())
-
-	// Loads command line vars
-	for _, item := range extraVar {
-		_tmp := strings.Split(item, "=")
-		key, val := strings.TrimSpace(_tmp[0]), strings.TrimSpace(_tmp[1])
-		println("Adding var from command line - " + key + "=" + val)
-		extraVars[key] = val
-	}
-	return
-}
-
-// ReadFirstLevelFiles reads the first level of a directory and returns only the files.
-func ReadFirstLevelFiles(dirPath string) ([]fs.DirEntry, error) {
-	entries, err := os.ReadDir(dirPath)
-	if err != nil {
-		return nil, err
-	}
-
-	var files []fs.DirEntry
-	for _, entry := range entries {
-		// Check if the entry is a file
-		if !entry.IsDir() {
-			files = append(files, entry)
-		}
-	}
-
-	return files, nil
-}
-
-func parseDynamicValue(val string) (interface{}, error) {
-	var detected interface{}
-
-	// Attempt to unmarshal the string as JSON
-	err := json.Unmarshal([]byte(val), &detected)
-
-	if err != nil {
-		// Not valid JSON; return original string as a fallback
-		return val, nil
-	}
-
-	// Return the converted type (could be float64, bool, []interface{}, or map[string]interface{})
-	return detected, nil
 }
 
 // FlattenVar recursively resolves all template variables in a string
@@ -432,3 +590,376 @@ func FlattenAllVars(data map[string]any) (map[string]any, error) {
 
 	return result, nil
 }
+
+func (inv *Inventory) ParseAllInventory() {
+	u.CheckErr(inv.ParseGroupVars(inv.InventoryDir), "")
+	inv.MergeVars()
+	u.CheckErr(inv.ParseInventoryVars(inv.InventoryDir), "")
+	u.CheckErr(inv.ParseHostVars(inv.InventoryDir), "")
+	u.CheckErr(inv.FlattenAllVars(), "")
+}
+
+// ParseGroupVars reads YAML files named <groupname>.yml from group_vars/
+func (inv *Inventory) ParseGroupVars(invDir string) error {
+	groupVarsDir := filepath.Join(invDir, "group_vars")
+	if _, err := os.Stat(groupVarsDir); os.IsNotExist(err) {
+		return nil
+	}
+	for _, ext := range []string{".yml", ".yaml"} {
+		allPath := filepath.Join(groupVarsDir, "all"+ext)
+		if _, err := os.Stat(allPath); err == nil {
+			if vars, err := parseYAMLFile(allPath); err == nil {
+				g, ok := inv.Groups["all"]
+				if !ok {
+					g = &Group{Name: "all"}
+					g.Vars = make(map[string]any)
+					inv.Groups["all"] = g
+				}
+				for k, v := range vars {
+					g.Vars[k] = fmt.Sprintf("%v", v)
+				}
+			}
+			break
+		}
+	}
+	for groupName := range inv.Groups {
+		// Try .yml first, then .yaml
+		for _, ext := range []string{".yml", ".yaml"} {
+			filePath := filepath.Join(groupVarsDir, groupName+ext)
+			if _, err := os.Stat(filePath); err == nil {
+				// File found
+				vars, err := parseYAMLFile(filePath)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+					continue
+				}
+
+				// Ensure group.Vars is initialized
+				if inv.Groups[groupName].Vars == nil {
+					inv.Groups[groupName].Vars = make(map[string]any)
+				}
+
+				// Merge (convert to string)
+				for k, v := range vars {
+					inv.Groups[groupName].Vars[k] = fmt.Sprintf("%v", v)
+				}
+				break // success — stop trying other extensions
+			}
+		}
+	}
+	return nil
+}
+
+// ParseHostVars reads YAML files named <hostname>.yml from host_vars/
+func (inv *Inventory) ParseHostVars(invDir string) error {
+	hostVarsDir := filepath.Join(invDir, "host_vars")
+	if _, err := os.Stat(hostVarsDir); os.IsNotExist(err) {
+		return nil
+	}
+
+	for hostName := range inv.Hosts {
+		for _, ext := range []string{".yml", ".yaml"} {
+			filePath := filepath.Join(hostVarsDir, hostName+ext)
+			if _, err := os.Stat(filePath); err == nil {
+				vars, err := parseYAMLFile(filePath)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+					continue
+				}
+
+				if inv.Hosts[hostName].Vars == nil {
+					inv.Hosts[hostName].Vars = make(map[string]any)
+				}
+
+				for k, v := range vars {
+					inv.Hosts[hostName].Vars[k] = fmt.Sprintf("%v", v)
+				}
+				break
+			}
+		}
+	}
+	return nil
+}
+
+// MergeVars applies group vars to each host in order of host.Groups.
+// Later groups (higher index in host.Groups) override earlier ones.
+// Host vars are *not* touched here — they will be applied later via ParseHostVars.
+func (inv *Inventory) MergeVars() {
+	for hostName, host := range inv.Hosts {
+		// Preserve host's existing inline vars (e.g., from host line like "web1 key=value")
+		// We'll re-apply these later, but for MergeVars we *don't* use them as base.
+		// Instead: group vars completely overwrite the host.Vars map (if any)
+		// But we want to *start empty* — group vars build up the final host.Vars.
+		hostVars := make(map[string]any)
+
+		// Apply group vars in host.Groups order (preserve group ordering)
+		for _, groupName := range host.Groups {
+			g, ok := inv.Groups[groupName]
+			if !ok || len(g.Vars) == 0 {
+				continue
+			}
+
+			// Override: later groups overwrite earlier groups
+			for k, v := range g.Vars {
+				hostVars[k] = v
+			}
+		}
+
+		// Assign the merged result back
+		if len(hostVars) == 0 {
+			host.Vars = nil // clean up empty maps
+		} else {
+			host.Vars = hostVars
+		}
+		inv.Hosts[hostName] = host
+	}
+}
+
+// findAndParseYAMLFile looks for <basename>.yml or <basename>.yaml in dir
+func findAndParseYAMLFile(dir, basename string) (map[string]interface{}, error) {
+	for _, ext := range []string{".yml", ".yaml"} {
+		path := filepath.Join(dir, basename+ext)
+		if _, err := os.Stat(path); err == nil {
+			return parseYAMLFile(path)
+		}
+	}
+	return nil, nil // no file found (not an error)
+}
+
+func parseYAMLFile(filePath string) (map[string]interface{}, error) {
+	data, err := os.ReadFile(filePath) // <-- replaces ioutil.ReadFile
+	if err != nil {
+		return nil, err
+	}
+
+	var vars map[string]interface{}
+	if err := yaml.Unmarshal(data, &vars); err != nil {
+		return nil, fmt.Errorf("yaml parse error in %s: %w", filePath, err)
+	}
+	return vars, nil
+}
+
+func parseDynamicValue(val string) (interface{}, error) {
+	var detected interface{}
+
+	// Attempt to unmarshal the string as JSON
+	err := json.Unmarshal([]byte(val), &detected)
+
+	if err != nil {
+		// Not valid JSON; return original string as a fallback
+		return val, nil
+	}
+
+	// Return the converted type (could be float64, bool, []interface{}, or map[string]interface{})
+	return detected, nil
+}
+
+// FlattenAllVars flattens Jinja2 templates and expressions in each host's Vars
+func (inv *Inventory) FlattenAllVars() error {
+	for _, host := range inv.Hosts {
+		if host.Vars == nil || len(host.Vars) == 0 {
+			continue
+		}
+
+		flat, err := FlattenAllVars(host.Vars)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: flatten vars for host %s failed: %v\n", host.Name, err)
+			continue
+		}
+
+		// Replace with flattened map (preserves same keys, updated values)
+		host.Vars = flat
+	}
+	return nil
+}
+
+// The Yaml Generator -> INI conversion section. This is not realy readable, subject to review and redo it
+// Layer expansion (cartesian product)
+// This turns:
+// ops: [update]
+// pkg: [letsencrypt]
+// env: [dev, uat, prod]
+// into:
+//
+//	[]map[string]any{
+//		{"ops":"update","pkg":"letsencrypt","env":"dev"},
+//		{"ops":"update","pkg":"letsencrypt","env":"uat"},
+//		{"ops":"update","pkg":"letsencrypt","env":"prod"},
+//	}
+// func ExpandLayers(layers map[string][]string) []map[string]any {
+// 	keys := make([]string, 0, len(layers))
+// 	for k := range layers {
+// 		keys = append(keys, k)
+// 	}
+
+// 	var res []map[string]any
+
+// 	var walk func(int, map[string]any)
+// 	walk = func(i int, cur map[string]any) {
+// 		if i == len(keys) {
+// 			// println("[DEBUG]", u.JsonDump(cur, ""), "[END]")
+// 			// m := map[string]any{}
+// 			// for k, v := range cur {
+// 			// 	m[k] = v
+// 			// }
+// 			m := maps.Clone(cur)
+// 			res = append(res, m)
+// 			return
+// 		}
+
+// 		key := keys[i]
+// 		for _, val := range layers[key] {
+// 			cur[key] = val
+// 			walk(i+1, cur)
+// 		}
+// 	}
+
+// 	walk(0, map[string]any{})
+// 	return res
+// }
+
+// type IniInventory struct {
+// 	Groups        map[string][]string          // group -> hosts
+// 	GroupVars     map[string]map[string]string // group -> vars
+// 	GroupChildren map[string]map[string]bool   // parent -> child groups
+// }
+
+// func ensureGroupChildren(m map[string]map[string]bool, parent string) {
+// 	if _, ok := m[parent]; !ok {
+// 		m[parent] = map[string]bool{}
+// 	}
+// }
+
+// func ensureGroup(m map[string][]string, name string) {
+// 	if _, ok := m[name]; !ok {
+// 		m[name] = []string{}
+// 	}
+// }
+
+// func ensureGroupVars(m map[string]map[string]string, name string) {
+// 	if _, ok := m[name]; !ok {
+// 		m[name] = map[string]string{}
+// 	}
+// }
+
+// func GenerateIniFromConfig(cfg *GeneratorConfig) string {
+// 	inv := &IniInventory{
+// 		Groups:        map[string][]string{},
+// 		GroupVars:     map[string]map[string]string{},
+// 		GroupChildren: map[string]map[string]bool{},
+// 	}
+
+// 	objects := ExpandLayers(cfg.Layers)
+
+// 	for _, ctx := range objects {
+// 		host := TemplateString(cfg.Hosts.Name, ctx)
+
+// 		ensureGroup(inv.Groups, "all")
+// 		inv.Groups["all"] = append(inv.Groups["all"], host)
+
+// 		for _, p := range cfg.Hosts.Parents {
+// 			processGroupINI(inv, p, ctx, host, true)
+// 		}
+
+// 	}
+
+// 	if len(cfg.Hosts.Vars) > 0 {
+// 		ensureGroupVars(inv.GroupVars, "all")
+// 		for k, v := range cfg.Hosts.Vars {
+// 			inv.GroupVars["all"][k] = v
+// 		}
+// 	}
+// 	// fmt.Printf("DEBUG GroupChildren = %s\n", u.JsonDump(inv.GroupChildren, ""))
+// 	return renderIni(inv)
+// }
+
+// func renderIni(inv *IniInventory) string {
+// 	var b strings.Builder
+
+// 	for g, hosts := range inv.Groups {
+// 		b.WriteString("[" + g + "]\n")
+// 		for _, h := range hosts {
+// 			b.WriteString(h + "\n")
+// 		}
+// 		b.WriteString("\n")
+// 	}
+
+// 	for parent, children := range inv.GroupChildren {
+// 		b.WriteString("[" + parent + ":children]\n")
+// 		for c := range maps.Keys(children) {
+// 			b.WriteString(c + "\n")
+// 		}
+// 		// render [parent:children]
+// 	}
+// 	for g, vars := range inv.GroupVars {
+// 		b.WriteString("[" + g + ":vars]\n")
+// 		for k, v := range vars {
+// 			b.WriteString(fmt.Sprintf("%s=%s\n", k, v))
+// 		}
+// 		b.WriteString("\n")
+// 	}
+
+// 	return b.String()
+// }
+
+// func processGroupINI(
+// 	inv *IniInventory,
+// 	cfg GroupConfig,
+// 	ctx map[string]any,
+// 	host string,
+// 	withHost bool,
+// ) {
+// 	groupName := TemplateString(cfg.Name, ctx)
+// 	if groupName == "" {
+// 		return
+// 	}
+
+// 	// ensure group exists
+// 	ensureGroup(inv.Groups, groupName)
+
+// 	// only leaf groups get hosts
+// 	if withHost {
+// 		inv.Groups[groupName] = append(inv.Groups[groupName], host)
+// 	}
+
+// 	// group vars
+// 	for k, tmpl := range cfg.Vars {
+// 		v := TemplateString(tmpl, ctx)
+// 		ensureGroupVars(inv.GroupVars, groupName)
+// 		inv.GroupVars[groupName][k] = v
+// 	}
+
+// 	// parents → children relationship
+// 	for _, p := range cfg.Parents {
+// 		parentName := TemplateString(p.Name, ctx)
+// 		if parentName == "" {
+// 			continue
+// 		}
+// 		ensureGroupChildren(inv.GroupChildren, parentName)
+// 		inv.GroupChildren[parentName][groupName] = true
+
+// 		// ensure parent exists
+// 		ensureGroup(inv.Groups, parentName)
+
+// 		// recurse upward WITHOUT hosts
+// 		processGroupINI(inv, p, ctx, host, false)
+// 	}
+// }
+
+// // ReadFirstLevelFiles reads the first level of a directory and returns only the files.
+// func ReadFirstLevelFiles(dirPath string) ([]fs.DirEntry, error) {
+// 	entries, err := os.ReadDir(dirPath)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	var files []fs.DirEntry
+// 	for _, entry := range entries {
+// 		// Check if the entry is a file
+// 		if !entry.IsDir() {
+// 			files = append(files, entry)
+// 		}
+// 	}
+
+// 	return files, nil
+// }
