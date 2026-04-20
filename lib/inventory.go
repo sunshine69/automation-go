@@ -294,8 +294,8 @@ func parseInventoryFile(filePath string, inv *Inventory) error {
 	return scanner.Err()
 }
 
-// parseInventoryDir: parses all .ini and extensionless files in directory
-func parseInventoryDir(invDir string) (*Inventory, error) {
+// ParseInventoryDir: parses all .ini and extensionless files in directory
+func ParseInventoryDir(invDir string) (*Inventory, error) {
 	inv := NewInventory(invDir)
 
 	entries, err := os.ReadDir(invDir)
