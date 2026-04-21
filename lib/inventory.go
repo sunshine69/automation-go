@@ -655,7 +655,7 @@ func (inv *Inventory) ParseGroupVars(invDir string) error {
 				if !ok {
 					g = &Group{Name: "all"}
 					g.Vars = make(map[string]any)
-					g.Vars["inventory_dir"] = inv.InventoryDir
+					g.Vars["inventory_dir"] = inv.InventoryDir // BUG if we have the generator with vars defined it lost
 					inv.Groups["all"] = g
 				}
 				for k, v := range vars {
@@ -989,11 +989,13 @@ func processGroupINI(
 		inv.Groups[groupName] = append(inv.Groups[groupName], host)
 	}
 
-	// group vars
+	// Process current group's vars first
+	ensureGroupVars(inv.GroupVars, groupName)
 	for k, tmpl := range cfg.Vars {
 		v := TemplateString(tmpl, ctx)
-		ensureGroupVars(inv.GroupVars, groupName)
 		inv.GroupVars[groupName][k] = v
+		// Update context with the resolved value for nested processing
+		ctx[k] = v
 	}
 
 	// parents → children relationship
@@ -1008,8 +1010,17 @@ func processGroupINI(
 		// ensure parent exists
 		ensureGroup(inv.Groups, parentName)
 
-		// recurse upward WITHOUT hosts
-		processGroupINI(inv, p, ctx, host, false)
+		// Create a copy of context for parent processing to avoid polluting current ctx
+		parentCtx := maps.Clone(ctx)
+
+		// Merge parent vars into parentCtx for nested processing
+		for k, tmpl := range p.Vars {
+			v := TemplateString(tmpl, ctx)
+			parentCtx[k] = v
+		}
+
+		// Recurse upward WITHOUT hosts
+		processGroupINI(inv, p, parentCtx, host, false)
 	}
 }
 
