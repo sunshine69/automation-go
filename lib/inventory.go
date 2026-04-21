@@ -636,6 +636,7 @@ func (inv *Inventory) ParseAllInventory() {
 	u.CheckErr(inv.ParseGroupVars(inv.InventoryDir), "")
 	inv.MergeVars()
 	u.CheckErr(inv.ParseInventoryVars(inv.InventoryDir), "")
+	inv.MergeVarNotOverriding()
 	u.CheckErr(inv.ParseHostVars(inv.InventoryDir), "")
 	u.CheckErr(inv.FlattenAllVars(), "")
 }
@@ -756,15 +757,39 @@ func (inv *Inventory) MergeVars() {
 	}
 }
 
-// findAndParseYAMLFile looks for <basename>.yml or <basename>.yaml in dir
-func findAndParseYAMLFile(dir, basename string) (map[string]interface{}, error) {
-	for _, ext := range []string{".yml", ".yaml"} {
-		path := filepath.Join(dir, basename+ext)
-		if _, err := os.Stat(path); err == nil {
-			return parseYAMLFile(path)
+// MergeVarNotOverriding applies group vars to each host in order of host.Groups.
+// If a host already has a variable (from inline vars or prior merges), it will NOT be overridden by group vars.
+func (inv *Inventory) MergeVarNotOverriding() {
+	for hostName, host := range inv.Hosts {
+		// Start with a copy of the host's existing Vars (to preserve them)
+		hostVars := make(map[string]any)
+		for k, v := range host.Vars {
+			hostVars[k] = v
 		}
+
+		// Apply group vars, but only if the host doesn't already have them
+		for _, groupName := range host.Groups {
+			g, ok := inv.Groups[groupName]
+			if !ok || len(g.Vars) == 0 {
+				continue
+			}
+
+			// Skip if the key already exists in hostVars
+			for k, v := range g.Vars {
+				if _, exists := hostVars[k]; !exists {
+					hostVars[k] = v
+				}
+			}
+		}
+
+		// Assign the merged result back
+		if len(hostVars) == 0 {
+			host.Vars = nil // clean up empty maps
+		} else {
+			host.Vars = hostVars
+		}
+		inv.Hosts[hostName] = host
 	}
-	return nil, nil // no file found (not an error)
 }
 
 func parseYAMLFile(filePath string) (map[string]interface{}, error) {
