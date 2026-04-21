@@ -7,12 +7,18 @@ import (
 )
 
 func TestParseInventoryDir(t *testing.T) {
-	inventory := ParseInventoryDir("/mnt/nfs-data/stevek-src/go-automation/inventory")
+	inventory := u.Must(ParseInventoryDir("/mnt/nfs-data/stevek-src/go-automation/inventory"))
 	println(u.JsonDump(inventory, ""))
-	hosts := u.Must(inventory.MatchHosts("*uat*"))
-	for hname, h := range hosts {
+
+	for hname, h := range inventory.Hosts {
 		println("***** HOST NAME: " + hname + "  *********")
-		Vars := u.Must(FlattenAllVars(u.StringMapToAnyMap(h.Vars)))
+		Vars := u.Must(FlattenAllVars(h.Vars))
 		println(u.JsonDump(Vars, ""))
 	}
+}
+
+func TestParseInvetoryAll(t *testing.T) {
+	// inv := ParseInventoryDirAll("../../go-ansible/test/inventory")
+	inv := u.Must(ParseInventoryDir("../../go-ansible/test/inventory"))
+	println(u.JsonDump(inv, ""))
 }

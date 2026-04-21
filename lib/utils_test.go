@@ -323,20 +323,6 @@ func TestFlattenVar(t *testing.T) {
 	fmt.Println(u.JsonDump(vars, ""))
 }
 
-func TestGenerateFromConfig(t *testing.T) {
-	inventory := ParseInventoryGenerator("../tmp/hosts.yaml")
-
-	// for name := range inventory.Hosts {
-	// 	fmt.Println("host:", name)
-	// }
-	// println("[DEBUG] inventory" + u.JsonDump(inventory, ""))
-	h := u.Must(inventory.MatchHosts("*uat*"))
-	// println("[DEBUG] Hostmatched" + u.JsonDump(h, ""))
-	for hn, h := range h {
-		println("Host vars: "+hn, u.JsonDump(h.Vars, ""))
-	}
-}
-
 func TestContainsDictionaryWord(t *testing.T) {
 	// Create a test dictionary
 	// dictionary := map[string]struct{}{
