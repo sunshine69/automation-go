@@ -655,6 +655,7 @@ func (inv *Inventory) ParseGroupVars(invDir string) error {
 				if !ok {
 					g = &Group{Name: "all"}
 					g.Vars = make(map[string]any)
+					g.Vars["inventory_dir"] = inv.InventoryDir
 					inv.Groups["all"] = g
 				}
 				for k, v := range vars {
@@ -1030,6 +1031,8 @@ func ReadFirstLevelFiles(dirPath string) ([]fs.DirEntry, error) {
 	return files, nil
 }
 
+// Parse all type inventory fiels in the dir, currently support generator and ini format.
+
 func ParseInventoryDirAll(inventoryDir string) *Inventory {
 	invFiles := u.Must(ReadFirstLevelFiles(inventoryDir))
 	readers := []io.Reader{}
@@ -1054,7 +1057,6 @@ func ParseInventoryDirAll(inventoryDir string) *Inventory {
 
 	// Start with base INI parsing (e.g., from inventoryDir/*.ini)
 	inv := u.Must(ParseInventoryDir(inventoryDir))
-
 	// Then layer on YAML→INI content
 	if len(readers) > 0 {
 		u.CheckErr(ParseInventory(io.MultiReader(readers...), inv), "")
