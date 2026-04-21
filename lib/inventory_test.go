@@ -57,4 +57,8 @@ func TestGenerateINIFromConfig(t *testing.T) {
 	// Next parse vars from host_vars/<files>
 	inv.ParseHostVars("")
 	println("[DEBUG] Parse inv after parse hosts vars:\n" + u.JsonDump(inv, ""))
+	inv.MergeVarNotOverriding()
+	println("[DEBUG] Parse inv after MergeVarNotOverriding vars:\n" + u.JsonDump(inv, ""))
+	inv.FlattenAllVars()
+	println("[DEBUG] Parse inv after Flattern all vars:\n" + u.JsonDump(inv, ""))
 }

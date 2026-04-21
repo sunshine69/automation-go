@@ -685,7 +685,6 @@ func (inv *Inventory) ParseGroupVars(invDir string) error {
 				if !ok {
 					g = &Group{Name: "all"}
 					g.Vars = make(map[string]any)
-					g.Vars["inventory_dir"] = inv.InventoryDir // BUG if we have the generator with vars defined it lost
 					inv.Groups["all"] = g
 				}
 				for k, v := range vars {
@@ -694,6 +693,7 @@ func (inv *Inventory) ParseGroupVars(invDir string) error {
 			}
 			break
 		}
+		inv.Groups["all"].Vars["inventory_dir"] = inv.InventoryDir
 	}
 	for groupName := range inv.Groups {
 		// Try .yml first, then .yaml
