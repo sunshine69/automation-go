@@ -419,7 +419,21 @@ func containsStr(slice []string, item string) bool {
 }
 
 // ParseInventoryVars: parses [name:vars] sections for groups/hosts
-func (inv *Inventory) ParseInventoryVars(invDir string) error {
+func (inv *Inventory) ParseInventoryVars(arg any) error {
+	switch v := arg.(type) {
+	case string:
+		// Parse from directory
+		return inv.parseInventoryVarsDir(v)
+	case io.Reader:
+		// Parse from reader
+		return inv.ParseInventoryVarsReader(v)
+	default:
+		return fmt.Errorf("unsupported argument type: %T", arg)
+	}
+}
+
+// parseInventoryVarsDir: helper to parse vars from directory
+func (inv *Inventory) parseInventoryVarsDir(invDir string) error {
 	entries, err := os.ReadDir(invDir)
 	if err != nil {
 		return fmt.Errorf("failed to read directory %s: %w", invDir, err)
@@ -442,59 +456,67 @@ func (inv *Inventory) ParseInventoryVars(invDir string) error {
 		}
 		defer file.Close()
 
-		scanner := bufio.NewScanner(file)
-		lineNum := 0
-
-		for scanner.Scan() {
-			lineNum++
-			line := strings.TrimSpace(scanner.Text())
-
-			if line == "" || line[0] == '#' || line[0] == ';' {
-				continue
-			}
-
-			// Only process [name:vars] sections
-			if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
-				name, sectionType := parseSectionHeader(line)
-				if sectionType != "vars" || name == "" {
-					continue
-				}
-
-				// Found [name:vars] — now parse its content
-				// Check if group exists
-				if g, ok := inv.Groups[name]; ok {
-					g.Vars = make(map[string]any)
-					for scanner.Scan() {
-						line = strings.TrimSpace(scanner.Text())
-						if strings.HasPrefix(line, "[") || line == "" {
-							break
-						}
-						if idx := strings.Index(line, "="); idx != -1 {
-							key := strings.TrimSpace(line[:idx])
-							val := unquote(line[idx+1:])
-							g.Vars[key] = val
-						}
-					}
-				} else if h, ok := inv.Hosts[name]; ok {
-					h.Vars = make(map[string]any)
-					for scanner.Scan() {
-						line = strings.TrimSpace(scanner.Text())
-						if strings.HasPrefix(line, "[") || line == "" {
-							break
-						}
-						if idx := strings.Index(line, "="); idx != -1 {
-							key := strings.TrimSpace(line[:idx])
-							val := unquote(line[idx+1:])
-							h.Vars[key] = val
-						}
-					}
-				} else {
-					fmt.Fprintf(os.Stderr, "Warning: [%s:vars] references unknown group or host '%s'\n", name, name)
-				}
-			}
+		if err := inv.ParseInventoryVarsReader(file); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+// ParseInventoryVarsReader: parses inventory vars from an io.Reader
+func (inv *Inventory) ParseInventoryVarsReader(reader io.Reader) error {
+	scanner := bufio.NewScanner(reader)
+	lineNum := 0
+
+	for scanner.Scan() {
+		lineNum++
+		line := strings.TrimSpace(scanner.Text())
+
+		if line == "" || line[0] == '#' || line[0] == ';' {
+			continue
+		}
+
+		// Only process [name:vars] sections
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			name, sectionType := parseSectionHeader(line)
+			if sectionType != "vars" || name == "" {
+				continue
+			}
+
+			// Found [name:vars] — now parse its content
+			// Check if group exists
+			if g, ok := inv.Groups[name]; ok {
+				g.Vars = make(map[string]any)
+				for scanner.Scan() {
+					line = strings.TrimSpace(scanner.Text())
+					if strings.HasPrefix(line, "[") || line == "" {
+						break
+					}
+					if idx := strings.Index(line, "="); idx != -1 {
+						key := strings.TrimSpace(line[:idx])
+						val := unquote(line[idx+1:])
+						g.Vars[key] = val
+					}
+				}
+			} else if h, ok := inv.Hosts[name]; ok {
+				h.Vars = make(map[string]any)
+				for scanner.Scan() {
+					line = strings.TrimSpace(scanner.Text())
+					if strings.HasPrefix(line, "[") || line == "" {
+						break
+					}
+					if idx := strings.Index(line, "="); idx != -1 {
+						key := strings.TrimSpace(line[:idx])
+						val := unquote(line[idx+1:])
+						h.Vars[key] = val
+					}
+				}
+			} else {
+				fmt.Fprintf(os.Stderr, "Warning: [%s:vars] references unknown group or host '%s'\n", name, name)
+			}
+		}
+	}
+	return scanner.Err()
 }
 
 type GeneratorConfig struct {
@@ -632,6 +654,7 @@ func FlattenAllVars(data map[string]any) (map[string]any, error) {
 	return result, nil
 }
 
+// Parse all vars in correct order to preserve vars priorities
 func (inv *Inventory) ParseAllInventoryVars() {
 	u.CheckErr(inv.ParseGroupVars(inv.InventoryDir), "")
 	inv.MergeVars()
@@ -642,7 +665,14 @@ func (inv *Inventory) ParseAllInventoryVars() {
 }
 
 // ParseGroupVars reads YAML files named <groupname>.yml from group_vars/
+// If invDir is empty it uses the current from Inventory, otherwise it will use the dir and update the
+// current Inventory Dir
 func (inv *Inventory) ParseGroupVars(invDir string) error {
+	if invDir == "" {
+		invDir = inv.InventoryDir
+	} else {
+		inv.InventoryDir = invDir
+	}
 	groupVarsDir := filepath.Join(invDir, "group_vars")
 	if _, err := os.Stat(groupVarsDir); os.IsNotExist(err) {
 		return nil
@@ -695,6 +725,12 @@ func (inv *Inventory) ParseGroupVars(invDir string) error {
 
 // ParseHostVars reads YAML files named <hostname>.yml from host_vars/
 func (inv *Inventory) ParseHostVars(invDir string) error {
+	if invDir == "" {
+		invDir = inv.InventoryDir
+	} else {
+		inv.InventoryDir = invDir
+	}
+
 	hostVarsDir := filepath.Join(invDir, "host_vars")
 	if _, err := os.Stat(hostVarsDir); os.IsNotExist(err) {
 		return nil
@@ -1043,7 +1079,6 @@ func ReadFirstLevelFiles(dirPath string) ([]fs.DirEntry, error) {
 }
 
 // Parse all type inventory fiels in the dir, currently support generator and ini format.
-
 func ParseInventoryDirAll(inventoryDir string) *Inventory {
 	invFiles := u.Must(ReadFirstLevelFiles(inventoryDir))
 	readers := []io.Reader{}
