@@ -659,7 +659,7 @@ func (inv *Inventory) ParseGroupVars(invDir string) error {
 					inv.Groups["all"] = g
 				}
 				for k, v := range vars {
-					g.Vars[k] = fmt.Sprintf("%v", v)
+					g.Vars[k] = v
 				}
 			}
 			break
@@ -684,7 +684,7 @@ func (inv *Inventory) ParseGroupVars(invDir string) error {
 
 				// Merge (convert to string)
 				for k, v := range vars {
-					inv.Groups[groupName].Vars[k] = fmt.Sprintf("%v", v)
+					inv.Groups[groupName].Vars[k] = v
 				}
 				break // success — stop trying other extensions
 			}
