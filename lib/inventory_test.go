@@ -18,8 +18,10 @@ func TestParseInventoryDir(t *testing.T) {
 }
 
 func TestParseInvetoryAll(t *testing.T) {
-	// inv := ParseInventoryDirAll("../../go-ansible/test/inventory")
-	inv := u.Must(ParseInventoryDir("../../go-ansible/test/inventory"))
-	inv.ParseAllInventory()
+	// ParseInventoryXXX only parse inventory, group hosts
+	// Vars is called later on to populate the vars
+	inv := ParseInventoryDirAll("../../go-ansible/test/inventory") // This parse the generator and ini format
+	// inv := u.Must(ParseInventoryDir("../../go-ansible/test/inventory")) // Only ini format
+	inv.ParseAllInventoryVars() // Get all vars in
 	println(u.JsonDump(inv, ""))
 }

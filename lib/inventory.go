@@ -632,7 +632,7 @@ func FlattenAllVars(data map[string]any) (map[string]any, error) {
 	return result, nil
 }
 
-func (inv *Inventory) ParseAllInventory() {
+func (inv *Inventory) ParseAllInventoryVars() {
 	u.CheckErr(inv.ParseGroupVars(inv.InventoryDir), "")
 	inv.MergeVars()
 	u.CheckErr(inv.ParseInventoryVars(inv.InventoryDir), "")
@@ -1059,6 +1059,5 @@ func ParseInventoryDirAll(inventoryDir string) *Inventory {
 	if len(readers) > 0 {
 		u.CheckErr(ParseInventory(io.MultiReader(readers...), inv), "")
 	}
-	inv.ParseAllInventory()
 	return inv
 }
