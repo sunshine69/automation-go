@@ -24,4 +24,9 @@ func TestParseInvetoryAll(t *testing.T) {
 	// inv := u.Must(ParseInventoryDir("../../go-ansible/test/inventory")) // Only ini format
 	inv.ParseAllInventoryVars() // Get all vars in
 	println(u.JsonDump(inv, ""))
+	devhost := inv.MatchHost(`dev`)
+	println("Matched host: ", u.JsonDump(devhost, ""))
+	println(u.JsonDump(inv.Hosts[devhost[0]].Vars, ""))
+	println("Matched group: ", u.JsonDump(inv.MatchGroup(`dev`), ""))
+
 }

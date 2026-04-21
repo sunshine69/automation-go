@@ -1061,3 +1061,37 @@ func ParseInventoryDirAll(inventoryDir string) *Inventory {
 	}
 	return inv
 }
+
+// MatchHost returns all hostnames matching the given regex pattern
+func (inv *Inventory) MatchHost(pattern string) []string {
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return []string{}
+	}
+
+	var result []string
+	for hostname := range inv.Hosts {
+		if re.MatchString(hostname) {
+			result = append(result, hostname)
+		}
+	}
+	sort.Strings(result)
+	return result
+}
+
+// MatchGroup returns all group names matching the given regex pattern
+func (inv *Inventory) MatchGroup(pattern string) []string {
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return []string{}
+	}
+
+	var result []string
+	for groupName := range inv.Groups {
+		if re.MatchString(groupName) {
+			result = append(result, groupName)
+		}
+	}
+	sort.Strings(result)
+	return result
+}
