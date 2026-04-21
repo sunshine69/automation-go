@@ -240,6 +240,7 @@ func ParseInventory(src any, inv *Inventory) error {
 // internal helper for scanning
 func ParseInventoryReader(r io.Reader, inv *Inventory) error {
 	var currentGroup *Group
+	var currentSectionType string // "", "vars", or "children"
 
 	scanner := bufio.NewScanner(r)
 	lineNum := 0
@@ -247,12 +248,10 @@ func ParseInventoryReader(r io.Reader, inv *Inventory) error {
 		lineNum++
 		line := strings.TrimSpace(scanner.Text())
 
-		// Skip comments/empty
 		if line == "" || line[0] == '#' || line[0] == ';' {
 			continue
 		}
 
-		// 🔑 Section headers
 		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
 			name, sectionType := parseSectionHeader(line)
 			if name == "" {
@@ -260,13 +259,26 @@ func ParseInventoryReader(r io.Reader, inv *Inventory) error {
 			}
 
 			switch sectionType {
-			case "", "vars", "children":
+			case "":
 				currentGroup = inv.AddGroup(name)
+				currentSectionType = ""
+			case "vars", "children":
+				currentGroup = inv.AddGroup(name)
+				currentSectionType = sectionType
+				currentGroup = nil // disable host parsing
+				continue
+			default:
+				currentGroup = nil
+				continue
 			}
 			continue
 		}
 
-		// Host lines only valid inside groups
+		// Skip host lines in [name:vars] and [name:children]
+		if currentSectionType == "vars" || currentSectionType == "children" {
+			continue
+		}
+
 		if currentGroup == nil {
 			fmt.Fprintf(os.Stderr, "Warning (source:%d): host line '%s' outside any group\n", lineNum, line)
 			continue

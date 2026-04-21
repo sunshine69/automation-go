@@ -20,5 +20,6 @@ func TestParseInventoryDir(t *testing.T) {
 func TestParseInvetoryAll(t *testing.T) {
 	// inv := ParseInventoryDirAll("../../go-ansible/test/inventory")
 	inv := u.Must(ParseInventoryDir("../../go-ansible/test/inventory"))
+	inv.ParseAllInventory()
 	println(u.JsonDump(inv, ""))
 }
