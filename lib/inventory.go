@@ -763,13 +763,56 @@ func FlattenAllVars(data map[string]any) (map[string]any, error) {
 	return result, nil
 }
 
-// Parse all vars in correct order to preserve vars priorities
-func (inv *Inventory) ParseAllInventoryVars() {
+// SetFact sets variables (facts) for all hosts matching hostPtn (regex pattern).
+// Each arg is of form "key=value", "key='quoted'", or "key=\"quoted\"".
+// If hostPtn is empty, applies to all hosts.
+// SetFact overrides all existing host vars — replaces host.Vars entirely.
+// SetFact sets variables on hosts matching hostPtn (regex). Each arg is "key=value" (value may be quoted).
+// If hostPtn is empty, applies to all hosts.
+// SetFact sets variables on hosts matching hostPtn (regex). Each arg is "key=value" (value may be quoted).
+// If hostPtn is empty, applies to all hosts.
+func (inv *Inventory) SetFact(hostPtn string, args ...string) {
+	if len(args) == 0 {
+		return
+	}
+
+	// Parse key=value pairs from args
+	line := strings.Join(args, " ")
+	vars := parseInlineVarsSmart(line)
+	if len(vars) == 0 {
+		fmt.Fprintf(os.Stderr, "Warning: SetFact: no valid key=value pairs found in args: %v\n", args)
+		return
+	}
+
+	// Match hosts (including empty hostPtn → all hosts)
+	matchingHosts := inv.MatchHost(hostPtn)
+	if len(matchingHosts) == 0 {
+		fmt.Fprintf(os.Stderr, "Warning: SetFact: no hosts matched pattern '%s'\n", hostPtn)
+		return
+	}
+
+	// Apply vars to each matching host
+	for _, hostname := range matchingHosts {
+		host := inv.Hosts[hostname]
+		if host.Vars == nil {
+			host.Vars = make(map[string]any)
+		}
+		maps.Copy(host.Vars, vars)
+	}
+}
+
+// Parse all vars in correct order to preserve vars priorities. This is one stop calling after inv is created to get
+// all vars data ready to use.
+func (inv *Inventory) ParseAllInventoryVars(extraArgs ...string) {
 	u.CheckErr(inv.ParseGroupVars(inv.InventoryDir), "")
+	inv.ParseInventoryVars(inv.InventoryDir)
+	inv.MergeGroupVars()
 	inv.MergeVars()
-	u.CheckErr(inv.ParseInventoryVars(inv.InventoryDir), "")
-	inv.MergeVarNotOverriding()
 	u.CheckErr(inv.ParseHostVars(inv.InventoryDir), "")
+	inv.MergeVarNotOverriding()
+	if len(extraArgs) > 0 {
+		inv.SetFact("", extraArgs...)
+	}
 	u.CheckErr(inv.FlattenAllVars(), "")
 }
 
