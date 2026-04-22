@@ -38,27 +38,40 @@ func TestGenerateINIFromConfig(t *testing.T) {
 	invConfig := GeneratorConfig{}
 	u.CheckErr(yaml.Unmarshal(u.Must(os.ReadFile("../../go-automation/inventory/hosts.yaml")), &invConfig), "")
 	iniContent := GenerateIniFromConfig(&invConfig)
+
 	println("[DEBUG] ini content:\n", iniContent)
+
 	// Example of creating inventory steps. First create empty inv
 	inv := NewInventory("../../go-automation/inventory")
 	println("[DEBUG] Empty inv:\n" + u.JsonDump(inv, ""))
+
 	// Parse ini string. You can parse a file by calling ParseInventory(file_path, ). After that we got group and hosts
 	u.CheckErr(ParseInventory(strings.NewReader(iniContent), inv), "")
 	println("[DEBUG] Inv after parsing:\n" + u.JsonDump(inv, ""))
-	// Now parse group vars. This only tate the dir group_vars/<files>
+
+	// Now parse group vars from group_vars/<files>.
 	inv.ParseGroupVars("")
 	println("[DEBUG] Parse inv after parse group vars:\n" + u.JsonDump(inv, ""))
-	// Merge vars from group to hosts. This should preserve existing host vars
-	inv.MergeVars()
-	println("[DEBUG] Parse inv after merge vars:\n" + u.JsonDump(inv, ""))
+
 	// Next parse the var in the inventory file or reader. This case is reader as we dont have inventory file
 	inv.ParseInventoryVars(strings.NewReader(iniContent))
 	println("[DEBUG] Parse inv after parse inventory vars:\n" + u.JsonDump(inv, ""))
+
+	// Merge group var make sure group has parent vars
+	inv.MergeGroupVars()
+	println("[DEBUG] Parse inv after merge group vars:\n" + u.JsonDump(inv, ""))
+
+	// Merge vars from group to hosts. This should preserve existing host vars
+	inv.MergeVars()
+	println("[DEBUG] Parse inv after merge vars:\n" + u.JsonDump(inv, ""))
+
 	// Next parse vars from host_vars/<files>
 	inv.ParseHostVars("")
 	println("[DEBUG] Parse inv after parse hosts vars:\n" + u.JsonDump(inv, ""))
+
 	inv.MergeVarNotOverriding()
 	println("[DEBUG] Parse inv after MergeVarNotOverriding vars:\n" + u.JsonDump(inv, ""))
+
 	inv.FlattenAllVars()
 	println("[DEBUG] Parse inv after Flattern all vars:\n" + u.JsonDump(inv, ""))
 }

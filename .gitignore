@@ -32,3 +32,4 @@ lineinfile-*-x86_64
 .vscode/**
 .continue/**
 .aider*
+*.log

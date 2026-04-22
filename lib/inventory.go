@@ -237,6 +237,99 @@ func ParseInventory(src any, inv *Inventory) error {
 	}
 }
 
+// MergeGroupVars merges group variables from parent groups to child groups.
+// A child group's Vars are updated with its parent's Vars — direct parents take priority over grandparents.
+// It uses BFS traversal to ensure nearest ancestors override further ancestors.
+func (inv *Inventory) MergeGroupVars() {
+	// Build parent map for groups: child -> list of direct parents
+	parentMap := make(map[string][]string)
+	for groupName, group := range inv.Groups {
+		for _, childName := range group.Children {
+			parentMap[childName] = append(parentMap[childName], groupName)
+		}
+	}
+
+	// Compute depth for each group (BFS from root groups)
+	depth := make(map[string]int)
+	queue := []string{}
+	visited := make(map[string]bool)
+
+	// Initialize: start with groups that have no parents (or "all" if it exists)
+	if _, ok := inv.Groups["all"]; ok {
+		queue = append(queue, "all")
+		visited["all"] = true
+		depth["all"] = 0
+	}
+	for groupName := range inv.Groups {
+		if !visited[groupName] {
+			queue = append(queue, groupName)
+			visited[groupName] = true
+			depth[groupName] = 0
+		}
+	}
+
+	// BFS to compute depth (shortest distance from root)
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+		for _, child := range inv.Groups[current].Children {
+			if !visited[child] {
+				visited[child] = true
+				depth[child] = depth[current] + 1
+				queue = append(queue, child)
+			}
+		}
+	}
+
+	// Group each group by its depth
+	byDepth := make(map[int][]string)
+	for groupName := range inv.Groups {
+		d := depth[groupName]
+		byDepth[d] = append(byDepth[d], groupName)
+	}
+
+	// Sort depths ascending
+	var depths []int
+	for d := range byDepth {
+		depths = append(depths, d)
+	}
+	sort.Ints(depths)
+
+	// Process groups in increasing depth order (closest first)
+	for _, d := range depths {
+		for _, groupName := range byDepth[d] {
+			group := inv.Groups[groupName]
+			if group.Vars == nil {
+				group.Vars = make(map[string]any)
+			}
+
+			// Gather parent vars (reverse order: direct parent > grandparent)
+			parents := parentMap[groupName]
+			// Reverse to ensure direct parents are processed first (but still overridden by closer ones)
+			// Actually, we want direct parent → grandparent, so process in order (no reversal)
+			// But later parents should override earlier ones — so build a merged map per parent group first
+			parentVars := make(map[string]any)
+			for _, parentName := range parents {
+				parentGroup := inv.Groups[parentName]
+				if parentGroup == nil || len(parentGroup.Vars) == 0 {
+					continue
+				}
+				// Direct parent overrides grandparents — so we process in order
+				for k, v := range parentGroup.Vars {
+					parentVars[k] = v
+				}
+			}
+
+			// Merge parent vars into group.Vars: parent vars override existing
+			if len(parentVars) > 0 {
+				for k, v := range parentVars {
+					group.Vars[k] = v
+				}
+			}
+		}
+	}
+}
+
 // internal helper for scanning
 func ParseInventoryReader(r io.Reader, inv *Inventory) error {
 	var currentGroup *Group
@@ -265,8 +358,11 @@ func ParseInventoryReader(r io.Reader, inv *Inventory) error {
 			case "vars", "children":
 				currentGroup = inv.AddGroup(name)
 				currentSectionType = sectionType
-				currentGroup = nil // disable host parsing
-				continue
+				if sectionType == "children" {
+					// Don't disable currentGroup yet; keep it for children parsing
+				} else {
+					currentGroup = nil // disable host parsing
+				}
 			default:
 				currentGroup = nil
 				continue
@@ -274,8 +370,17 @@ func ParseInventoryReader(r io.Reader, inv *Inventory) error {
 			continue
 		}
 
-		// Skip host lines in [name:vars] and [name:children]
-		if currentSectionType == "vars" || currentSectionType == "children" {
+		// Skip host lines in [name:vars]
+		if currentSectionType == "vars" {
+			continue
+		}
+
+		// Handle children lines
+		if currentSectionType == "children" && currentGroup != nil {
+			childName := line
+			if childName != "" && !containsStr(currentGroup.Children, childName) {
+				currentGroup.Children = append(currentGroup.Children, childName)
+			}
 			continue
 		}
 
@@ -486,7 +591,9 @@ func (inv *Inventory) ParseInventoryVarsReader(reader io.Reader) error {
 			// Found [name:vars] — now parse its content
 			// Check if group exists
 			if g, ok := inv.Groups[name]; ok {
-				g.Vars = make(map[string]any)
+				if len(g.Vars) == 0 {
+					g.Vars = make(map[string]any)
+				}
 				for scanner.Scan() {
 					line = strings.TrimSpace(scanner.Text())
 					if strings.HasPrefix(line, "[") || line == "" {
@@ -499,7 +606,9 @@ func (inv *Inventory) ParseInventoryVarsReader(reader io.Reader) error {
 					}
 				}
 			} else if h, ok := inv.Hosts[name]; ok {
-				h.Vars = make(map[string]any)
+				if len(h.Vars) == 0 {
+					h.Vars = make(map[string]any)
+				}
 				for scanner.Scan() {
 					line = strings.TrimSpace(scanner.Text())
 					if strings.HasPrefix(line, "[") || line == "" {
