@@ -8,7 +8,7 @@ import (
 
 func TestValidateYamlFile(t *testing.T) {
 	o := map[string]any{}
-	ValidateYamlFile("some-test-file", &o)
+	ValidateYamlFile("ansible/ansible-deploy-common/play.yaml", &o)
 	println(u.JsonDump(o, ""))
 }
 

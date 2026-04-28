@@ -29,45 +29,45 @@ var (
 )
 
 // Validate yaml files. Optionally return the unmarshalled object if you pass yamlobj not nil
-func ValidateYamlFile(yaml_file string, yamlobj *map[string]interface{}) map[string]interface{} {
+func ValidateYamlFile(yaml_file string, yamlobj *map[string]interface{}) any {
 	data := u.Must(os.ReadFile(yaml_file))
-	if yamlobj == nil {
-		t := map[string]interface{}{}
-		yamlobj = &t
-	}
-	err := yaml.Unmarshal(data, &yamlobj)
+	var val any
+	err := yaml.Unmarshal(data, &val)
 	if err != nil {
-		errMsg := fmt.Sprintf("[ERROR] file: %s", yaml_file)
+		errMsg := fmt.Sprintf("[ERROR] file: %s - ", yaml_file)
 		// STEP 1: Try Heuristic Fallback if the library fails
 		heuristicErrs := runHeuristicScan(data)
 		if len(heuristicErrs) > 0 {
 			panic(errMsg + "\n" + u.JsonDump(heuristicErrs, ""))
 		}
 		// STEP 2: If heuristics didn't catch it, return the raw library error
-		line := 0
-		match := lineRegex.FindStringSubmatch(err.Error())
-		if len(match) > 1 {
-			line, _ = strconv.Atoi(match[1])
-		}
-		panic(errMsg + "\n" + u.JsonDump([]ValidationError{{Line: line, Message: err.Error()}}, ""))
-	}
-	var errs []ValidationError
-	var root yaml.Node
-	err = yaml.Unmarshal(data, &root)
-	findVaultErrors(&root, &errs)
-	if err != nil {
-		panic(err.Error())
-	}
+		// line := 0
+		// match := lineRegex.FindStringSubmatch(err.Error())
+		// if len(match) > 1 {
+		// 	line, _ = strconv.Atoi(match[1])
+		// }
+		// panic(errMsg + "\n" + u.JsonDump([]ValidationError{{Line: line, Message: err.Error()}}, ""))
 
-	return *yamlobj
+		var errs []ValidationError
+		var root yaml.Node
+		err = yaml.Unmarshal(data, &root)
+		findVaultErrors(&root, &errs)
+		if err != nil {
+			panic(errMsg + err.Error())
+		}
+	}
+	if _obj, ok := val.(map[string]any); ok {
+		yamlobj = &_obj
+	}
+	return val
 }
 
 // Validate directory containing yaml files. Optionally return the unmarshalled object if you pass yamlobj not nil
 func ValidateYamlDir(yaml_dir string, yamlobj *map[string]interface{}) bool {
-	if yamlobj == nil {
-		t := map[string]interface{}{}
-		yamlobj = &t
-	}
+	// if yamlobj == nil {
+	// 	t := map[string]interface{}{}
+	// 	yamlobj = &t
+	// }
 	filepath.Walk(yaml_dir, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
