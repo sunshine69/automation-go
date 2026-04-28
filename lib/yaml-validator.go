@@ -29,7 +29,7 @@ var (
 )
 
 // Validate yaml files. Optionally return the unmarshalled object if you pass yamlobj not nil
-func ValidateYamlFile(yaml_file string, yamlobj *map[string]interface{}) any {
+func ValidateYamlFile(yaml_file string) any {
 	data := u.Must(os.ReadFile(yaml_file))
 	var val any
 	err := yaml.Unmarshal(data, &val)
@@ -56,14 +56,11 @@ func ValidateYamlFile(yaml_file string, yamlobj *map[string]interface{}) any {
 			panic(errMsg + err.Error())
 		}
 	}
-	if _obj, ok := val.(map[string]any); ok {
-		yamlobj = &_obj
-	}
 	return val
 }
 
 // Validate directory containing yaml files. Optionally return the unmarshalled object if you pass yamlobj not nil
-func ValidateYamlDir(yaml_dir string, yamlobj *map[string]interface{}) bool {
+func ValidateYamlDir(yaml_dir string) bool {
 	// if yamlobj == nil {
 	// 	t := map[string]interface{}{}
 	// 	yamlobj = &t
@@ -77,7 +74,7 @@ func ValidateYamlDir(yaml_dir string, yamlobj *map[string]interface{}) bool {
 		}
 		ext := filepath.Ext(info.Name())
 		if ext == ".yaml" || ext == ".yml" {
-			ValidateYamlFile(path, yamlobj)
+			ValidateYamlFile(path)
 		}
 		return nil
 	})

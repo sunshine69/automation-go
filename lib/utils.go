@@ -22,10 +22,10 @@ import (
 )
 
 // Validate a yaml file and load it into a map
-func IncludeVars(filename string) map[string]interface{} {
-	m := make(map[string]interface{})
-	ValidateYamlFile(filename, &m)
-	return m
+func IncludeVars(filename string) map[string]any {
+	// m := make(map[string]interface{})
+	m := ValidateYamlFile(filename)
+	return m.(map[string]any)
 }
 
 func IniGetVal(inifilepath, section, option string) string {
@@ -79,9 +79,9 @@ func validateAKeyWithDotInAmap(key string, vars map[string]interface{}) bool {
 // If there is helm template `if` statement to test the value then do not fail
 // If there is a helm `default` function of filter to test the value and set the default value then do not fail
 func HelmChartValidation(chartPath string, valuesFile []string) bool {
-	vars := map[string]interface{}{}
+	var vars map[string]any
 	for _, fn := range valuesFile {
-		ValidateYamlFile(fn, &vars)
+		vars = ValidateYamlFile(fn).(map[string]any)
 	}
 
 	valuesPtn := regexp.MustCompile(`\{\{[\-]{0,1}[\s]*\.Values\.([^\s\}]+)[\s]+[\-]{0,1}\}\}`)
