@@ -54,6 +54,8 @@ github.com/mattn/go-isatty v0.0.20 h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWE
 github.com/mattn/go-isatty v0.0.20/go.mod h1:W+V8PltTTMOvKvAeJH7IuucS94S2C6jfK/D7dTCTo3Y=
 github.com/mattn/go-isatty v0.0.21 h1:xYae+lCNBP7QuW4PUnNG61ffM4hVIfm+zUzDuSzYLGs=
 github.com/mattn/go-isatty v0.0.21/go.mod h1:ZXfXG4SQHsB/w3ZeOYbR0PrPwLy+n6xiMrJlRFqopa4=
+github.com/mattn/go-isatty v0.0.22 h1:j8l17JJ9i6VGPUFUYoTUKPSgKe/83EYU2zBC7YNKMw4=
+github.com/mattn/go-isatty v0.0.22/go.mod h1:ZXfXG4SQHsB/w3ZeOYbR0PrPwLy+n6xiMrJlRFqopa4=
 github.com/mitsuhiko/minijinja/minijinja-go/v2 v2.17.1 h1:PhTcDhXaRjusPZXDqLVvzdsGVk+qbDe/d14PidqwTp4=
 github.com/mitsuhiko/minijinja/minijinja-go/v2 v2.17.1/go.mod h1:nfRUY950h3qI2abjyHpuFSLgcyWI/yy3l0/ZDmbXjOA=
 github.com/mitsuhiko/minijinja/minijinja-go/v2 v2.18.0 h1:fGST+x3AdJ9b8o2NyGYHQxWWs1ejPB/luh357z5cEaM=
@@ -119,6 +121,8 @@ github.com/sunshine69/golang-tools/utils v0.0.0-20260401041122-cbc1ba2909e2 h1:r
 github.com/sunshine69/golang-tools/utils v0.0.0-20260401041122-cbc1ba2909e2/go.mod h1:KYd8i/JeSEd5fZ3oyiAkT6arqCskEBfhScU8gLH1hPE=
 github.com/sunshine69/golang-tools/utils v0.0.0-20260410022601-6160ea7e287a h1:AFoD1ijZOzWWON//fmEDRqk9HfiFU8QWVD05Unektso=
 github.com/sunshine69/golang-tools/utils v0.0.0-20260410022601-6160ea7e287a/go.mod h1:nYDXS72dNFTClrGzEYYPK/C//gyrTVP92IMO6Xy5nak=
+github.com/sunshine69/golang-tools/utils v0.0.0-20260426120619-4f6ad39afe1e h1:i/ns9xfd6IPQszzCtL8OSyIsjJPweqS3gTirWrInNfs=
+github.com/sunshine69/golang-tools/utils v0.0.0-20260426120619-4f6ad39afe1e/go.mod h1:nYDXS72dNFTClrGzEYYPK/C//gyrTVP92IMO6Xy5nak=
 github.com/sunshine69/sonja/v2 v2.3.4 h1:9m/fqv5GDnk+RT7E1n4lcrefG9sQPPQjqXEV1VO338g=
 github.com/sunshine69/sonja/v2 v2.3.4/go.mod h1:YZDnX8iPle4qqNSsLdCcKhlisyQwnWDRzF3QVlZB3/8=
 github.com/tidwall/gjson v1.18.0 h1:FIDeeyB800efLX89e5a8Y0BNH+LOngJyGrIWxG2FKQY=

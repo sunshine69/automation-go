@@ -19,7 +19,6 @@ import (
 	"github.com/ulikunitz/xz"
 	"github.com/ulikunitz/xz/lzma"
 	"gopkg.in/ini.v1"
-	"gopkg.in/yaml.v3"
 )
 
 // Validate a yaml file and load it into a map
@@ -152,43 +151,6 @@ func MaskCredential(inputstr string) string {
 // Mask all credentials pattern
 func MaskCredentialByte(inputbytes []byte) string {
 	return string(MaskCredentialPattern.ReplaceAll(inputbytes, []byte("$1$2 *****")))
-}
-
-// Validate yaml files. Optionally return the unmarshalled object if you pass yamlobj not nil
-func ValidateYamlFile(yaml_file string, yamlobj *map[string]interface{}) map[string]interface{} {
-	data := u.Must(os.ReadFile(yaml_file))
-	if yamlobj == nil {
-		t := map[string]interface{}{}
-		yamlobj = &t
-	}
-	err := yaml.Unmarshal(data, &yamlobj)
-	if err1 := u.CheckErrNonFatal(err, "ValidateYamlFile Unmarshal"); err1 != nil {
-		fmt.Printf("Yaml content has error:\n%s\n", MaskCredentialByte(data))
-		panic(err1.Error())
-	}
-	return *yamlobj
-}
-
-// Validate directory containing yaml files. Optionally return the unmarshalled object if you pass yamlobj not nil
-func ValidateYamlDir(yaml_dir string, yamlobj *map[string]interface{}) bool {
-	if yamlobj == nil {
-		t := map[string]interface{}{}
-		yamlobj = &t
-	}
-	filepath.Walk(yaml_dir, func(path string, info fs.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			return nil
-		}
-		ext := filepath.Ext(info.Name())
-		if ext == ".yaml" || ext == ".yml" {
-			ValidateYamlFile(path, yamlobj)
-		}
-		return nil
-	})
-	return true
 }
 
 // Heuristic detect if the values is likely a real password etc
