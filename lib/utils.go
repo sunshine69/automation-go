@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"math"
 	"os"
 	"path/filepath"
@@ -79,9 +80,11 @@ func validateAKeyWithDotInAmap(key string, vars map[string]interface{}) bool {
 // If there is helm template `if` statement to test the value then do not fail
 // If there is a helm `default` function of filter to test the value and set the default value then do not fail
 func HelmChartValidation(chartPath string, valuesFile []string) bool {
-	var vars map[string]any
+	var vars map[string]any = make(map[string]any)
 	for _, fn := range valuesFile {
-		vars = ValidateYamlFile(fn).(map[string]any)
+		if vars1, ok := ValidateYamlFile(fn).(map[string]any); ok {
+			maps.Copy(vars, vars1)
+		}
 	}
 
 	valuesPtn := regexp.MustCompile(`\{\{[\-]{0,1}[\s]*\.Values\.([^\s\}]+)[\s]+[\-]{0,1}\}\}`)
