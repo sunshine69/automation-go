@@ -24,9 +24,10 @@ import (
 
 // Validate a yaml file and load it into a map
 func IncludeVars(filename string) map[string]any {
-	// m := make(map[string]interface{})
-	m := ValidateYamlFile(filename)
-	return m.(map[string]any)
+	if m := ValidateYamlFile(filename); m != nil {
+		return m.(map[string]any)
+	}
+	return nil
 }
 
 func IniGetVal(inifilepath, section, option string) string {

@@ -30,15 +30,20 @@ var (
 
 // Validate yaml files. Optionally return the unmarshalled object if you pass yamlobj not nil
 func ValidateYamlFile(yaml_file string) any {
-	data := u.Must(os.ReadFile(yaml_file))
+	data, err := os.ReadFile(yaml_file)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[ERROR] %s\n", err.Error())
+		return nil
+	}
 	var val any
-	err := yaml.Unmarshal(data, &val)
+	err = yaml.Unmarshal(data, &val)
 	if err != nil {
 		errMsg := fmt.Sprintf("[ERROR] file: %s - ", yaml_file)
 		// STEP 1: Try Heuristic Fallback if the library fails
 		heuristicErrs := runHeuristicScan(data)
 		if len(heuristicErrs) > 0 {
-			panic(errMsg + "\n" + u.JsonDump(heuristicErrs, ""))
+			fmt.Fprintln(os.Stderr, errMsg+"\n"+u.JsonDump(heuristicErrs, ""))
+			return nil
 		}
 		// STEP 2: If heuristics didn't catch it, return the raw library error
 		// line := 0
@@ -53,7 +58,8 @@ func ValidateYamlFile(yaml_file string) any {
 		err = yaml.Unmarshal(data, &root)
 		findVaultErrors(&root, &errs)
 		if err != nil {
-			panic(errMsg + err.Error())
+			fmt.Fprintln(os.Stderr, errMsg+err.Error())
+			return nil
 		}
 	}
 	return val
