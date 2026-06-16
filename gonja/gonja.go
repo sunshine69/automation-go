@@ -521,8 +521,7 @@ func TemplateDirTree(srcDirpath, targetRoot string, tmplData map[string]interfac
 	if isExist, err := u.FileExists(srcDirpath); !isExist || err != nil {
 		panic("File " + srcDirpath + " does not exist\n")
 	}
-	os.Chdir(srcDirpath)
-	filepath.Walk(".", func(path string, info fs.FileInfo, err error) error {
+	filepath.Walk(srcDirpath, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			fmt.Printf("prevent panic by handling failure accessing a path %q: %v\n", srcDirpath, err)
 			return err
