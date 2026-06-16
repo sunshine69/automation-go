@@ -575,11 +575,11 @@ func TemplateDirTree(srcDirpath, targetRoot string, tmplData map[string]interfac
 			return err
 		}
 		if !info.IsDir() {
-			srcFile, destFile := filepath.Join(srcDirpath, path), filepath.Join(targetRoot, path)
-			fmt.Printf("Going to template file %s => %s\n", srcFile, destFile)
+			destFile := filepath.Join(targetRoot, path)
+			fmt.Printf("Going to template file %s => %s\n", path, destFile)
 			destDir := filepath.Dir(destFile)
 			u.CheckErr(os.MkdirAll(destDir, 0o777), "TemplateDirTree")
-			TemplateFile(srcFile, destFile, tmplData, 0644)
+			TemplateFile(path, destFile, tmplData, 0644)
 		} else {
 			u.CheckErr(os.MkdirAll(filepath.Join(targetRoot, path), 0755), "[ERROR] MkdirAll")
 		}

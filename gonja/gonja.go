@@ -527,7 +527,7 @@ func TemplateDirTree(srcDirpath, targetRoot string, tmplData map[string]interfac
 			return err
 		}
 		if !info.IsDir() {
-			srcFile, destFile := filepath.Join(srcDirpath, path), filepath.Join(targetRoot, path)
+			srcFile, destFile := path, filepath.Join(targetRoot, path)
 			fmt.Printf("Going to template file %s => %s\n", srcFile, destFile)
 			destDir := filepath.Dir(destFile)
 			u.CheckErr(os.MkdirAll(destDir, 0o777), "TemplateDirTree")
