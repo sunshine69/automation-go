@@ -574,14 +574,18 @@ func TemplateDirTree(srcDirpath, targetRoot string, tmplData map[string]interfac
 			fmt.Printf("prevent panic by handling failure accessing a path %q: %v\n", srcDirpath, err)
 			return err
 		}
+		relPath, err := filepath.Rel(srcDirpath, path)
+		if err != nil {
+			return err
+		}
 		if !info.IsDir() {
-			destFile := filepath.Join(targetRoot, path)
+			destFile := filepath.Join(targetRoot, relPath)
 			fmt.Printf("Going to template file %s => %s\n", path, destFile)
 			destDir := filepath.Dir(destFile)
 			u.CheckErr(os.MkdirAll(destDir, 0o777), "TemplateDirTree")
 			TemplateFile(path, destFile, tmplData, 0644)
 		} else {
-			u.CheckErr(os.MkdirAll(filepath.Join(targetRoot, path), 0755), "[ERROR] MkdirAll")
+			u.CheckErr(os.MkdirAll(filepath.Join(targetRoot, relPath), 0755), "[ERROR] MkdirAll")
 		}
 		return nil
 	})
