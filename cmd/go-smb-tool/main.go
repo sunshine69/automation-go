@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/hirochachacha/go-smb2"
 	u "github.com/sunshine69/golang-tools/utils"
@@ -49,6 +50,7 @@ func main() {
 	mvCmd := flag.NewFlagSet("mv", flag.ExitOnError)
 	rmCmd := flag.NewFlagSet("rm", flag.ExitOnError)
 	lsCmd := flag.NewFlagSet("ls", flag.ExitOnError)
+	cleanCmd := flag.NewFlagSet("clean", flag.ExitOnError)
 
 	var (
 		uploadSource string
@@ -75,6 +77,15 @@ func main() {
 	rmCmd.StringVar(&rmPath, "path", "", "File to remove on SMB share")
 	lsCmd.StringVar(&lsPath, "path", "", "Path/glob pattern to list on SMB share")
 
+	var (
+		cleanPath string
+		days      int
+		dryRun    bool
+	)
+	cleanCmd.StringVar(&cleanPath, "path", "", "Path/glob pattern to clean on SMB share")
+	cleanCmd.IntVar(&days, "days", 0, "Delete files older than X days")
+	cleanCmd.BoolVar(&dryRun, "dry-run", false, "List files without deleting them")
+
 	if len(os.Args) < 2 {
 		printUsage()
 		os.Exit(1)
@@ -84,7 +95,7 @@ func main() {
 	mainArgs := []string{}
 	subCmdPos := len(os.Args) // default: no subcommand found
 	for i, arg := range os.Args[1:] {
-		if arg == "upload" || arg == "download" || arg == "mv" || arg == "rm" || arg == "ls" {
+		if arg == "upload" || arg == "download" || arg == "mv" || arg == "rm" || arg == "ls" || arg == "clean" {
 			subCmdPos = i + 1
 			break
 		}
@@ -116,7 +127,7 @@ func main() {
 	}
 
 	if subCmdPos >= len(os.Args) {
-		fmt.Fprintln(os.Stderr, "Error: expected subcommand: upload, download, mv, rm, ls")
+		fmt.Fprintln(os.Stderr, "Error: expected subcommand: upload, download, mv, rm, ls, clean")
 		printUsage()
 		os.Exit(1)
 	}
@@ -174,6 +185,15 @@ func main() {
 		}
 		fmt.Fprintln(os.Stdout, u.JsonDump(files, ""))
 
+	case "clean":
+		cleanCmd.Parse(os.Args[subCmdPos+1:])
+		if cleanPath == "" || days < 0 {
+			fmt.Fprintln(os.Stderr, "Error: -path and -days >= 0 are required for clean")
+			cleanCmd.PrintDefaults()
+			os.Exit(1)
+		}
+		err = cleanOldFiles(serverFlag, cleanPath, days, dryRun, verboseFlag)
+
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown subcommand: %s\n", os.Args[subCmdPos])
 		printUsage()
@@ -205,6 +225,7 @@ Subcommands:
   mv       -src </share/path> -dest </share/path>
   rm       -path </share/path>
   ls       -path </share/glob_pattern>
+  clean    -path <path> -days <X> [-dry-run] Clean files older than X days
 
 Examples:
   go-smb-tool -server bnefs:445 -login 'DOMAIN\user' -password "$pass" -domain DOMAIN \
@@ -214,7 +235,10 @@ Examples:
     download -src /sharename/tmp/file.txt -dest -
 
   go-smb-tool -server bnefs:445 -login 'DOMAIN\user' -password "$pass" -domain DOMAIN \
-    ls -path /sharename/tmp/*.txt`)
+    ls -path /sharename/tmp/*.txt
+
+  go-smb-tool -server bnefs:445 -login 'DOMAIN\user' -password "$pass" -domain DOMAIN \
+    clean -path /sharename/tmp/*.log -days 7 -dry-run`)
 }
 
 // connectToSMB establishes a connection to the SMB server
@@ -369,7 +393,7 @@ func download(server, srcPath, destPath string, verbose bool) error {
 		return fmt.Errorf("failed to copy data: %v", err)
 	}
 	if verbose {
-		fmt.Fprintf(os.Stderr, "Downloaded %d bytes from %s\n", bytesRead, srcPath)
+		fmt.Fprintf(os.Stderr, "Downloaded %d bytes from %s\n", bytesRead, destPath)
 	}
 	return nil
 }
@@ -445,7 +469,7 @@ func removeFile(server, path string, verbose bool) error {
 
 	shareName, filePath, err := parseSharePath(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to parse path: %v", err)
 	}
 
 	share, err := session.Mount(shareName)
@@ -455,7 +479,7 @@ func removeFile(server, path string, verbose bool) error {
 	defer share.Umount()
 
 	if err = share.Remove(filePath); err != nil {
-		return fmt.Errorf("failed to remove file: %v", err)
+		return fmt.Errorf("failed to remove file %s: %v", filePath, err)
 	}
 	if verbose {
 		fmt.Fprintf(os.Stderr, "Removed %s\n", path)
@@ -520,4 +544,70 @@ func listFiles(server, path string) ([]string, error) {
 		return &s1
 	})
 	return files, nil
+}
+
+// cleanOldFiles finds files older than a certain number of days and deletes them (or just lists them if dry-run)
+func cleanOldFiles(server, path string, days int, dryRun bool, verbose bool) error {
+	session, err := connectToSMB(server, loginUser, loginPass, smbDomain)
+	if err != nil {
+		return err
+	}
+	defer session.Logoff()
+
+	shareName, filePath, err := parseSharePath(path)
+	if err != nil {
+		return err
+	}
+
+	share, err := session.Mount(shareName)
+	if err != nil {
+		return fmt.Errorf("failed to mount share %s: %v", shareName, err)
+	}
+	defer share.Umount()
+
+	files, err := share.Glob(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to list files for cleaning: %v", err)
+	}
+
+	now := time.Now()
+	cutoff := now.AddDate(0, 0, -days)
+	count := 0
+
+	for _, f := range files {
+		// Normalize path
+		fPath := strings.ReplaceAll(f, `\`, `/`)
+		
+		info, err := share.Stat(fPath)
+		if err != nil {
+			if verbose {
+				fmt.Fprintf(os.Stderr, "Could not stat %s: %v\n", fPath, err)
+			}
+			continue
+		}
+
+		if info.ModTime().Before(cutoff) {
+			if dryRun {
+				fmt.Fprintf(os.Stdout, "[DRY-RUN] Would remove: %s (Modified: %v)\n", fPath, info.ModTime())
+				count++
+			} else {
+				if err := share.Remove(fPath); err != nil {
+					fmt.Fprintf(os.Stderr, "Failed to remove %s: %v\n", fPath, err)
+				} else {
+					if verbose {
+						fmt.Fprintf(os.Stderr, "Removed: %s\n", fPath)
+					}
+					count++
+				}
+			}
+		}
+	}
+
+	if verbose {
+		fmt.Fprintf(os.Stderr, "Clean operation completed. Files processed: %d\n", count)
+	} else if dryRun {
+		fmt.Fprintf(os.Stdout, "Dry run completed. Found %d files to remove.\n", count)
+	}
+
+	return nil
 }
