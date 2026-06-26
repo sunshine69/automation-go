@@ -78,12 +78,12 @@ func main() {
 	lsCmd.StringVar(&lsPath, "path", "", "Path/glob pattern to list on SMB share")
 
 	var (
-		cleanPath string
+		cleanPath u.ArrayFlags
 		days      int
 		dryRun    bool
 	)
-	cleanCmd.StringVar(&cleanPath, "path", "", "Path/glob pattern to clean on SMB share")
-	cleanCmd.IntVar(&days, "days", 0, "Delete files older than X days")
+	cleanCmd.Var(&cleanPath, "path", "List of Path/glob pattern to clean on SMB share.")
+	cleanCmd.IntVar(&days, "days", 90, "Delete files older than X days")
 	cleanCmd.BoolVar(&dryRun, "dry-run", false, "List files without deleting them")
 
 	if len(os.Args) < 2 {
@@ -187,12 +187,15 @@ func main() {
 
 	case "clean":
 		cleanCmd.Parse(os.Args[subCmdPos+1:])
-		if cleanPath == "" || days < 0 {
+		if len(cleanPath) == 0 || days < 0 {
 			fmt.Fprintln(os.Stderr, "Error: -path and -days >= 0 are required for clean")
 			cleanCmd.PrintDefaults()
 			os.Exit(1)
 		}
-		err = cleanOldFiles(serverFlag, cleanPath, days, dryRun, verboseFlag)
+		for _, mypath := range cleanPath {
+			fmt.Fprintf(os.Stderr, "Run clean for '%s'\n", mypath)
+			err = cleanOldFiles(serverFlag, mypath, days, dryRun, verboseFlag)
+		}
 
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown subcommand: %s\n", os.Args[subCmdPos])
@@ -577,7 +580,7 @@ func cleanOldFiles(server, path string, days int, dryRun bool, verbose bool) err
 	for _, f := range files {
 		// Normalize path
 		fPath := strings.ReplaceAll(f, `\`, `/`)
-		
+
 		info, err := share.Stat(fPath)
 		if err != nil {
 			if verbose {
