@@ -8,13 +8,13 @@ require (
 	github.com/GeertJohan/go.rice v1.0.3
 	github.com/google/uuid v1.6.0
 	github.com/hirochachacha/go-smb2 v1.1.0
-	github.com/klauspost/compress v1.18.6
+	github.com/klauspost/compress v1.19.0
 	github.com/mattn/go-isatty v0.0.22
 	github.com/mitsuhiko/minijinja/minijinja-go/v2 v2.21.0
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.21.0
-	github.com/sunshine69/golang-tools/utils v0.0.0-20260626041941-034b7ac9183e
+	github.com/sunshine69/golang-tools/utils v0.0.0-20260702002348-37f20a23bc34
 	github.com/sunshine69/sonja/v2 v2.3.4
 	github.com/tidwall/gjson v1.19.0
 	github.com/ulikunitz/xz v0.5.15
