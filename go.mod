@@ -2,7 +2,7 @@ module github.com/sunshine69/automation-go
 
 go 1.25.0
 
-replace github.com/sunshine69/automation-go/lib => ./lib
+//replace github.com/sunshine69/automation-go/lib => ./lib
 
 require (
 	github.com/GeertJohan/go.rice v1.0.3
