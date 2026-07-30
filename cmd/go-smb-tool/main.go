@@ -74,7 +74,9 @@ func main() {
 	mvCmd.StringVar(&mvDest, "dest", "", "Destination path on SMB share")
 
 	var rmPath, lsPath string
-	rmCmd.StringVar(&rmPath, "path", "", "File to remove on SMB share")
+	var rmForce bool
+	rmCmd.StringVar(&rmPath, "path", "", "File or directory to remove on SMB share")
+	rmCmd.BoolVar(&rmForce, "force", false, "Required to remove a directory; deletes it and all contents recursively")
 	lsCmd.StringVar(&lsPath, "path", "", "Path/glob pattern to list on SMB share")
 
 	var (
@@ -169,7 +171,7 @@ func main() {
 			rmCmd.PrintDefaults()
 			os.Exit(1)
 		}
-		err = removeFile(serverFlag, rmPath, verboseFlag)
+		err = removeFile(serverFlag, rmPath, rmForce, verboseFlag)
 
 	case "ls":
 		lsCmd.Parse(os.Args[subCmdPos+1:])
@@ -234,7 +236,10 @@ Subcommands:
            stdout (-dest -) only supports a single file.
 
   mv       -src </share/path> -dest </share/path>
-  rm       -path </share/path>
+  rm       -path </share/path> [-force]
+           Removes a single file. If -path is a directory, -force is
+           required and the directory is deleted recursively along with
+           all of its contents.
   ls       -path </share/glob_pattern>
   clean    -path <path> -days <X> [-dry-run] Clean files older than X days
 
@@ -250,6 +255,9 @@ Examples:
 
   go-smb-tool -server bnefs:445 -login 'DOMAIN\user' -password "$pass" -domain DOMAIN \
     download -src /sharename/tmp/remotedir -dest ./localdir
+
+  go-smb-tool -server bnefs:445 -login 'DOMAIN\user' -password "$pass" -domain DOMAIN \
+    rm -path /sharename/tmp/olddir -force
 
   go-smb-tool -server bnefs:445 -login 'DOMAIN\user' -password "$pass" -domain DOMAIN \
     ls -path /sharename/tmp/*.txt
@@ -611,7 +619,7 @@ func moveFile(server, srcPath, destPath string, verbose bool) error {
 		if err = upload(server, tempFileName, destPath, false); err != nil {
 			return fmt.Errorf("failed to upload to destination: %v", err)
 		}
-		if err = removeFile(server, srcPath, false); err != nil {
+		if err = removeFile(server, srcPath, false, false); err != nil {
 			return fmt.Errorf("warning: failed to remove source file: %v", err)
 		}
 	}
@@ -622,8 +630,9 @@ func moveFile(server, srcPath, destPath string, verbose bool) error {
 	return nil
 }
 
-// removeFile deletes a file from an SMB share
-func removeFile(server, path string, verbose bool) error {
+// removeFile deletes a file or, with force=true, a directory (and all its
+// contents, recursively) from an SMB share.
+func removeFile(server, path string, force, verbose bool) error {
 	session, err := connectToSMB(server, loginUser, loginPass, smbDomain)
 	if err != nil {
 		return err
@@ -641,11 +650,75 @@ func removeFile(server, path string, verbose bool) error {
 	}
 	defer share.Umount()
 
+	info, err := share.Stat(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to stat %s: %v", path, err)
+	}
+
+	if info.IsDir() {
+		if !force {
+			return fmt.Errorf("%s is a directory; pass -force to remove it and its contents recursively", path)
+		}
+		if err := removeRemoteRecursive(share, filePath, verbose); err != nil {
+			return err
+		}
+		if verbose {
+			fmt.Fprintf(os.Stderr, "Removed directory (recursive): %s\n", path)
+		}
+		return nil
+	}
+
 	if err = share.Remove(filePath); err != nil {
 		return fmt.Errorf("failed to remove file %s: %v", filePath, err)
 	}
 	if verbose {
 		fmt.Fprintf(os.Stderr, "Removed %s\n", path)
+	}
+	return nil
+}
+
+// removeRemoteRecursive deletes every entry under a remote directory
+// (depth-first, files before directories) and then removes the directory
+// itself. Uses Open+Readdir per entry, same primitive as walkRemoteDir,
+// but processes bottom-up since a directory must be empty before it can
+// be removed.
+func removeRemoteRecursive(share *smb2.Share, remotePath string, verbose bool) error {
+	dir, err := share.Open(remotePath)
+	if err != nil {
+		return fmt.Errorf("failed to open remote directory %s: %v", remotePath, err)
+	}
+	entries, err := dir.Readdir(-1)
+	dir.Close()
+	if err != nil {
+		return fmt.Errorf("failed to read remote directory %s: %v", remotePath, err)
+	}
+
+	for _, entry := range entries {
+		name := entry.Name()
+		if name == "." || name == ".." {
+			continue
+		}
+		childPath := remotePath + "/" + name
+
+		if entry.IsDir() {
+			if err := removeRemoteRecursive(share, childPath, verbose); err != nil {
+				return err
+			}
+		} else {
+			if err := share.Remove(childPath); err != nil {
+				return fmt.Errorf("failed to remove file %s: %v", childPath, err)
+			}
+			if verbose {
+				fmt.Fprintf(os.Stderr, "Removed: %s\n", childPath)
+			}
+		}
+	}
+
+	if err := share.Remove(remotePath); err != nil {
+		return fmt.Errorf("failed to remove directory %s: %v", remotePath, err)
+	}
+	if verbose {
+		fmt.Fprintf(os.Stderr, "Removed directory: %s\n", remotePath)
 	}
 	return nil
 }
