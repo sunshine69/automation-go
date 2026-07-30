@@ -8,17 +8,17 @@ require (
 	github.com/GeertJohan/go.rice v1.0.3
 	github.com/google/uuid v1.6.0
 	github.com/hirochachacha/go-smb2 v1.1.0
-	github.com/klauspost/compress v1.19.0
-	github.com/mattn/go-isatty v0.0.22
+	github.com/klauspost/compress v1.19.1
+	github.com/mattn/go-isatty v0.0.24
 	github.com/mitsuhiko/minijinja/minijinja-go/v2 v2.21.0
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.21.0
-	github.com/sunshine69/golang-tools/utils v0.0.0-20260715050045-2ca5b4d00620
+	github.com/sunshine69/golang-tools/utils v0.0.0-20260728051845-d7dcce55996d
 	github.com/sunshine69/sonja/v2 v2.3.4
 	github.com/tidwall/gjson v1.19.0
-	github.com/ulikunitz/xz v0.5.15
-	go.yaml.in/yaml/v3 v3.0.4
+	github.com/ulikunitz/xz v0.5.16
+	go.yaml.in/yaml/v3 v3.0.5
 	gopkg.in/ini.v1 v1.67.3
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -43,7 +43,7 @@ require (
 	github.com/tidwall/match v1.2.0 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	golang.org/x/crypto v0.54.0 // indirect
-	golang.org/x/exp v0.0.0-20260709172345-9ea1abe57597 // indirect
+	golang.org/x/exp v0.0.0-20260727155853-b88d891fe743 // indirect
 	golang.org/x/net v0.57.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.40.0 // indirect

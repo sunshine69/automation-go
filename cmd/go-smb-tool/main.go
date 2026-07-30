@@ -56,15 +56,15 @@ func main() {
 		uploadSource string
 		uploadDest   string
 	)
-	uploadCmd.StringVar(&uploadSource, "src", "-", "Source file (use - for stdin)")
-	uploadCmd.StringVar(&uploadDest, "dest", "", "Destination path on SMB share (e.g. /sharename/path/to/file.txt)")
+	uploadCmd.StringVar(&uploadSource, "src", "-", "Source file or directory (use - for stdin, single file only)")
+	uploadCmd.StringVar(&uploadDest, "dest", "", "Destination path on SMB share (e.g. /sharename/path/to/file.txt or /sharename/path/to/dir)")
 
 	var (
 		downloadSource string
 		downloadDest   string
 	)
-	downloadCmd.StringVar(&downloadSource, "src", "", "Source file on SMB share")
-	downloadCmd.StringVar(&downloadDest, "dest", "-", "Destination local file (use - for stdout)")
+	downloadCmd.StringVar(&downloadSource, "src", "", "Source file or directory on SMB share")
+	downloadCmd.StringVar(&downloadDest, "dest", "-", "Destination local file or directory (use - for stdout, single file only)")
 
 	var (
 		mvSource string
@@ -223,8 +223,16 @@ Flags:
   -config  <path>        [DEPRECATED] Ignored, kept for backward compatibility
 
 Subcommands:
-  upload   -src <local_file|-stdin> -dest </share/path>
-  download -src </share/path> -dest <local_file|-stdout>
+  upload   -src <local_file|local_dir|-stdin> -dest </share/path>
+           If -src is a local directory, its entire contents are uploaded
+           recursively, preserving the directory structure under -dest.
+           stdin (-src -) only supports a single file.
+
+  download -src </share/path> -dest <local_file|local_dir|-stdout>
+           If -src is a remote directory, its entire contents are downloaded
+           recursively, preserving the directory structure under -dest.
+           stdout (-dest -) only supports a single file.
+
   mv       -src </share/path> -dest </share/path>
   rm       -path </share/path>
   ls       -path </share/glob_pattern>
@@ -235,7 +243,13 @@ Examples:
     upload -src ./file.txt -dest /sharename/tmp/file.txt
 
   go-smb-tool -server bnefs:445 -login 'DOMAIN\user' -password "$pass" -domain DOMAIN \
+    upload -src ./localdir -dest /sharename/tmp/remotedir
+
+  go-smb-tool -server bnefs:445 -login 'DOMAIN\user' -password "$pass" -domain DOMAIN \
     download -src /sharename/tmp/file.txt -dest -
+
+  go-smb-tool -server bnefs:445 -login 'DOMAIN\user' -password "$pass" -domain DOMAIN \
+    download -src /sharename/tmp/remotedir -dest ./localdir
 
   go-smb-tool -server bnefs:445 -login 'DOMAIN\user' -password "$pass" -domain DOMAIN \
     ls -path /sharename/tmp/*.txt
@@ -286,7 +300,7 @@ func parseSharePath(path string) (string, string, error) {
 	return shareName, filePath, nil
 }
 
-// upload uploads a file to an SMB share
+// upload uploads a local file/stdin or an entire local directory tree to an SMB share
 func upload(server, srcPath, destPath string, verbose bool) error {
 	session, err := connectToSMB(server, loginUser, loginPass, smbDomain)
 	if err != nil {
@@ -305,16 +319,28 @@ func upload(server, srcPath, destPath string, verbose bool) error {
 	}
 	defer share.Umount()
 
-	if filePath != "" {
-		dirPath := filepath.Dir(filePath)
-		if dirPath != "." {
-			if err = createDirectories(share, dirPath); err != nil {
-				return fmt.Errorf("failed to create directories: %v", err)
-			}
+	if srcPath != "-" {
+		if info, statErr := os.Stat(srcPath); statErr == nil && info.IsDir() {
+			return uploadDirectory(share, srcPath, filePath, verbose)
+		} else if statErr != nil {
+			return fmt.Errorf("failed to stat source path %s: %v", srcPath, statErr)
 		}
 	}
 
-	destFile, err := share.Create(filePath)
+	return uploadSingleFile(share, srcPath, filePath, verbose)
+}
+
+// uploadSingleFile uploads one local file (or stdin) to a remote path on an
+// already-mounted share, creating any needed remote directories first.
+func uploadSingleFile(share *smb2.Share, srcPath, remoteFilePath string, verbose bool) error {
+	dirPath := filepath.Dir(remoteFilePath)
+	if dirPath != "." {
+		if err := createDirectories(share, dirPath); err != nil {
+			return fmt.Errorf("failed to create directories: %v", err)
+		}
+	}
+
+	destFile, err := share.Create(remoteFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to create destination file: %v", err)
 	}
@@ -343,12 +369,46 @@ func upload(server, srcPath, destPath string, verbose bool) error {
 		return fmt.Errorf("failed to copy data: %v", err)
 	}
 	if verbose {
-		fmt.Fprintf(os.Stderr, "Uploaded %d bytes to %s\n", bytesWritten, destPath)
+		fmt.Fprintf(os.Stderr, "Uploaded %d bytes to %s\n", bytesWritten, remoteFilePath)
 	}
 	return nil
 }
 
-// download downloads a file from an SMB share
+// uploadDirectory walks a local directory tree and uploads every regular
+// file to the remote share, preserving the relative directory structure
+// under remoteBase.
+func uploadDirectory(share *smb2.Share, localDir, remoteBase string, verbose bool) error {
+	localDir = filepath.Clean(localDir)
+
+	return filepath.Walk(localDir, func(localPath string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return fmt.Errorf("failed to walk %s: %v", localPath, walkErr)
+		}
+		if info.IsDir() {
+			return nil
+		}
+
+		relPath, err := filepath.Rel(localDir, localPath)
+		if err != nil {
+			return fmt.Errorf("failed to compute relative path for %s: %v", localPath, err)
+		}
+		relPath = filepath.ToSlash(relPath)
+
+		remoteFilePath := strings.TrimSuffix(remoteBase, "/") + "/" + relPath
+		remoteFilePath = strings.TrimPrefix(remoteFilePath, "/")
+
+		if verbose {
+			fmt.Fprintf(os.Stderr, "Uploading %s -> %s\n", localPath, remoteFilePath)
+		}
+
+		if err := uploadSingleFile(share, localPath, remoteFilePath, verbose); err != nil {
+			return fmt.Errorf("failed to upload %s: %v", localPath, err)
+		}
+		return nil
+	})
+}
+
+// download downloads a remote file or an entire remote directory tree from an SMB share
 func download(server, srcPath, destPath string, verbose bool) error {
 	session, err := connectToSMB(server, loginUser, loginPass, smbDomain)
 	if err != nil {
@@ -367,7 +427,25 @@ func download(server, srcPath, destPath string, verbose bool) error {
 	}
 	defer share.Umount()
 
-	srcFile, err := share.Open(filePath)
+	info, err := share.Stat(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to stat source path %s: %v", srcPath, err)
+	}
+
+	if info.IsDir() {
+		if destPath == "-" {
+			return fmt.Errorf("cannot download a directory to stdout; specify a local directory for -dest")
+		}
+		return downloadDirectory(share, filePath, destPath, verbose)
+	}
+
+	return downloadSingleFile(share, filePath, destPath, verbose)
+}
+
+// downloadSingleFile downloads one remote file to a local file or stdout,
+// on an already-mounted share.
+func downloadSingleFile(share *smb2.Share, remoteFilePath, destPath string, verbose bool) error {
+	srcFile, err := share.Open(remoteFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to open source file: %v", err)
 	}
@@ -380,6 +458,11 @@ func download(server, srcPath, destPath string, verbose bool) error {
 			fmt.Fprintln(os.Stderr, "Writing to stdout...")
 		}
 	} else {
+		if dirPath := filepath.Dir(destPath); dirPath != "." {
+			if err := os.MkdirAll(dirPath, 0755); err != nil {
+				return fmt.Errorf("failed to create local directory %s: %v", dirPath, err)
+			}
+		}
 		f, err := os.Create(destPath)
 		if err != nil {
 			return fmt.Errorf("failed to create destination file: %v", err)
@@ -396,7 +479,84 @@ func download(server, srcPath, destPath string, verbose bool) error {
 		return fmt.Errorf("failed to copy data: %v", err)
 	}
 	if verbose {
-		fmt.Fprintf(os.Stderr, "Downloaded %d bytes from %s\n", bytesRead, destPath)
+		fmt.Fprintf(os.Stderr, "Downloaded %d bytes from %s\n", bytesRead, remoteFilePath)
+	}
+	return nil
+}
+
+// downloadDirectory recursively downloads every file under a remote
+// directory to a local directory, preserving the relative structure.
+func downloadDirectory(share *smb2.Share, remoteDir, localDir string, verbose bool) error {
+	remoteDir = strings.TrimSuffix(filepath.ToSlash(remoteDir), "/")
+
+	if err := os.MkdirAll(localDir, 0755); err != nil {
+		return fmt.Errorf("failed to create local directory %s: %v", localDir, err)
+	}
+
+	return walkRemoteDir(share, remoteDir, "", func(relPath string, info os.FileInfo) error {
+		localPath := filepath.Join(localDir, filepath.FromSlash(relPath))
+
+		if info.IsDir() {
+			if err := os.MkdirAll(localPath, 0755); err != nil {
+				return fmt.Errorf("failed to create local directory %s: %v", localPath, err)
+			}
+			return nil
+		}
+
+		remotePath := remoteDir + "/" + relPath
+		if verbose {
+			fmt.Fprintf(os.Stderr, "Downloading %s -> %s\n", remotePath, localPath)
+		}
+		if err := downloadSingleFile(share, remotePath, localPath, verbose); err != nil {
+			return fmt.Errorf("failed to download %s: %v", remotePath, err)
+		}
+		return nil
+	})
+}
+
+// walkRemoteDir recursively enumerates a remote directory using Open+Readdir
+// (the go-smb2 equivalent of os.Open + File.Readdir) and invokes fn for
+// every entry (both directories and files) found, with relPath expressed
+// relative to remoteBase using forward slashes.
+func walkRemoteDir(share *smb2.Share, remoteBase, relPath string, fn func(relPath string, info os.FileInfo) error) error {
+	remotePath := remoteBase
+	if relPath != "" {
+		remotePath = remoteBase + "/" + relPath
+	}
+
+	dir, err := share.Open(remotePath)
+	if err != nil {
+		return fmt.Errorf("failed to open remote directory %s: %v", remotePath, err)
+	}
+	entries, err := dir.Readdir(-1)
+	dir.Close()
+	if err != nil {
+		return fmt.Errorf("failed to read remote directory %s: %v", remotePath, err)
+	}
+
+	for _, entry := range entries {
+		name := entry.Name()
+		if name == "." || name == ".." {
+			continue
+		}
+
+		childRel := name
+		if relPath != "" {
+			childRel = relPath + "/" + name
+		}
+
+		if entry.IsDir() {
+			if err := fn(childRel, entry); err != nil {
+				return err
+			}
+			if err := walkRemoteDir(share, remoteBase, childRel, fn); err != nil {
+				return err
+			}
+		} else {
+			if err := fn(childRel, entry); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
