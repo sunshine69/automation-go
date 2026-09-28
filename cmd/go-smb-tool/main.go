@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -80,11 +81,13 @@ func main() {
 	lsCmd.StringVar(&lsPath, "path", "", "Path/glob pattern to list on SMB share")
 
 	var (
-		cleanPath u.ArrayFlags
-		days      int
-		dryRun    bool
+		cleanPath  u.ArrayFlags
+		days       int
+		dryRun     bool
+		excludePtn string
 	)
 	cleanCmd.Var(&cleanPath, "path", "List of Path/glob pattern to clean on SMB share.")
+	cleanCmd.StringVar(&excludePtn, "exclude", "", "List of Path/glob pattern to exclude on SMB share.")
 	cleanCmd.IntVar(&days, "days", 90, "Delete files older than X days")
 	cleanCmd.BoolVar(&dryRun, "dry-run", false, "List files without deleting them")
 
@@ -196,7 +199,7 @@ func main() {
 		}
 		for _, mypath := range cleanPath {
 			fmt.Fprintf(os.Stderr, "Run clean for '%s'\n", mypath)
-			err = cleanOldFiles(serverFlag, mypath, days, dryRun, verboseFlag)
+			err = cleanOldFiles(serverFlag, mypath, excludePtn, days, dryRun, verboseFlag)
 		}
 
 	default:
@@ -809,12 +812,17 @@ func listFiles(server, path string) ([]string, error) {
 }
 
 // cleanOldFiles finds files older than a certain number of days and deletes them (or just lists them if dry-run)
-func cleanOldFiles(server, path string, days int, dryRun bool, verbose bool) error {
+func cleanOldFiles(server, path, exclude string, days int, dryRun bool, verbose bool) error {
 	session, err := connectToSMB(server, loginUser, loginPass, smbDomain)
 	if err != nil {
 		return err
 	}
 	defer session.Logoff()
+
+	var excludePtn *regexp.Regexp
+	if exclude != "" {
+		excludePtn = regexp.MustCompile(exclude)
+	}
 
 	shareName, filePath, err := parseSharePath(path)
 	if err != nil {
@@ -858,11 +866,20 @@ func cleanOldFiles(server, path string, days int, dryRun bool, verbose bool) err
 				continue
 			}
 		}
+		if excludePtn != nil {
+			if excludePtn.MatchString(fPath) {
+				if verbose {
+					fmt.Fprintf(os.Stderr, "Match exclude ptn %s - skipping\n", exclude)
+				}
+				continue
+			}
+		}
 		if info.ModTime().Before(cutoff) {
 			if dryRun {
-				fmt.Fprintf(os.Stdout, "[DRY-RUN] Would remove: %s (Modified: %v)\n", fPath, info.ModTime())
+				fmt.Fprintf(os.Stderr, "[DRY-RUN] Would remove: %s (Modified: %v)\n", fPath, info.ModTime())
 				count++
 			} else {
+
 				if err := share.Remove(fPath); err != nil {
 					fmt.Fprintf(os.Stderr, "Failed to remove %s: %v\n", fPath, err)
 				} else {
@@ -878,7 +895,7 @@ func cleanOldFiles(server, path string, days int, dryRun bool, verbose bool) err
 	if verbose {
 		fmt.Fprintf(os.Stderr, "Clean operation completed. Files processed: %d\n", count)
 	} else if dryRun {
-		fmt.Fprintf(os.Stdout, "Dry run completed. Found %d files to remove.\n", count)
+		fmt.Fprintf(os.Stderr, "Dry run completed. Found %d files to remove.\n", count)
 	}
 
 	return nil
