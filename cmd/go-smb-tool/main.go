@@ -382,6 +382,32 @@ func uploadSingleFile(share *smb2.Share, srcPath, remoteFilePath string, verbose
 	return nil
 }
 
+func IsDirEmpty(fs *smb2.Share, dirPath string) (bool, error) {
+	dir, err := fs.Open(dirPath)
+	if err != nil {
+		return false, err
+	}
+	defer dir.Close()
+
+	// Try to read just 1 entry
+	entries, err := dir.Readdir(1)
+	if err != nil {
+		return false, err
+	}
+
+	// If we got 0 entries, it's empty
+	if len(entries) == 0 {
+		return true, nil
+	}
+
+	// If the only entry is "." or "..", it's still empty
+	if len(entries) == 1 && (entries[0].Name() == "." || entries[0].Name() == "..") {
+		return true, nil
+	}
+
+	return false, nil
+}
+
 // uploadDirectory walks a local directory tree and uploads every regular
 // file to the remote share, preserving the relative directory structure
 // under remoteBase.
@@ -821,7 +847,17 @@ func cleanOldFiles(server, path string, days int, dryRun bool, verbose bool) err
 			}
 			continue
 		}
-
+		if info.IsDir() {
+			if isempty, err := IsDirEmpty(share, fPath); !isempty || err != nil {
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "[ERROR] %s\n", err.Error())
+				}
+				if verbose {
+					fmt.Fprintf(os.Stderr, "Skipping non empty directory %s\n", fPath)
+				}
+				continue
+			}
+		}
 		if info.ModTime().Before(cutoff) {
 			if dryRun {
 				fmt.Fprintf(os.Stdout, "[DRY-RUN] Would remove: %s (Modified: %v)\n", fPath, info.ModTime())
